@@ -1,7 +1,9 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, convert::TryFrom};
 
 use super::lexer::{Lexer, Token};
-use crate::util::{CARRIAGE_RETURN, BACK_SPACE, FORM_FEED, LINE_FEED, TAB, LPAREN, RPAREN, POUND, BSLASH, is_octal, slice_to_numeric};
+use crate::{filter::{Filter, decode}, util::{CARRIAGE_RETURN, BACK_SPACE, FORM_FEED, LINE_FEED, TAB, LPAREN, RPAREN, POUND, BSLASH, is_octal, slice_to_numeric}};
+
+const FILTER: &[u8] = b"Filter";
 
 #[derive(Debug, PartialEq)]
 pub struct CrossReference {
@@ -48,8 +50,8 @@ pub enum Object {
     Null,
 }
 
-type Name = Vec<u8>;
-type Dictionary = BTreeMap<Name, Object>;
+pub type Name = Vec<u8>;
+pub type Dictionary = BTreeMap<Name, Object>;
 
 pub struct Parser<'a> {
     tokens: &'a [Token<'a>],
@@ -140,8 +142,23 @@ impl<'a> Parser<'a> {
     }
 
     fn stream_content(&self, dict: &Dictionary, content: &[u8]) -> Option<Vec<u8>> {
-        let vec = content.to_vec();
+        let mut vec = content.to_vec();
+        let mut filters = vec![];
+        match dict.get(&FILTER.to_vec()) {
+            Some(Object::Name(name)) => filters.push(Filter::try_from(name).ok()?),
+            Some(Object::Array(names)) => {
+                for name in names {
+                    if let Object::Name(name) = name {
+                        filters.push(Filter::try_from(name).ok()?)
+                    }
+                }
+            },
+            _ => return None,
+        };
         // Iterate through filters
+        for filter in filters {
+            vec = decode(&vec, filter, dict)?;
+        }
         Some(vec)
     }
 
@@ -418,7 +435,7 @@ mod tests {
     #[test]
     fn test_file() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("test_data/hello.pdf");
+        d.push("test_data/keenan.pdf");
         let file = fs::read(d).unwrap();
         let mut lexer = Lexer::new(&file);
         let tokens = lexer.lex();
