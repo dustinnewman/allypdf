@@ -12,11 +12,13 @@
 import re
 import zlib
 
-pdf = open("optimality_theory.pdf", "rb").read()
+pdf = open("keenan.pdf", "rb").read()
 stream = re.compile(rb'.*?FlateDecode.*?stream(.*?)endstream', re.S)
 
 for s in stream.findall(pdf):
     s = s.strip(b'\r\n')
+    print(s[0])
+    exit(1)
     try:
         print(zlib.decompress(s))
         print("")

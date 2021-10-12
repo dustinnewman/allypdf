@@ -228,6 +228,8 @@ impl<'a> Lexer<'a> {
             Some(x) if x == stream_string => {
                 // PDF32000_2008 7.3.8.1 paragraph 5
                 self.get_next_char_while(|c| c != LINE_FEED);
+                // Skip newline character
+                self.advance();
                 let start = self.pos;
                 loop {
                     self.skip_whitespace();
