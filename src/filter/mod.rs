@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use crate::error::PdfError;
-use crate::parser::parser::{Dictionary, Name};
+use crate::parser::grouper::{Dictionary, Name};
 
 mod ascii_hex_decode;
 mod ascii_85_decode;

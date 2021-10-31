@@ -52,7 +52,7 @@ impl<'a> Lexer<'a> {
 
     pub fn lex(&mut self) -> Vec<Token<'a>> {
         let mut vec = vec![];
-        // TODO: This is suspectible to attack if someone uploads a PDF
+        // TODO: This is susceptible to attack if someone uploads a PDF
         // without EOF marker
         loop {
             if let Some(token) = self.next() {
@@ -201,13 +201,16 @@ impl<'a> Lexer<'a> {
         match self.slice(self.pos, 2)? {
             [SPACE, CARRIAGE_RETURN] |
             [SPACE, LINE_FEED] |
-            [CARRIAGE_RETURN, LINE_FEED] |
+            [CARRIAGE_RETURN, LINE_FEED] => {
+                self.seek(2);
+                Some(Token::InUse(true))
+            },
             // SPEC_BREAK: Technically just a newline does not meet the
             // criteria to be an in-use identifier, but let's accept it
             // because sometimes a CR-LF combo can get flattened to just
             // a newline during transmission
             [LINE_FEED, _] => {
-                self.seek(2);
+                self.seek(1);
                 Some(Token::InUse(true))
             },
             [b'u', b'l'] => match self.nth(2) {
@@ -454,67 +457,6 @@ impl<'a> Lexer<'a> {
             _ => (),
         }
     }
-
-    // fn next_word(&mut self) -> Result<&[Byte]> {
-    //     // In case a previous iteration of this function set us at the end
-    //     if self.len == self.pos {
-    //         return Err(PdfError::EOF);
-    //     }
-    //     /* Skip all current whitespace or comments */
-    //     while is_whitespace_or_comment(self.buf[self.pos]) {
-    //         self.pos = self.skip_whitespace()?;
-    //         self.pos = self.skip_comments()?;
-    //     }
-    //     let word_start = self.pos;
-    //     /* Now read UNTIL the next whitespace or comment */
-    //     let (new_pos, word_end) = match self.skip_until(is_whitespace_or_comment) {
-    //         Ok(x) => (x, x),
-    //         /* If we encounter EOF then we have the very last word of the
-    //         file. Because we use the exclusive slice method below we need
-    //         to use the full file length for the word. */
-    //         Err(e) => match e {
-    //             PdfError::EOF => (self.len, self.len),
-    //             e => return Err(e),
-    //         },
-    //     };
-    //     self.pos = new_pos;
-    //     Ok(&self.buf[word_start..word_end])
-    // }
-
-    // fn prev_word(&mut self) -> Result<&[Byte]> {
-    //     if self.pos == self.len - 1 {
-    //         self.pos = self.back_until(is_whitespace)?;
-    //         Ok(&self.buf[self.pos + 1..self.len])
-    //     } else if self.pos == 0 {
-    //         Err(PdfError::BOF)
-    //     } else {
-    //         self.pos = self.back_while(is_whitespace)?;
-    //         let word_end = self.pos;
-    //         self.pos = self.back_until(is_whitespace).unwrap_or(0);
-    //         if self.pos == 0 {
-    //             Ok(&self.buf[0..word_end + 1])
-    //         } else {
-    //             Ok(&self.buf[self.pos + 1..word_end + 1])
-    //         }
-    //     }
-    // }
-
-    // fn next_line(&mut self) -> Result<&[Byte]> {
-    //     // In case a previous iteration of this function set us at the end
-    //     if self.len == self.pos {
-    //         return Err(PdfError::EOF);
-    //     }
-    //     let line_start = self.pos;
-    //     let (new_pos, line_end) = match self.skip_past(is_newline) {
-    //         Ok(x) => (x, x - 1),
-    //         Err(e) => match e {
-    //             PdfError::EOF => (self.len, self.len),
-    //             e => return Err(e),
-    //         },
-    //     };
-    //     self.pos = new_pos;
-    //     Ok(&self.buf[line_start..line_end])
-    // }
 }
 
 #[cfg(test)]
@@ -554,147 +496,4 @@ mod tests {
         let tokens = vec![Token::Header(1, 4)];
         assert_eq!(lexer.lex(), tokens);
     }
-
-//     #[test]
-//     fn test_skip_whitespace() {
-//         let text = b"A B  C\nD\n E\n";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.skip_whitespace().unwrap(), 0);
-//         lexer.pos += 1;
-//         assert_eq!(lexer.skip_whitespace().unwrap(), 2);
-//         lexer.pos += 1;
-//         assert_eq!(lexer.skip_whitespace().unwrap(), 5);
-//         lexer.pos += 1;
-//         assert_eq!(lexer.skip_whitespace().unwrap(), 7);
-//         lexer.pos += 1;
-//         assert_eq!(lexer.skip_whitespace().unwrap(), 10);
-//         lexer.pos += 1;
-//         assert!(lexer.skip_whitespace().is_err());
-//     }
-
-//     #[test]
-//     fn test_back_whitespace() {
-//         let text = b"A B  C\nD\n E\n";
-//         let mut lexer = Lexer::new(text);
-//         lexer.seek_end();
-//         assert_eq!(lexer.back_whitespace().unwrap(), 10);
-//         lexer.pos -= 1;
-//         assert_eq!(lexer.back_whitespace().unwrap(), 7);
-//         lexer.pos -= 1;
-//         assert_eq!(lexer.back_whitespace().unwrap(), 5);
-//         lexer.pos -= 1;
-//         assert_eq!(lexer.back_whitespace().unwrap(), 2);
-//         lexer.pos -= 1;
-//         assert_eq!(lexer.back_whitespace().unwrap(), 0);
-//         assert_eq!(lexer.pos, 0);
-//         assert!(lexer.back_whitespace().is_err());
-//     }
-
-//     #[test]
-//     fn test_skip_past() {
-//         let text = b"A\nB\n\n";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.skip_past(is_newline).unwrap(), 2);
-//         lexer.pos = 2;
-//         assert_eq!(lexer.skip_past(is_newline).unwrap(), 4);
-//         lexer.pos = 4;
-//         assert_eq!(lexer.skip_past(is_newline).unwrap(), 5);
-//         lexer.pos = 5;
-//         assert!(lexer.skip_past(is_newline).is_err());
-//     }
-
-//     #[test]
-//     fn test_back_while() {
-//         let text = b"AABBB";
-//         let mut lexer = Lexer::new(text);
-//         lexer.seek_end();
-//         // Should move only one if no match
-//         assert_eq!(lexer.back_while(|b| b == b'C').unwrap(), text.len() - 2);
-//         assert_eq!(lexer.back_while(|b| b == b'B').unwrap(), 1);
-//         lexer.pos = 1;
-//         assert!(lexer.back_while(|b| b == b'A').is_err());
-//     }
-
-//     #[test]
-//     fn test_back_until() {
-//         let text = b"ABC";
-//         let mut lexer = Lexer::new(text);
-//         lexer.seek_end();
-//         assert_eq!(lexer.back_until(|b| b == b'A').unwrap(), 0);
-//         assert!(lexer.back_until(|b| b == b'C').is_err());
-//         let text = b"A\nB";
-//         let mut lexer = Lexer::new(text);
-//         lexer.seek_end();
-//         assert_eq!(lexer.back_until(is_newline).unwrap(), 1);
-//     }
-
-//     #[test]
-//     fn test_skip_comments() {
-//         let text = b"A % COMMENT \nB\n%\n%\nC";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.skip_comments().unwrap(), 0);
-//         lexer.pos = 2;
-//         assert_eq!(lexer.skip_comments().unwrap(), 13);
-//         lexer.pos = 15;
-//         assert_eq!(lexer.skip_comments().unwrap(), 19);
-//     }
-
-//     #[test]
-//     fn test_next_word() {
-//         let text = b"BABY YODA % COMMENT \nIS%COMMENT\nSO CUTE";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.next_word().unwrap(), b"BABY");
-//         assert_eq!(lexer.next_word().unwrap(), b"YODA");
-//         assert_eq!(lexer.next_word().unwrap(), b"IS");
-//         assert_eq!(lexer.next_word().unwrap(), b"SO");
-//         assert_eq!(lexer.next_word().unwrap(), b"CUTE");
-//         assert!(lexer.next_word().is_err());
-//         let text = b"A B % COMMENT \nC%COMMENT\nD E";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.next_word().unwrap(), b"A");
-//         assert_eq!(lexer.next_word().unwrap(), b"B");
-//         assert_eq!(lexer.next_word().unwrap(), b"C");
-//         assert_eq!(lexer.next_word().unwrap(), b"D");
-//         assert_eq!(lexer.next_word().unwrap(), b"E");
-//         assert!(lexer.next_word().is_err());
-//     }
-
-//     #[test]
-//     fn test_prev_word() {
-//         let text = b"BABY YODA IS SO CUTE";
-//         let mut lexer = Lexer::new(text);
-//         lexer.seek_end();
-//         assert_eq!(lexer.pos, text.len() - 1);
-//         assert_eq!(lexer.prev_word().unwrap(), b"CUTE");
-//         assert_eq!(lexer.pos, 15);
-//         assert_eq!(lexer.prev_word().unwrap(), b"SO");
-//         assert_eq!(lexer.pos, 12);
-//         assert_eq!(lexer.prev_word().unwrap(), b"IS");
-//         assert_eq!(lexer.prev_word().unwrap(), b"YODA");
-//         assert_eq!(lexer.prev_word().unwrap(), b"BABY");
-//         assert!(lexer.prev_word().is_err());
-//     }
-
-//     #[test]
-//     fn test_next_line() {
-//         let text = b"A\nB\nC\n";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.next_line().unwrap(), b"A");
-//         assert_eq!(lexer.pos, 2);
-//         assert_eq!(lexer.next_line().unwrap(), b"B");
-//         assert_eq!(lexer.next_line().unwrap(), b"C");
-//         assert!(lexer.next_line().is_err());
-//         let text = b"A\nB\nC";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.next_line().unwrap(), b"A");
-//         assert_eq!(lexer.next_line().unwrap(), b"B");
-//         assert_eq!(lexer.next_line().unwrap(), b"C");
-//         assert!(lexer.next_line().is_err());
-//         let text = b"A\nBC\nD\n";
-//         let mut lexer = Lexer::new(text);
-//         assert_eq!(lexer.next_line().unwrap(), b"A");
-//         assert_eq!(lexer.next_line().unwrap(), b"BC");
-//         assert_eq!(lexer.next_line().unwrap(), b"D");
-//         assert!(lexer.next_line().is_err());
-//     }
 }
