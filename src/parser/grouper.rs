@@ -32,6 +32,17 @@ pub struct IndirectObject {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct XrefSubsection {
+    start_number: u32,
+    subsection_length: u32,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct XrefSection {
+    subsections: Vec<XrefSubsection>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Object {
     Boolean(bool),
     Integer(i64),
@@ -46,6 +57,7 @@ pub enum Object {
     Stream(Stream),
     Header(u8, u8),
     Trailer(Dictionary),
+    Xref(XrefSection),
     StartXref(u64),
     Null,
 }
@@ -442,7 +454,26 @@ mod tests {
     }
 
     #[test]
-    fn test_file() {
+    fn test_cross_reference_2() {
+        // SPEC_BREAK
+        let text = "0 8 
+        0000000000 65535 f
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = lexer.lex();
+        let mut grouper = Grouper::new(&tokens);
+        let cross_ref = CrossReference {
+            offset: 0,
+            generation_number: 65535,
+            in_use: false,
+        };
+        let expected: Vec<Object> = vec![Object::Integer(0), Object::Integer(8), Object::CrossReference(cross_ref)];
+        let objects = grouper.group();
+        assert_eq!(objects, expected);
+    }
+
+    #[test]
+    fn test_grouper_file() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("test_data/hello.pdf");
         let file = fs::read(d).unwrap();
@@ -450,6 +481,7 @@ mod tests {
         let tokens = lexer.lex();
         // assert_eq!(tokens, vec![]);
         let mut grouper = Grouper::new(&tokens);
-        assert_eq!(grouper.group(), vec![]);
+        let objects = grouper.group();
+        assert_eq!(objects, vec![]);
     }
 }

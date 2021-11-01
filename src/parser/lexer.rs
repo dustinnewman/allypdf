@@ -87,6 +87,10 @@ impl<'a> Lexer<'a> {
                 },
                 _ => return None,
             },
+            b'x' => match (self.pop(), self.pop(), self.pop()) {
+                (Some(b'r'), Some(b'e'), Some(b'f')) => Token::Xref,
+                _ => return None,
+            },
             b't' => match (self.pop(), self.pop(), self.pop()) {
                 (Some(b'r'), Some(b'u'), Some(b'e')) => Token::Boolean(true),
                 (Some(b'r'), Some(b'a'), Some(b'i')) => self.trailer()?,
@@ -124,6 +128,14 @@ impl<'a> Lexer<'a> {
             [SPACE, LINE_FEED] |
             [CARRIAGE_RETURN, LINE_FEED] => {
                 self.seek(2);
+                Some(Token::InUse(false))
+            },
+            // SPEC_BREAK: Technically just a newline does not meet the
+            // criteria to be an in-use identifier, but let's accept it
+            // because sometimes a CR-LF combo can get flattened to just
+            // a newline during transmission
+            [LINE_FEED, _] => {
+                self.seek(1);
                 Some(Token::InUse(false))
             },
             [b'a', b'l'] => match self.slice(self.pos + 2, 2)? {
