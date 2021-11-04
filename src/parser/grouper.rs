@@ -35,6 +35,7 @@ pub struct IndirectObject {
 pub struct XrefSubsection {
     start_number: u32,
     subsection_length: u32,
+    references: Vec<CrossReference>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -114,12 +115,18 @@ impl<'a> Grouper<'a> {
                 let name = *name;
                 self.name_to_name(name)?
             }
+            Token::Xref => self.xref()?,
             Token::StartXref => self.start_xref()?,
             Token::LBracket => self.array()?,
             Token::DoubleLThan => self.dictionary()?,
             _ => return None,
         };
         Some(object)
+    }
+
+    fn xref(&mut self) -> Option<Object> {
+        // TODO
+        None
     }
 
     fn trailer(&mut self) -> Option<Object> {
