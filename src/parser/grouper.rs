@@ -4,6 +4,7 @@ use super::lexer::Token;
 use crate::{filter::{Filter, decode}, util::{CARRIAGE_RETURN, BACK_SPACE, FORM_FEED, LINE_FEED, TAB, LPAREN, RPAREN, POUND, BSLASH, is_octal, slice_to_numeric}};
 
 const FILTER: &[u8] = b"Filter";
+const SIZE: &[u8] = b"size";
 
 #[derive(Debug, PartialEq)]
 pub struct CrossReference {
@@ -44,6 +45,12 @@ pub struct XrefSection {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct Trailer {
+    size: u64,
+    dictionary: Dictionary,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Object {
     Boolean(bool),
     Integer(i64),
@@ -57,7 +64,7 @@ pub enum Object {
     IndirectObject(IndirectObject),
     Stream(Stream),
     Header(u8, u8),
-    Trailer(Dictionary),
+    Trailer(Trailer),
     Xref(XrefSection),
     StartXref(u64),
     Null,
@@ -115,7 +122,7 @@ impl<'a> Grouper<'a> {
                 let name = *name;
                 self.name_to_name(name)?
             }
-            Token::Xref => self.xref()?,
+            Token::Xref => self.xref(),
             Token::StartXref => self.start_xref()?,
             Token::LBracket => self.array()?,
             Token::DoubleLThan => self.dictionary()?,
@@ -124,26 +131,60 @@ impl<'a> Grouper<'a> {
         Some(object)
     }
 
-    fn xref(&mut self) -> Option<Object> {
-        // TODO
-        None
-    }
-
-    fn trailer(&mut self) -> Option<Object> {
-        match self.next() {
-            Some(Object::Dictionary(d)) => Some(Object::Trailer(d)),
-            _ => None,
+    fn xref_subsection(&mut self, xref_subsection: &mut XrefSubsection) {
+        while let (Some(Token::Integer(offset)), Some(Token::Integer(generation_number)), Some(Token::InUse(in_use))) = (self.peek(), self.nth(1), self.nth(2)) {
+            let offset = *offset as u64;
+            let generation_number = *generation_number as u32;
+            let xref = CrossReference {
+                offset,
+                generation_number,
+                in_use: *in_use,
+            };
+            xref_subsection.references.push(xref);
+            self.seek(3);
         }
     }
 
+    fn xref(&mut self) -> Object {
+        let mut xref_section = XrefSection {
+            subsections: vec![],
+        };
+        while let (Some(Token::Integer(first)), Some(Token::Integer(entries))) = (self.peek(), self.nth(1)) {
+            let start_number = *first as u32;
+            let subsection_length = *entries as u32;
+            self.seek(2);
+            let mut xref_subsection = XrefSubsection {
+                start_number,
+                subsection_length,
+                references: vec![],
+            };
+            self.xref_subsection(&mut xref_subsection);
+            xref_section.subsections.push(xref_subsection);
+        }
+        Object::Xref(xref_section)
+    }
+
+    fn trailer(&mut self) -> Option<Object> {
+        if let Some(Object::Dictionary(d)) = self.next() {
+            let size = d.get(SIZE)?;
+            if let Object::Integer(size) = size {
+                let trailer = Trailer {
+                    size: *size as u64,
+                    dictionary: d,
+                };
+                return Some(Object::Trailer(trailer));
+            }
+        }
+        None
+    }
+
     fn start_xref(&mut self) -> Option<Object> {
-        match self.peek()? {
-            Token::Integer(i) => {
-                let i = *i as u64;
-                self.advance();
-                Some(Object::StartXref(i))
-            },
-            _ => None
+        if let Token::Integer(i) = self.peek()? {
+            let i = *i as u64;
+            self.advance();
+            Some(Object::StartXref(i))
+        } else {
+            None
         }
     }
 
