@@ -1,3 +1,2 @@
-mod lexer;
-pub mod grouper;
+pub mod lexer;
 pub mod parser;

@@ -2,5 +2,8 @@
 
 mod error;
 mod util;
+mod operators;
 mod filter;
 mod parser;
+mod document;
+mod content;

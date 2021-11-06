@@ -22,6 +22,8 @@ pub const BSLASH: Byte = b'\x5C'; // \
 pub const POUND: Byte = b'\x23'; // #
 pub const PERIOD: Byte = b'.';
 pub const TILDE: Byte = b'~';
+pub const SQUOTE: Byte = b'\x27'; // '
+pub const DQUOTE: Byte = b'\x22'; // "
 
 pub type Byte = u8;
 
@@ -131,4 +133,86 @@ pub fn slice_to_numeric(slice: &[Byte], radix: u8) -> Option<u8> {
         }
     }
     Some(result)
+}
+
+pub fn literal_string_to_string(literal: &[u8]) -> Option<Vec<u8>> {
+    let mut vec = vec![];
+    let mut original_pos = 0;
+    let original_len = literal.len();
+    while original_pos < original_len {
+        let original_curr = literal[original_pos];
+        if original_curr == BSLASH {
+            let next = literal[original_pos + 1];
+            match next {
+                b'n' => vec.push(LINE_FEED),
+                b'r' => vec.push(CARRIAGE_RETURN),
+                b't' => vec.push(TAB),
+                b'b' => vec.push(BACK_SPACE),
+                b'f' => vec.push(FORM_FEED),
+                LPAREN => vec.push(LPAREN),
+                RPAREN => vec.push(RPAREN),
+                BSLASH => vec.push(BSLASH),
+                c if is_octal(c) => {
+                    let mut octal_len = 1;
+                    if original_pos + 2 < original_len && is_octal(literal[original_pos + 2]) {
+                        octal_len += 1;
+                        if original_pos + 3 < original_len && is_octal(literal[original_pos + 3]) {
+                            octal_len += 1;
+                        }
+                    }
+                    let slice = &literal[original_pos + 1..original_pos + 1 + octal_len];
+                    let code = slice_to_numeric(slice, 8)?;
+                    vec.push(code);
+                    original_pos += octal_len - 1;
+                },
+                _ => (),
+            };
+            original_pos += 2;
+        } else {
+            vec.push(original_curr);
+            original_pos += 1;
+        }
+    }
+    Some(vec)
+}
+
+pub fn hex_string_to_string(hex_string: &[u8]) -> Option<Vec<u8>> {
+    let mut vec = vec![];
+    let mut hex_pos = 0;
+    let hex_len = hex_string.len();
+    while hex_pos + 1 < hex_len {
+        let first = hex_string[hex_pos];
+        let second = hex_string[hex_pos + 1];
+        let slice = [first, second];
+        let code = slice_to_numeric(&slice, 16)?;
+        vec.push(code);
+        hex_pos += 2;
+    }
+    if hex_pos < hex_len {
+        let first = hex_string[hex_len - 1];
+        let code = slice_to_numeric(&[first, b'0'], 16)?;
+        vec.push(code);
+    }
+    Some(vec)
+}
+
+pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
+    let mut vec = vec![];
+    let mut original_pos = 0;
+    let original_len = name.len();
+    while original_pos < original_len {
+        let original_curr = name[original_pos];
+        if original_curr == POUND {
+            let first = name[original_pos + 1];
+            let second = name[original_pos + 2];
+            let hex = [first, second];
+            let code = slice_to_numeric(&hex, 16)?;
+            vec.push(code);
+            original_pos += 3;
+        } else {
+            vec.push(original_curr);
+            original_pos += 1;
+        }
+    }
+    Some(vec)
 }

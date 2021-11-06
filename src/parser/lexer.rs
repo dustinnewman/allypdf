@@ -1,5 +1,6 @@
 use crate::error::{Result, PdfError};
-use crate::util::{Byte, SPACE, CARRIAGE_RETURN, LINE_FEED, LPAREN, RPAREN, LTHAN, RTHAN, LBRACKET, RBRACKET, LBRACE, RBRACE, FSLASH, PERCENT, PERIOD, is_decimal, is_hexadecimal, byte_to_numeric, is_whitespace, is_regular, is_newline};
+use crate::util::{Byte, DQUOTE, FSLASH, LBRACE, LBRACKET, LINE_FEED, LPAREN, LTHAN, PERCENT, PERIOD, RBRACE, RBRACKET, RPAREN, RTHAN, SQUOTE, byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace};
+use crate::operators::operators::Operator;
 
 enum Character {
     Regular(Byte),
@@ -31,7 +32,9 @@ pub enum Token<'a> {
     Stream(&'a [u8]),
     Null,
     Trailer,
-    InUse(bool),
+    F,
+    N,
+    Operator(Operator),
     Eof,
 }
 
@@ -67,6 +70,17 @@ impl<'a> Lexer<'a> {
     }
 
     fn next(&mut self) -> Option<Token<'a>> {
+        // Yes defining a macro inside a function is very ugly but this way we
+        // can use `self` without problems
+        macro_rules! op {
+            ($op:expr) => {
+                {
+                    self.advance();
+                    Token::Operator($op)
+                }
+            };
+        }
+
         let curr = self.peek()?;
         if is_whitespace(curr) {
             self.skip_whitespace();
@@ -87,27 +101,178 @@ impl<'a> Lexer<'a> {
                 },
                 _ => return None,
             },
-            b'x' => match (self.pop(), self.pop(), self.pop()) {
-                (Some(b'r'), Some(b'e'), Some(b'f')) => Token::Xref,
+            b'b' => match self.peek() {
+                Some(b'*') => op!(Operator::CloseFillStrokePathEvenOdd),
+                _ => Token::Operator(Operator::CloseFillStrokePath),
+            },
+            b'B' => match self.peek() {
+                Some(b'*') => op!(Operator::FillStrokePathEvenOdd),
+                Some(b'I') => op!(Operator::BeginInlineImageObject),
+                Some(b'T') => op!(Operator::BeginText),
+                Some(b'X') => op!(Operator::BeginCompat),
+                Some(b'M') => {
+                    self.advance();
+                    match self.pop()? {
+                        b'C' => Token::Operator(Operator::BeginMarkedContentSequence),
+                        _ => return None,
+                    }
+                },
+                Some(b'D') => {
+                    self.advance();
+                    match self.pop()? {
+                        b'C' => Token::Operator(Operator::BeginMarkedContentSequencePropertyList),
+                        _ => return None,
+                    }
+                },
+                _ => Token::Operator(Operator::FillStrokePath),
+            },
+            b'c' => match self.peek() {
+                Some(b'm') => op!(Operator::ConcatMatrix),
+                Some(b's') => op!(Operator::SetColorSpaceNonstroke),
+                _ => Token::Operator(Operator::AppendCurveThreePoints),
+            },
+            b'C' => match self.peek()? {
+                b'S' => op!(Operator::SetColorSpaceStroke),
                 _ => return None,
+            },
+            b'd' => match self.peek() {
+                Some(b'0') => op!(Operator::SetCharWidth),
+                Some(b'1') => op!(Operator::SetCacheDevice),
+                _ => Token::Operator(Operator::SetDash)
+            },
+            b'D' => match self.peek()? {
+                b'o' => op!(Operator::InvokeXObject),
+                b'P' => op!(Operator::DefineMarkedContentPointPropertyList),
+                _ => return None,
+            },
+            b'e' => self.endobj()?,
+            b'E' => match self.peek()? {
+                b'I' => op!(Operator::EndInlineImage),
+                b'T' => op!(Operator::EndText),
+                b'X' => op!(Operator::EndCompat),
+                b'M' => {
+                    self.advance();
+                    match self.pop()? {
+                        b'C' => Token::Operator(Operator::EndMarkedContentSequence),
+                        _ => return None,
+                    }
+                },
+                _ => return None,
+            },
+            b'f' => match self.peek() {
+                Some(b'*') => op!(Operator::FillPathEvenOdd),
+                Some(b'a') => match (self.pop()?, self.pop()?, self.pop()?) {
+                    (b'l', b's', b'e') => Token::Boolean(false),
+                    _ => return None,
+                },
+                _ => Token::F,
+            },
+            b'F' => Token::Operator(Operator::FillPath),
+            b'g' => match self.peek() {
+                Some(b's') => op!(Operator::SetGraphicsStateParams),
+                _ => Token::Operator(Operator::SetGrayNonstroke),
+            },
+            b'G' => Token::Operator(Operator::SetGrayStroke),
+            b'h' => Token::Operator(Operator::CloseSubpath),
+            b'i' => Token::Operator(Operator::SetFlat),
+            b'I' => match self.peek()? {
+                b'D' => op!(Operator::BeginInlineImageData),
+                _ => return None,
+            },
+            b'j' => Token::Operator(Operator::SetLineJoin),
+            b'J' => Token::Operator(Operator::SetLineCap),
+            b'k' => Token::Operator(Operator::SetCMYKColorNonstroke),
+            b'K' => Token::Operator(Operator::SetCMYKColorStroke),
+            b'l' => Token::Operator(Operator::LineTo),
+            b'm' => Token::Operator(Operator::MoveTo),
+            b'M' => match self.peek() {
+                Some(b'P') => op!(Operator::DefineMarkedContentPoint),
+                _ => Token::Operator(Operator::SetMiterLimit),
+            },
+            b'n' => match self.peek() {
+                Some(b'u') => match (self.pop()?, self.pop()?, self.pop()?) {
+                    (b'u', b'l', b'l') => Token::Null,
+                    _ => return None,
+                },
+                _ => Token::N,
+            },
+            b'o' => match (self.pop(), self.pop()) {
+                (Some(b'b'), Some(b'j')) => Token::Obj,
+                _ => return None,
+            },
+            b'q' => Token::Operator(Operator::GSave),
+            b'Q' => Token::Operator(Operator::GRestore),
+            b'r' => match self.peek()? {
+                b'e' => op!(Operator::AppendRectangle),
+                b'g' => op!(Operator::SetRGBColorNonstroke),
+                b'i' => op!(Operator::SetColorRenderingIntent),
+                _ => return None,
+            },
+            b'R' => match self.peek() {
+                Some(b'G') => op!(Operator::SetRGBColorStroke),
+                _ => Token::Reference,
+            },
+            b's' => match self.peek() {
+                Some(b'c') => {
+                    self.advance();
+                    match self.peek() {
+                        Some(b'n') => op!(Operator::SetColorSpecialNonstroke),
+                        _ => Token::Operator(Operator::SetColorNonstroke),
+                    }
+                },
+                Some(b't') => {
+                    self.advance();
+                    match self.pop()? {
+                        b'r' => self.stream()?,
+                        b'a' => self.startxref()?,
+                        _ => return None,
+                    }
+                },
+                Some(b'h') => op!(Operator::ShFill),
+                _ => Token::Operator(Operator::CloseStrokePath),
+            },
+            b'S' => match self.peek() {
+                Some(b'C') => {
+                    self.advance();
+                    match self.peek() {
+                        Some(b'N') => op!(Operator::SetColorSpecialStroke),
+                        _ => Token::Operator(Operator::SetColorStroke),
+                    }
+                },
+                _ => Token::Operator(Operator::StrokePath),
             },
             b't' => match (self.pop(), self.pop(), self.pop()) {
                 (Some(b'r'), Some(b'u'), Some(b'e')) => Token::Boolean(true),
                 (Some(b'r'), Some(b'a'), Some(b'i')) => self.trailer()?,
                 _ => return None,
             },
-            b'f' => self.f()?,
-            b's' => match (self.pop(), self.pop()) {
-                (Some(b't'), Some(b'r')) => self.stream()?,
-                (Some(b't'), Some(b'a')) => self.startxref()?,
+            b'T' => match self.peek()? {
+                b'*' => op!(Operator::MoveStartNextLine),
+                b'c' => op!(Operator::SetCharSpacing),
+                b'd' => op!(Operator::MoveTextPosition),
+                b'D' => op!(Operator::MoveTextPositionLeading),
+                b'f' => op!(Operator::SelectFont),
+                b'j' => op!(Operator::ShowText),
+                b'J' => op!(Operator::ShowTextAdjusted),
+                b'L' => op!(Operator::SetTextLeading),
+                b'm' => op!(Operator::SetTextMatrix),
+                b'r' => op!(Operator::SetTextRendering),
+                b's' => op!(Operator::SetTextRise),
+                b'w' => op!(Operator::SetWordSpacing),
+                b'z' => op!(Operator::SetHorizontalTextScaling),
                 _ => return None,
             },
-            b'n' => self.n()?,
-            b'o' => match (self.pop(), self.pop()) {
-                (Some(b'b'), Some(b'j')) => Token::Obj,
+            b'v' => Token::Operator(Operator::AppendCurveInitialReplicated),
+            b'w' => Token::Operator(Operator::SetLineWidth),
+            b'W' => match self.peek() {
+                Some(b'*') => op!(Operator::SetClippingPathEvenOdd),
+                _ => Token::Operator(Operator::SetClippingPath),
+            },
+            b'x' => match (self.pop(), self.pop(), self.pop()) {
+                (Some(b'r'), Some(b'e'), Some(b'f')) => Token::Xref,
                 _ => return None,
             },
-            b'e' => self.endobj()?,
+            b'y' => Token::Operator(Operator::AppendCurveFinalReplicated),
             b'0'..=b'9' | b'+' | b'-' | PERIOD => self.number()?,
             PERCENT => self.percent()?,
             LPAREN => self.literal_string()?,
@@ -116,38 +281,11 @@ impl<'a> Lexer<'a> {
             LBRACE => Token::LBrace,
             RBRACE => Token::RBrace,
             FSLASH => self.name()?,
-            b'R' => Token::Reference,
+            SQUOTE => Token::Operator(Operator::MoveNextLineShowText),
+            DQUOTE => Token::Operator(Operator::SetSpacingMoveNextLineShowText),
             _ => return None,
         };
         Some(token)
-    }
-
-    fn f(&mut self) -> Option<Token<'a>> {
-        match self.slice(self.pos, 2)? {
-            [SPACE, CARRIAGE_RETURN] |
-            [SPACE, LINE_FEED] |
-            [CARRIAGE_RETURN, LINE_FEED] => {
-                self.seek(2);
-                Some(Token::InUse(false))
-            },
-            // SPEC_BREAK: Technically just a newline does not meet the
-            // criteria to be an in-use identifier, but let's accept it
-            // because sometimes a CR-LF combo can get flattened to just
-            // a newline during transmission
-            [LINE_FEED, _] => {
-                self.seek(1);
-                Some(Token::InUse(false))
-            },
-            [b'a', b'l'] => match self.slice(self.pos + 2, 2)? {
-                [b's', b'e'] => {
-                    self.seek(4);
-                    Some(Token::Boolean(false))
-                },
-                _ => None
-            },
-
-            _ => None,
-        }
     }
 
     fn number(&mut self) -> Option<Token<'a>> {
@@ -207,33 +345,6 @@ impl<'a> Lexer<'a> {
             _ => return None,
         };
         Some(token)
-    }
-
-    fn n(&mut self) -> Option<Token<'a>> {
-        match self.slice(self.pos, 2)? {
-            [SPACE, CARRIAGE_RETURN] |
-            [SPACE, LINE_FEED] |
-            [CARRIAGE_RETURN, LINE_FEED] => {
-                self.seek(2);
-                Some(Token::InUse(true))
-            },
-            // SPEC_BREAK: Technically just a newline does not meet the
-            // criteria to be an in-use identifier, but let's accept it
-            // because sometimes a CR-LF combo can get flattened to just
-            // a newline during transmission
-            [LINE_FEED, _] => {
-                self.seek(1);
-                Some(Token::InUse(true))
-            },
-            [b'u', b'l'] => match self.nth(2) {
-                Some(b'l') => {
-                    self.seek(3);
-                    Some(Token::Null)
-                },
-                _ => None,
-            },
-            _ => None,
-        }
     }
 
     fn stream(&mut self) -> Option<Token<'a>> {
@@ -462,13 +573,6 @@ impl<'a> Lexer<'a> {
     fn next_line(&mut self) {
         self.skip_until(is_newline)
     }
-
-    fn skip_comments(&mut self) {
-        match self.peek() {
-            Some(c) if c == PERCENT => self.skip_until(is_newline),
-            _ => (),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -478,7 +582,101 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_next() {
+    fn test_null() {
+        let text = "null
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![Token::Null, Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_scn_op() {
+        let text = "sscshscnf
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![
+            Token::Operator(Operator::CloseStrokePath),
+            Token::Operator(Operator::SetColorNonstroke),
+            Token::Operator(Operator::ShFill),
+            Token::Operator(Operator::SetColorSpecialNonstroke),
+            Token::F,
+            Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_cs_op() {
+        let text = "cscmc5cs
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![
+            Token::Operator(Operator::SetColorSpaceNonstroke),
+            Token::Operator(Operator::ConcatMatrix),
+            Token::Operator(Operator::AppendCurveThreePoints),
+            Token::Integer(5),
+            Token::Operator(Operator::SetColorSpaceNonstroke),
+            Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_capital_t_op() {
+        let text = "TcTdTTsf
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![
+            Token::Operator(Operator::SetCharSpacing),
+            Token::Operator(Operator::MoveTextPosition),
+            Token::Operator(Operator::SetTextRise),
+            Token::F,
+            Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_capital_e_op() {
+        let text = "EIEMCTfETEXEEI5
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![
+            Token::Operator(Operator::EndInlineImage),
+            Token::Operator(Operator::EndMarkedContentSequence),
+            Token::Operator(Operator::SelectFont),
+            Token::Operator(Operator::EndText),
+            Token::Operator(Operator::EndCompat),
+            Token::Operator(Operator::EndInlineImage),
+            Token::Integer(5),
+            Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_basic_op() {
+        let text = "BT
+        /F0 12 Tf
+        100 700 Td
+        (Hello, World) Tj
+        ET
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![
+            Token::Operator(Operator::BeginText),
+            Token::Name("F0".as_bytes()),
+            Token::Integer(12),
+            Token::Operator(Operator::SelectFont),
+            Token::Integer(100),
+            Token::Integer(700),
+            Token::Operator(Operator::MoveTextPosition),
+            Token::LiteralString(&"Hello, World".as_bytes()),
+            Token::Operator(Operator::ShowText),
+            Token::Operator(Operator::EndText),
+            Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_basic() {
         let text = "%PDF-1.4
         5 0 obj
         endobj
