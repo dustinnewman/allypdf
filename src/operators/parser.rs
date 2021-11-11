@@ -415,9 +415,18 @@ impl OperatorParser {
             Object::Operator(Operator::SetColorSpaceNonstroke),
             Object::Operator(Operator::SetRGBColorStroke),
             Object::Operator(Operator::SetRGBColorNonstroke),
-            Object::Operator(Operator::SetGrayStroke),
-            Object::Operator(Operator::SetGrayNonstroke),
-            Object::Operator(Operator::ShFill),
+            Object::Operator(Operator::SetGrayStroke) => {
+                let gray = coerce_f64!(self.peek()?);
+                op!(Operation::SetGrayStroke(gray))
+            },
+            Object::Operator(Operator::SetGrayNonstroke) => {
+                let gray = coerce_f64!(self.peek()?);
+                op!(Operation::SetGrayNonstroke(gray))
+            },
+            Object::Operator(Operator::ShFill) => match self.peek()? {
+                Object::Name(name) => op!(Operation::ShFill(name)),
+                _ => return None,
+            },
             _ => return None,
         };
         Some(operand)
