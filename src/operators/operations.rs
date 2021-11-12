@@ -8,16 +8,16 @@ pub type Percent = f32;
 pub type UnscaledTextSpaceUnit = f64;
 
 pub struct RGB {
-    red: UnitInterval,
-    green: UnitInterval,
-    blue: UnitInterval,
+    pub red: UnitInterval,
+    pub green: UnitInterval,
+    pub blue: UnitInterval,
 }
 
 pub struct CMYK {
-    cyan: UnitInterval,
-    magenta: UnitInterval,
-    yellow: UnitInterval,
-    black: UnitInterval,
+    pub cyan: UnitInterval,
+    pub magenta: UnitInterval,
+    pub yellow: UnitInterval,
+    pub black: UnitInterval,
 }
 
 pub enum Color {
@@ -97,12 +97,12 @@ pub enum RenderingIntent {
     Perceptual,
 }
 
-pub enum StringOrNumber {
-    String(Vec<u8>),
+pub enum StringOrNumber<'a> {
+    String(&'a Vec<u8>),
     Number(f64),
 }
 
-pub enum Operation {
+pub enum Operation<'a> {
     // Path operators
     CloseStrokePath, // s
     StrokePath, // S
@@ -116,10 +116,10 @@ pub enum Operation {
     SetClippingPath, // W
     SetClippingPathEvenOdd, // W*
     // Marked content operators
-    DefineMarkedContentPoint(Name), // MP
-    DefineMarkedContentPointPropertyList(Name, Dictionary), // DP
-    BeginMarkedContentSequence(Name), // BMC
-    BeginMarkedContentSequencePropertyList(Name, Dictionary), // BDC
+    DefineMarkedContentPoint(&'a Name), // MP
+    DefineMarkedContentPointPropertyList(&'a Name, &'a Dictionary), // DP
+    BeginMarkedContentSequence(&'a Name), // BMC
+    BeginMarkedContentSequencePropertyList(&'a Name, &'a Dictionary), // BDC
     EndMarkedContentSequence, // EMC
     // Image operators
     BeginInlineImageObject, // BI
@@ -127,16 +127,16 @@ pub enum Operation {
     EndInlineImage, // EI
     // Text operators
     BeginText, // BT
-    ShowText(Vec<u8>), // Tj
-    ShowTextAdjusted(Vec<StringOrNumber>), // TJ
-    MoveNextLineShowText(Vec<u8>), // '
-    SetSpacingMoveNextLineShowText(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit, Vec<u8>), // "
+    ShowText(&'a Vec<u8>), // Tj
+    ShowTextAdjusted(Vec<StringOrNumber<'a>>), // TJ
+    MoveNextLineShowText(&'a Vec<u8>), // '
+    SetSpacingMoveNextLineShowText(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit, &'a Vec<u8>), // "
     MoveTextPosition(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit), // Td
     MoveTextPositionLeading(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit), // TD
     SetTextMatrix([f64; 6]), // Tm
     MoveStartNextLine, // T*
     SetCharSpacing(UnscaledTextSpaceUnit), // Tc
-    SelectFont(Name, f64), // Tf
+    SelectFont(&'a Name, f64), // Tf
     SetTextLeading(UnscaledTextSpaceUnit), // TL
     SetTextRendering(TextRendering), // Tr
     SetTextRise(UnscaledTextSpaceUnit), // Ts
@@ -147,7 +147,7 @@ pub enum Operation {
     // Type 3 font operators
     SetCharWidth(f64, f64), // d0
     SetCacheDevice((f64, f64), (f64, f64), (f64, f64)), // d1
-    InvokeXObject(Name), // Do
+    InvokeXObject(&'a Name), // Do
     EndCompat, // EX
     // Path construction operators
     MoveTo(f64, f64), // m
@@ -165,22 +165,22 @@ pub enum Operation {
     SetDash(Vec<i64>, i64), // d
     GSave, // q
     GRestore, // Q
-    SetColorRenderingIntent(Name), // ri
+    SetColorRenderingIntent(&'a Name), // ri
     SetFlat(Percent), // i
-    SetGraphicsStateParams(Name), // gs
+    SetGraphicsStateParams(&'a Name), // gs
     // Color operators
     SetCMYKColorStroke(CMYK), // K
     SetCMYKColorNonstroke(CMYK), // k
     SetColorStroke(Color), // SC
     SetColorNonstroke(Color), // sc
-    SetColorSpecialStroke(Color, Option<Name>), // SCN
-    SetColorSpecialNonstroke(Color, Option<Name>), // scn
-    SetColorSpaceStroke(Name), // CS
-    SetColorSpaceNonstroke(Name), // cs
+    SetColorSpecialStroke(Color, Option<&'a Name>), // SCN
+    SetColorSpecialNonstroke(Color, Option<&'a Name>), // scn
+    SetColorSpaceStroke(&'a Name), // CS
+    SetColorSpaceNonstroke(&'a Name), // cs
     SetRGBColorStroke(RGB), // RG
     SetRGBColorNonstroke(RGB), // rg
     SetGrayStroke(UnitInterval), // G
     SetGrayNonstroke(UnitInterval), // g
     // Shading operators
-    ShFill(Name), // sh
+    ShFill(&'a Name), // sh
 }

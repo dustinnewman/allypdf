@@ -6,8 +6,8 @@ use super::operators::Operator;
 macro_rules! coerce_f64 {
     ($obj:expr) => {
         match $obj {
-            Object::Real(n) => n,
-            Object::Integer(n) => n as f64,
+            Object::Real(n) => *n,
+            Object::Integer(n) => *n as f64,
             _ => return None,
         }
     };
@@ -16,8 +16,8 @@ macro_rules! coerce_f64 {
 macro_rules! coerce_f32 {
     ($obj:expr) => {
         match $obj {
-            Object::Real(n) => n as f32,
-            Object::Integer(n) => n as f32,
+            Object::Real(n) => *n as f32,
+            Object::Integer(n) => *n as f32,
             _ => return None,
         }
     };
@@ -32,20 +32,21 @@ macro_rules! coerce_string {
     };
 }
 
-pub struct OperatorParser {
-    operators: Vec<Object>,
+pub struct OperatorParser<'a> {
+    operators: &'a Vec<Object>,
     pos: usize,
 }
 
-impl OperatorParser {
-    pub fn new(operators: Vec<Object>) -> Self {
+impl<'a> OperatorParser<'a> {
+    pub fn new(operators: &'a Vec<Object>) -> Self {
+        let len = operators.len();
         Self {
             operators,
-            pos: operators.len() - 1,
+            pos: len - 1,
         }
     }
 
-    pub fn parse(&mut self) -> Vec<Operation> {
+    pub fn parse(&mut self) -> Vec<Operation<'a>> {
         let mut vec = vec![];
         loop {
             if let Some(op) = self.next() {
@@ -57,7 +58,7 @@ impl OperatorParser {
         vec
     }
 
-    fn next(&mut self) -> Option<Operation> {
+    fn next(&mut self) -> Option<Operation<'a>> {
         macro_rules! op {
             ($op:expr) => {
                 {
@@ -116,8 +117,8 @@ impl OperatorParser {
                     for obj in arr {
                         match obj {
                             Object::String(string) => vec.push(StringOrNumber::String(string)),
-                            Object::Real(n) => vec.push(StringOrNumber::Number(n)),
-                            Object::Integer(n) => vec.push(StringOrNumber::Number(n as f64)),
+                            Object::Real(n) => vec.push(StringOrNumber::Number(*n)),
+                            Object::Integer(n) => vec.push(StringOrNumber::Number(*n as f64)),
                             _ => (),
                         }
                     }
@@ -174,7 +175,7 @@ impl OperatorParser {
             },
             Object::Operator(Operator::SetTextRendering) => match self.peek()? {
                 Object::Integer(i) => {
-                    let render = TextRendering::from_i64(i)?;
+                    let render = TextRendering::from_i64(*i)?;
                     op!(Operation::SetTextRendering(render))
                 },
                 _ => return None,
@@ -273,27 +274,27 @@ impl OperatorParser {
             },
             Object::Operator(Operator::SetLineJoin) => match self.peek()? {
                 Object::Integer(i) => {
-                    let join = LineJoin::from_i64(i)?;
+                    let join = LineJoin::from_i64(*i)?;
                     op!(Operation::SetLineJoin(join))
                 },
                 _ => return None,
             },
             Object::Operator(Operator::SetLineCap) => match self.peek()? {
                 Object::Integer(i) => {
-                    let cap = LineCap::from_i64(i)?;
+                    let cap = LineCap::from_i64(*i)?;
                     op!(Operation::SetLineCap(cap))
                 },
                 _ => return None,
             },
             Object::Operator(Operator::SetDash) => match (self.peek()?, self.nth(1)?) {
                 (Object::Integer(i), Object::Array(arr)) => {
-                    let vec = vec![];
+                    let mut vec = vec![];
                     for obj in arr {
                         if let Object::Integer(i) = obj {
-                            vec.push(i)
+                            vec.push(*i)
                         }
                     }
-                    op!(Operation::SetDash(vec, i), 2)
+                    op!(Operation::SetDash(vec, *i), 2)
                 },
                 _ => return None,
             },
@@ -338,89 +339,68 @@ impl OperatorParser {
                 op!(Operation::SetCMYKColorNonstroke(cmyk), 4)
             },
             Object::Operator(Operator::SetColorStroke) => {
-                let first = coerce_f32!(self.peek()?);
-                if matches!(self.nth(1), Some(Object::Integer(_)) | Some(Object::Real(_))) {
-                    let second = coerce_f32!(self.nth(1)?);
-                    let third = match self.nth(2) {
-                        Some(Object::Real(r)) => r as f32,
-                        Some(Object::Integer(i)) => i as f32,
-                        _ => {
-                            self.seek(2);
-                            return Some(Operation::SetColorStroke(Color::Gray(first)));
-                        },
-                    };
-                    let fourth = match self.nth(3) {
-                        Some(Object::Real(r)) => r as f32,
-                        Some(Object::Integer(i)) => i as f32,
-                        _ => {
-                            self.seek(3);
-                            let rgb = RGB {
-                                red: third,
-                                green: second,
-                                blue: first,
-                            };
-                            return Some(Operation::SetColorStroke(Color::RGB(rgb)));
-                        },
-                    };
-                    let cmyk = CMYK {
-                        cyan: fourth,
-                        magenta: third,
-                        yellow: second,
-                        black: first,
-                    };
-                    op!(Operation::SetColorStroke(Color::CMYK(cmyk)), 4)
-                } else {
-                    op!(Operation::SetColorStroke(Color::Gray(first)))
-                }
+                let color = self.handle_color(0)?;
+                Operation::SetColorStroke(color)
             },
             Object::Operator(Operator::SetColorNonstroke) => {
-                let first = coerce_f32!(self.peek()?);
-                if matches!(self.nth(1), Some(Object::Integer(_)) | Some(Object::Real(_))) {
-                    let second = coerce_f32!(self.nth(1)?);
-                    let third = match self.nth(2) {
-                        Some(Object::Real(r)) => r as f32,
-                        Some(Object::Integer(i)) => i as f32,
-                        _ => {
-                            self.seek(2);
-                            return Some(Operation::SetColorNonstroke(Color::Gray(first)));
-                        },
-                    };
-                    let fourth = match self.nth(3) {
-                        Some(Object::Real(r)) => r as f32,
-                        Some(Object::Integer(i)) => i as f32,
-                        _ => {
-                            self.seek(3);
-                            let rgb = RGB {
-                                red: third,
-                                green: second,
-                                blue: first,
-                            };
-                            return Some(Operation::SetColorNonstroke(Color::RGB(rgb)));
-                        },
-                    };
-                    let cmyk = CMYK {
-                        cyan: fourth,
-                        magenta: third,
-                        yellow: second,
-                        black: first,
-                    };
-                    op!(Operation::SetColorNonstroke(Color::CMYK(cmyk)), 4)
-                } else {
-                    op!(Operation::SetColorNonstroke(Color::Gray(first)))
-                }
+                let color = self.handle_color(0)?;
+                Operation::SetColorNonstroke(color)
             },
-            Object::Operator(Operator::SetColorSpecialStroke),
-            Object::Operator(Operator::SetColorSpecialNonstroke),
-            Object::Operator(Operator::SetColorSpaceStroke),
-            Object::Operator(Operator::SetColorSpaceNonstroke),
-            Object::Operator(Operator::SetRGBColorStroke),
-            Object::Operator(Operator::SetRGBColorNonstroke),
+            Object::Operator(Operator::SetColorSpecialStroke) => {
+                let name = match self.peek()? {
+                    Object::Name(n) => Some(n),
+                    _ => None,
+                };
+                let start: usize = if name.is_some() { 1 } else { 0 };
+                let color = self.handle_color(start)?;
+                Operation::SetColorSpecialStroke(color, name)
+            },
+            Object::Operator(Operator::SetColorSpecialNonstroke) => {
+                let first = self.peek()?;
+                let name = match first {
+                    Object::Name(n) => Some(n),
+                    _ => None,
+                };
+                let start: usize = if name.is_some() { 1 } else { 0 };
+                let color = self.handle_color(start)?;
+                Operation::SetColorSpecialNonstroke(color, name)
+            },
+            Object::Operator(Operator::SetColorSpaceStroke) => match self.peek()? {
+                Object::Name(name) => op!(Operation::SetColorSpaceStroke(name)),
+                _ => return None,
+            },
+            Object::Operator(Operator::SetColorSpaceNonstroke) => match self.peek()? {
+                Object::Name(name) => op!(Operation::SetColorSpaceNonstroke(name)),
+                _ => return None,
+            },
+            Object::Operator(Operator::SetRGBColorStroke) => {
+                let blue = coerce_f32!(self.peek()?);
+                let green = coerce_f32!(self.nth(1)?);
+                let red = coerce_f32!(self.nth(2)?);
+                let rgb = RGB {
+                    red,
+                    green,
+                    blue,
+                };
+                op!(Operation::SetRGBColorStroke(rgb), 3)
+            },
+            Object::Operator(Operator::SetRGBColorNonstroke) => {
+                let blue = coerce_f32!(self.peek()?);
+                let green = coerce_f32!(self.nth(1)?);
+                let red = coerce_f32!(self.nth(2)?);
+                let rgb = RGB {
+                    red,
+                    green,
+                    blue,
+                };
+                op!(Operation::SetRGBColorNonstroke(rgb), 3)
+            },
             Object::Operator(Operator::SetGrayStroke) => {
-                let gray = coerce_f64!(self.peek()?);
+                let gray = coerce_f32!(self.peek()?);
                 op!(Operation::SetGrayStroke(gray))
             },
             Object::Operator(Operator::SetGrayNonstroke) => {
-                let gray = coerce_f64!(self.peek()?);
+                let gray = coerce_f32!(self.peek()?);
                 op!(Operation::SetGrayNonstroke(gray))
             },
             Object::Operator(Operator::ShFill) => match self.peek()? {
@@ -432,15 +412,56 @@ impl OperatorParser {
         Some(operand)
     }
 
-    fn pop(&mut self) -> Option<Object> {
+    fn handle_color(&mut self, start: usize) -> Option<Color> {
+        let first = coerce_f32!(self.nth(start)?);
+        if matches!(self.nth(start + 1), Some(Object::Integer(_)) | Some(Object::Real(_))) {
+            let second = coerce_f32!(self.nth(start + 1)?);
+            let third = match self.nth(start + 2) {
+                Some(Object::Real(r)) => *r as f32,
+                Some(Object::Integer(i)) => *i as f32,
+                _ => {
+                    self.seek(start + 2);
+                    return Some(Color::Gray(first));
+                },
+            };
+            let fourth = match self.nth(start + 3) {
+                Some(Object::Real(r)) => *r as f32,
+                Some(Object::Integer(i)) => *i as f32,
+                _ => {
+                    self.seek(start + 3);
+                    let rgb = RGB {
+                        red: third,
+                        green: second,
+                        blue: first,
+                    };
+                    return Some(Color::RGB(rgb));
+                },
+            };
+            let cmyk = CMYK {
+                cyan: fourth,
+                magenta: third,
+                yellow: second,
+                black: first,
+            };
+            self.seek(start + 4);
+            return Some(Color::CMYK(cmyk));
+        } else {
+            self.seek(start + 1);
+            return Some(Color::Gray(first));
+        }
+    }
+
+    fn pop(&mut self) -> Option<&'a Object> {
         // We need special handling or else we will never return the first
         // element since self.pos + 1 will always be 1 if pos is 0
         let is_first = self.pos == 0;
         self.advance();
         if is_first {
-            Some(self.operators[0])
+            Some(&self.operators[0])
+        } else if self.pos + 1 < self.operators.len() {
+            Some(&self.operators[self.pos + 1])
         } else {
-            Some(self.operators[self.pos + 1])
+            None
         }
     }
 
@@ -454,13 +475,13 @@ impl OperatorParser {
         }
     }
 
-    fn peek(&self) -> Option<Object> {
+    fn peek(&self) -> Option<&'a Object> {
         self.nth(0)
     }
 
-    fn nth(&self, n: usize) -> Option<Object> {
+    fn nth(&self, n: usize) -> Option<&'a Object> {
         if n <= self.pos {
-            Some(self.operators[self.pos - n])
+            Some(&self.operators[self.pos - n])
         } else {
             None
         }
