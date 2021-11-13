@@ -35,6 +35,8 @@ macro_rules! coerce_string {
 pub struct OperatorParser<'a> {
     operators: &'a Vec<Object>,
     pos: usize,
+    len: usize,
+    done: bool,
 }
 
 impl<'a> OperatorParser<'a> {
@@ -42,7 +44,9 @@ impl<'a> OperatorParser<'a> {
         let len = operators.len();
         Self {
             operators,
-            pos: len - 1,
+            pos: if len != 0 { len - 1 } else { 0 },
+            len,
+            done: false,
         }
     }
 
@@ -452,13 +456,16 @@ impl<'a> OperatorParser<'a> {
     }
 
     fn pop(&mut self) -> Option<&'a Object> {
+        if self.done {
+            return None;
+        }
         // We need special handling or else we will never return the first
         // element since self.pos + 1 will always be 1 if pos is 0
         let is_first = self.pos == 0;
         self.advance();
-        if is_first {
+        if is_first && self.len != 0 {
             Some(&self.operators[0])
-        } else if self.pos + 1 < self.operators.len() {
+        } else if self.pos + 1 < self.len {
             Some(&self.operators[self.pos + 1])
         } else {
             None
@@ -470,7 +477,9 @@ impl<'a> OperatorParser<'a> {
     }
 
     fn seek(&mut self, n: usize) {
-        if n <= self.pos {
+        if self.pos == 0 {
+            self.done = true;
+        } else if n <= self.pos {
             self.pos -= n;
         }
     }
@@ -480,7 +489,7 @@ impl<'a> OperatorParser<'a> {
     }
 
     fn nth(&self, n: usize) -> Option<&'a Object> {
-        if n <= self.pos {
+        if n <= self.pos && self.len != 0 {
             Some(&self.operators[self.pos - n])
         } else {
             None
@@ -493,6 +502,22 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_empty() {
+        let objects = vec![];
+        let mut parser = OperatorParser::new(&objects);
+        let result = vec![];
+        assert_eq!(parser.parse(), result);
+    }
+
+    #[test]
+    fn test_close_path() {
+        let objects = vec![Object::Operator(Operator::CloseStrokePath)];
+        let mut parser = OperatorParser::new(&objects);
+        let result = vec![Operation::CloseStrokePath];
+        assert_eq!(parser.parse(), result);
+    }
+
+    #[test]
     fn test_set_gray_stroke() {
         let objects = vec![
             Object::Integer(0),
@@ -500,6 +525,16 @@ mod test {
         ];
         let mut parser = OperatorParser::new(&objects);
         let result = vec![Operation::SetGrayStroke(0.0)];
+        assert_eq!(parser.parse(), result);
+    }
+
+    #[test]
+    fn test_too_few_args() {
+        let objects = vec![
+            Object::Operator(Operator::SetGrayStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let result = vec![];
         assert_eq!(parser.parse(), result);
     }
 }
