@@ -487,3 +487,19 @@ impl<'a> OperatorParser<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_set_gray_stroke() {
+        let objects = vec![
+            Object::Integer(0),
+            Object::Operator(Operator::SetGrayStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let result = vec![Operation::SetGrayStroke(0.0)];
+        assert_eq!(parser.parse(), result);
+    }
+}

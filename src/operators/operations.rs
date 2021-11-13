@@ -7,12 +7,14 @@ pub type Percent = f32;
 // A real number
 pub type UnscaledTextSpaceUnit = f64;
 
+#[derive(Debug, PartialEq)]
 pub struct RGB {
     pub red: UnitInterval,
     pub green: UnitInterval,
     pub blue: UnitInterval,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct CMYK {
     pub cyan: UnitInterval,
     pub magenta: UnitInterval,
@@ -20,12 +22,14 @@ pub struct CMYK {
     pub black: UnitInterval,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Color {
     Gray(UnitInterval),
     RGB(RGB),
     CMYK(CMYK),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum TextRendering {
     Fill,
     Stroke,
@@ -54,6 +58,7 @@ impl TextRendering {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum LineCap {
     Butt,
     Round,
@@ -72,6 +77,7 @@ impl LineCap {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum LineJoin {
     MiterJoin,
     RoundJoin,
@@ -90,6 +96,7 @@ impl LineJoin {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum RenderingIntent {
     AbsoluteColorimetric,
     RelativeColorimetric,
@@ -97,11 +104,13 @@ pub enum RenderingIntent {
     Perceptual,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum StringOrNumber<'a> {
     String(&'a Vec<u8>),
     Number(f64),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Operation<'a> {
     // Path operators
     CloseStrokePath, // s
