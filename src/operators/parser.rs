@@ -499,33 +499,23 @@ impl<'a> OperatorParser<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeMap;
     use super::*;
 
     #[test]
     fn test_empty() {
         let objects = vec![];
         let mut parser = OperatorParser::new(&objects);
-        let result = vec![];
-        assert_eq!(parser.parse(), result);
+        let operations = vec![];
+        assert_eq!(parser.parse(), operations);
     }
 
     #[test]
-    fn test_close_path() {
+    fn test_no_args() {
         let objects = vec![Object::Operator(Operator::CloseStrokePath)];
         let mut parser = OperatorParser::new(&objects);
-        let result = vec![Operation::CloseStrokePath];
-        assert_eq!(parser.parse(), result);
-    }
-
-    #[test]
-    fn test_set_gray_stroke() {
-        let objects = vec![
-            Object::Integer(0),
-            Object::Operator(Operator::SetGrayStroke)
-        ];
-        let mut parser = OperatorParser::new(&objects);
-        let result = vec![Operation::SetGrayStroke(0.0)];
-        assert_eq!(parser.parse(), result);
+        let operations = vec![Operation::CloseStrokePath];
+        assert_eq!(parser.parse(), operations);
     }
 
     #[test]
@@ -534,7 +524,279 @@ mod test {
             Object::Operator(Operator::SetGrayStroke)
         ];
         let mut parser = OperatorParser::new(&objects);
-        let result = vec![];
-        assert_eq!(parser.parse(), result);
+        let operations = vec![];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_one_arg_int() {
+        let objects = vec![
+            Object::Integer(0),
+            Object::Operator(Operator::SetGrayStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![Operation::SetGrayStroke(0.0)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_one_arg_real() {
+        let objects = vec![
+            Object::Real(0.5),
+            Object::Operator(Operator::SetGrayNonstroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![Operation::SetGrayNonstroke(0.5)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_one_arg_name() {
+        let objects = vec![
+            Object::Name(b"test".to_vec()),
+            Object::Operator(Operator::DefineMarkedContentPoint)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let name = b"test".to_vec();
+        let operations = vec![Operation::DefineMarkedContentPoint(&name)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_two_args_name_dict() {
+        let mut properties = BTreeMap::new();
+        properties.insert(b"Length".to_vec(), Object::Integer(6));
+        let objects = vec![
+            Object::Name(b"test".to_vec()),
+            Object::Dictionary(properties),
+            Object::Operator(Operator::DefineMarkedContentPointPropertyList)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let key = b"Length".to_vec();
+        let result = parser.parse();
+        assert!(matches!(result[0], Operation::DefineMarkedContentPointPropertyList(..)));
+        let length = match result[0] {
+            Operation::DefineMarkedContentPointPropertyList(_, dict) => dict.get(&key),
+            _ => None
+        };
+        assert!(matches!(length, Some(&Object::Integer(6))));
+        let name = match result[0] {
+            Operation::DefineMarkedContentPointPropertyList(n, _) => Some(n),
+            _ => None,
+        };
+        let tag = b"test".to_vec();
+        assert_eq!(name, Some(&tag));
+    }
+
+    #[test]
+    fn test_three_args_real() {
+        let objects = vec![
+            Object::Real(1.0),
+            Object::Real(1.0),
+            Object::Real(1.0),
+            Object::Operator(Operator::SetRGBColorStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![Operation::SetRGBColorStroke(RGB {
+            red: 1.0,
+            green: 1.0,
+            blue: 1.0,
+        })];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_three_args_too_few() {
+        let objects = vec![
+            Object::Null,
+            Object::Real(1.0),
+            Object::Real(1.0),
+            Object::Operator(Operator::SetRGBColorStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_cmyk() {
+        let objects = vec![
+            Object::Real(1.0),
+            Object::Integer(0),
+            Object::Real(1.0),
+            Object::Real(0.0),
+            Object::Operator(Operator::SetColorStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let color = CMYK {
+            cyan: 1.0,
+            magenta: 0.0,
+            yellow: 1.0,
+            black: 0.0,
+        };
+        let operations = vec![Operation::SetColorStroke(Color::CMYK(color))];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_rgb() {
+        let objects = vec![
+            Object::Real(0.3),
+            Object::Integer(0),
+            Object::Real(0.7),
+            Object::Operator(Operator::SetColorStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let color = RGB {
+            red: 0.3,
+            green: 0.0,
+            blue: 0.7,
+        };
+        let operations = vec![Operation::SetColorStroke(Color::RGB(color))];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_gray() {
+        let objects = vec![
+            Object::Real(0.7),
+            Object::Operator(Operator::SetColorStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![Operation::SetColorStroke(Color::Gray(0.7))];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_pattern_name_cmyk() {
+        let objects = vec![
+            Object::Real(1.0),
+            Object::Integer(0),
+            Object::Real(1.0),
+            Object::Real(0.0),
+            Object::Name(b"COLOR".to_vec()),
+            Object::Operator(Operator::SetColorSpecialStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let color = CMYK {
+            cyan: 1.0,
+            magenta: 0.0,
+            yellow: 1.0,
+            black: 0.0,
+        };
+        let name = b"COLOR".to_vec();
+        let operations = vec![Operation::SetColorSpecialStroke(Color::CMYK(color), Some(&name))];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_pattern_name_rgb() {
+        let objects = vec![
+            Object::Real(0.3),
+            Object::Integer(0),
+            Object::Real(0.7),
+            Object::Name(b"COLOR".to_vec()),
+            Object::Operator(Operator::SetColorSpecialStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let color = RGB {
+            red: 0.3,
+            green: 0.0,
+            blue: 0.7,
+        };
+        let name = b"COLOR".to_vec();
+        let operations = vec![Operation::SetColorSpecialStroke(Color::RGB(color), Some(&name))];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_pattern_name_gray() {
+        let objects = vec![
+            Object::Real(0.7),
+            Object::Name(b"COLOR".to_vec()),
+            Object::Operator(Operator::SetColorSpecialStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let name = b"COLOR".to_vec();
+        let operations = vec![Operation::SetColorSpecialStroke(Color::Gray(0.7), Some(&name))];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_pattern_cmyk() {
+        let objects = vec![
+            Object::Real(1.0),
+            Object::Integer(0),
+            Object::Real(1.0),
+            Object::Real(0.0),
+            Object::Operator(Operator::SetColorSpecialStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let color = CMYK {
+            cyan: 1.0,
+            magenta: 0.0,
+            yellow: 1.0,
+            black: 0.0,
+        };
+        let operations = vec![Operation::SetColorSpecialStroke(Color::CMYK(color), None)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_pattern_rgb() {
+        let objects = vec![
+            Object::Real(0.3),
+            Object::Integer(0),
+            Object::Real(0.7),
+            Object::Operator(Operator::SetColorSpecialStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let color = RGB {
+            red: 0.3,
+            green: 0.0,
+            blue: 0.7,
+        };
+        let operations = vec![Operation::SetColorSpecialStroke(Color::RGB(color), None)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_color_pattern_gray() {
+        let objects = vec![
+            Object::Real(0.7),
+            Object::Operator(Operator::SetColorSpecialStroke)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![Operation::SetColorSpecialStroke(Color::Gray(0.7), None)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_show_text_adjusted_string_number() {
+        // [(Le)15(x)-250(Fridman)]TJ
+        let array = vec![
+            Object::String(b"Le".to_vec()),
+            Object::Integer(15),
+            Object::String(b"x".to_vec()),
+            Object::Integer(-250),
+            Object::String(b"Fridman".to_vec()),
+        ];
+        let objects = vec![
+            Object::Array(array),
+            Object::Operator(Operator::ShowTextAdjusted)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let le = b"Le".to_vec();
+        let x = b"x".to_vec();
+        let fridman = b"Fridman".to_vec();
+        let text = vec![
+            StringOrNumber::String(&le),
+            StringOrNumber::Number(15.0),
+            StringOrNumber::String(&x),
+            StringOrNumber::Number(-250.0),
+            StringOrNumber::String(&fridman),
+        ];
+        let operations = vec![Operation::ShowTextAdjusted(text)];
+        assert_eq!(parser.parse(), operations);
     }
 }
