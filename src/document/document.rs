@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::parser::parser::{IndirectReference, Name, Object, Trailer, XrefSection};
+use crate::parser::parser::{Dictionary, IndirectReference, Name, Object, Trailer, XrefSection};
 
 struct Annotation {
     subtype: Name,
@@ -23,29 +23,36 @@ struct Rectangle {
     upper_right_y: u32,
 }
 
-struct Page {
+pub struct Page<'a> {
     parent: IndirectReference,
     media_box: Rectangle,
+    crop_box: Option<Rectangle>,
+    bleed_box: Option<Rectangle>,
+    trim_box: Option<Rectangle>,
+    art_box: Option<Rectangle>,
     contents: Vec<Object>,
-    annotations: Vec<Annotation>
-    // resources: ResourcePool,
+    annotations: Vec<Annotation>,
+    resources: &'a Dictionary,
 }
 
-struct PagesRoot {
-    kids: Vec<IndirectReference>,
+pub struct PagesRoot<'a> {
+    kids: Vec<Page<'a>>,
     count: u64,
 }
 
-struct Catalog {
-    pages: PagesRoot,
+pub struct Catalog<'a> {
+    pages: PagesRoot<'a>,
 }
 
-type ObjectMap = BTreeMap<IndirectReference, Object>;
+pub type Version = (u8,u8);
+pub type ObjectMap = BTreeMap<IndirectReference, Object>;
 
-pub struct PDFDocument {
+pub struct PDFDocument<'a> {
     // (major, minor)
     version: (u8, u8),
     trailer: Trailer,
     xref_table: XrefSection,
+    start_xref: u64,
     object_map: ObjectMap,
+    catalog: Catalog<'a>,
 }

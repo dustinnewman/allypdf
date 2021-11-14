@@ -6,4 +6,3 @@ mod operators;
 mod filter;
 mod parser;
 mod document;
-mod content;

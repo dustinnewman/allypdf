@@ -32,6 +32,15 @@ macro_rules! coerce_string {
     };
 }
 
+macro_rules! coerce_name {
+    ($obj:expr) => {
+        match $obj {
+            Object::Name(s) => s,
+            _ => return None,
+        }
+    };
+}
+
 pub struct OperatorParser<'a> {
     operators: &'a Vec<Object>,
     pos: usize,
@@ -119,12 +128,13 @@ impl<'a> OperatorParser<'a> {
                 Object::Array(arr) => {
                     let mut vec = vec![];
                     for obj in arr {
-                        match obj {
-                            Object::String(string) => vec.push(StringOrNumber::String(string)),
-                            Object::Real(n) => vec.push(StringOrNumber::Number(*n)),
-                            Object::Integer(n) => vec.push(StringOrNumber::Number(*n as f64)),
-                            _ => (),
-                        }
+                        let element = match obj {
+                            Object::String(string) => StringOrNumber::String(string),
+                            Object::Real(n) => StringOrNumber::Number(*n),
+                            Object::Integer(n) => StringOrNumber::Number(*n as f64),
+                            _ => continue,
+                        };
+                        vec.push(element);
                     }
                     op!(Operation::ShowTextAdjusted(vec))
                 },
@@ -170,7 +180,7 @@ impl<'a> OperatorParser<'a> {
             },
             Object::Operator(Operator::SelectFont) => {
                 let size = coerce_f64!(self.peek()?);
-                let text = coerce_string!(self.nth(1)?);
+                let text = coerce_name!(self.nth(1)?);
                 op!(Operation::SelectFont(text, size), 2)
             },
             Object::Operator(Operator::SetTextLeading) => {
@@ -774,21 +784,21 @@ mod test {
     #[test]
     fn test_show_text_adjusted_string_number() {
         // [(Le)15(x)-250(Fridman)]TJ
+        let le = b"Le".to_vec();
+        let x = b"x".to_vec();
+        let fridman = b"Fridman".to_vec();
         let array = vec![
-            Object::String(b"Le".to_vec()),
+            Object::String(le.clone()),
             Object::Integer(15),
-            Object::String(b"x".to_vec()),
+            Object::String(x.clone()),
             Object::Integer(-250),
-            Object::String(b"Fridman".to_vec()),
+            Object::String(fridman.clone()),
         ];
         let objects = vec![
             Object::Array(array),
             Object::Operator(Operator::ShowTextAdjusted)
         ];
         let mut parser = OperatorParser::new(&objects);
-        let le = b"Le".to_vec();
-        let x = b"x".to_vec();
-        let fridman = b"Fridman".to_vec();
         let text = vec![
             StringOrNumber::String(&le),
             StringOrNumber::Number(15.0),
@@ -797,6 +807,20 @@ mod test {
             StringOrNumber::String(&fridman),
         ];
         let operations = vec![Operation::ShowTextAdjusted(text)];
+        assert_eq!(parser.parse(), operations);
+    }
+
+    #[test]
+    fn test_select_font() {
+        // /F13 6.9738 Tf
+        let name = b"F13".to_vec();
+        let objects = vec![
+            Object::Name(name.clone()),
+            Object::Real(6.9738),
+            Object::Operator(Operator::SelectFont)
+        ];
+        let mut parser = OperatorParser::new(&objects);
+        let operations = vec![Operation::SelectFont(&name, 6.9738)];
         assert_eq!(parser.parse(), operations);
     }
 }

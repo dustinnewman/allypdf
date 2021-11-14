@@ -14,10 +14,10 @@ pub struct CrossReference {
     in_use: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, PartialOrd, Ord)]
 pub struct IndirectReference {
-    object_number: u32,
-    generation_number: u32,
+    pub object_number: u32,
+    pub generation_number: u32,
 }
 
 #[derive(Debug, PartialEq)]
@@ -28,9 +28,9 @@ pub struct Stream {
 
 #[derive(Debug, PartialEq)]
 pub struct IndirectObject {
-    object_number: u32,
-    generation_number: u32,
-    object: Box<Object>,
+    pub object_number: u32,
+    pub generation_number: u32,
+    pub object: Box<Object>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -218,11 +218,23 @@ impl<'a> Parser<'a> {
         let mut vec = content.to_vec();
         let mut filters = vec![];
         match dict.get(&FILTER.to_vec()) {
-            Some(Object::Name(name)) => filters.push(Filter::try_from(name).ok()?),
+            Some(Object::Name(name)) => {
+                if let Ok(filter) = Filter::try_from(name) {
+                    filters.push(filter);
+                } else {
+                    return None;
+                }
+            },
             Some(Object::Array(names)) => {
                 for name in names {
                     if let Object::Name(name) = name {
-                        filters.push(Filter::try_from(name).ok()?)
+                        if let Ok(filter) = Filter::try_from(name) {
+                            filters.push(filter);
+                        } else {
+                            return None;
+                        }
+                    } else {
+                        return None;
                     }
                 }
             },
@@ -259,18 +271,14 @@ impl<'a> Parser<'a> {
                 break;
             }
             let key = match self.next() {
-                Some(o) => o,
-                None => break,
-            };
-            let name = match key {
-                Object::Name(vec) => vec,
+                Some(Object::Name(vec)) => vec,
                 _ => break,
             };
             let value = match self.next() {
                 Some(o) => o,
                 None => break,
             };
-            dict.insert(name, value);
+            dict.insert(key, value);
         }
         Some(Object::Dictionary(dict))
     }

@@ -577,8 +577,6 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::path::PathBuf;
     use super::*;
 
     #[test]
@@ -652,7 +650,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_op() {
+    fn test_begin_show_text_ops() {
         let text = "BT
         /F0 12 Tf
         100 700 Td
@@ -662,7 +660,7 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = vec![
             Token::Operator(Operator::BeginText),
-            Token::Name("F0".as_bytes()),
+            Token::Name(&"F0".as_bytes()),
             Token::Integer(12),
             Token::Operator(Operator::SelectFont),
             Token::Integer(100),
@@ -671,7 +669,30 @@ mod tests {
             Token::LiteralString(&"Hello, World".as_bytes()),
             Token::Operator(Operator::ShowText),
             Token::Operator(Operator::EndText),
-            Token::Eof];
+            Token::Eof
+        ];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_show_text_adjusted_select_font_ops() {
+        let text = "[(Le)15(x)-250(Fridman)]TJ/F13 6.9738 Tf
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = vec![
+            Token::LBracket,
+            Token::LiteralString(&"Le".as_bytes()),
+            Token::Integer(15),
+            Token::LiteralString(&"x".as_bytes()),
+            Token::Integer(-250),
+            Token::LiteralString(&"Fridman".as_bytes()),
+            Token::RBracket,
+            Token::Operator(Operator::ShowTextAdjusted),
+            Token::Name(&"F13".as_bytes()),
+            Token::Real(6.9738),
+            Token::Operator(Operator::SelectFont),
+            Token::Eof
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
@@ -684,7 +705,16 @@ mod tests {
         57184
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![Token::Header(1, 4), Token::Integer(5), Token::Integer(0), Token::Obj, Token::Endobj, Token::StartXref, Token::Integer(57184), Token::Eof];
+        let tokens = vec![
+            Token::Header(1, 4),
+            Token::Integer(5),
+            Token::Integer(0),
+            Token::Obj,
+            Token::Endobj,
+            Token::StartXref,
+            Token::Integer(57184),
+            Token::Eof
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
@@ -693,17 +723,23 @@ mod tests {
         let text = "<</Producer(GPL Ghostscript 8.71)>>
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![Token::DoubleLThan, Token::Name("Producer".as_bytes()), Token::LiteralString(&"GPL Ghostscript 8.71".as_bytes()), Token::DoubleRThan, Token::Eof];
+        let tokens = vec![
+            Token::DoubleLThan,
+            Token::Name("Producer".as_bytes()),
+            Token::LiteralString(&"GPL Ghostscript 8.71".as_bytes()),
+            Token::DoubleRThan,
+            Token::Eof
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
-    #[test]
-    fn test_file() {
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("test_data/hello.pdf");
-        let file = fs::read(d).unwrap();
-        let mut lexer = Lexer::new(&file);
-        let tokens = vec![Token::Header(1, 4)];
-        assert_eq!(lexer.lex(), tokens);
-    }
+    // #[test]
+    // fn test_file() {
+    //     let mut d = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    //     d.push("test_data/hello.pdf");
+    //     let file = std::fs::read(d).unwrap();
+    //     let mut lexer = Lexer::new(&file);
+    //     let tokens = vec![Token::Header(1, 4)];
+    //     assert_eq!(lexer.lex(), tokens);
+    // }
 }
