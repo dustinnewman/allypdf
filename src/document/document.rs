@@ -16,11 +16,11 @@ enum ProcSet {
     ImageIndexed,
 }
 
-struct Rectangle {
-    lower_left_x: u32,
-    lower_left_y: u32,
-    upper_right_x: u32,
-    upper_right_y: u32,
+pub struct Rectangle {
+    pub lower_left_x: f32,
+    pub lower_left_y: f32,
+    pub upper_right_x: f32,
+    pub upper_right_y: f32,
 }
 
 pub struct Page<'a> {

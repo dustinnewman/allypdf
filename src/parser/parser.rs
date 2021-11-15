@@ -47,9 +47,9 @@ pub struct XrefSection {
 
 #[derive(Debug, PartialEq)]
 pub struct Trailer {
-    size: u64,
-    root: IndirectReference,
-    dictionary: Dictionary,
+    pub size: u64,
+    pub root: IndirectReference,
+    pub dictionary: Dictionary,
 }
 
 #[derive(Debug, PartialEq)]
