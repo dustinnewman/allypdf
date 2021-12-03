@@ -5,6 +5,10 @@ pub type Result<T> = std::result::Result<T, PdfError>;
 #[derive(Debug)]
 pub enum PdfError {
     EOF,
+    NoHeader,
+    NoTrailer,
+    NoCrossReferences,
+    NoStartXref,
     // Beginning of File
     BOF,
     IO { source: io::Error },
