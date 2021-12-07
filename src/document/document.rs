@@ -69,6 +69,12 @@ pub struct PDFDocument {
     object_map: ObjectMap,
 }
 
+impl PDFDocument {
+    pub fn get(&self, key: &IndirectReference) -> Option<&Object> {
+        self.object_map.get(key)
+    }
+}
+
 impl TryFrom<Vec<Object>> for PDFDocument {
     type Error = PdfError;
     fn try_from(objects: Vec<Object>) -> Result<PDFDocument> {
@@ -119,5 +125,10 @@ mod test {
         let doc = PDFDocument::try_from(parser.parse()).unwrap();
         assert_eq!(doc.version, (1, 4));
         assert_eq!(doc.start_xref, 491);
+        let catalog = match doc.get(&doc.trailer.root).unwrap() {
+            Object::Dictionary(d) => d,
+            _ => panic!("Catalog is not a dictionary"),
+        };
+        assert!(matches!(catalog.get(&b"Type".to_vec()).unwrap(), Object::Name(x) if *x == b"Catalog".to_vec()));
     }
 }
