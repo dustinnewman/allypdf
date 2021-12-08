@@ -146,5 +146,69 @@ mod test {
             )) if *object_number == 2 && *generation_number == 0 => r,
             _ => panic!("Catalog's pages is not indirect reference."),
         };
+        let pages = doc.get(pages).unwrap();
+        let pages = match pages {
+            Object::Dictionary(d) => d,
+            _ => panic!("Pages is not a dictionary."),
+        };
+        let pages_rhs = Dictionary::from([
+            (b"Type".to_vec(), Object::Name(b"Pages".to_vec())),
+            (
+                b"Kids".to_vec(),
+                Object::Array(vec![Object::IndirectReference(IndirectReference {
+                    object_number: 3,
+                    generation_number: 0,
+                })]),
+            ),
+            (b"Count".to_vec(), Object::Integer(1)),
+        ]);
+        assert_eq!(pages, &pages_rhs);
+        let kids = match pages.get(&b"Kids".to_vec()) {
+            Some(Object::Array(a)) => a,
+            _ => panic!("Pages' kids is not array."),
+        };
+        let kids = match kids[0] {
+            Object::IndirectReference(r) => r,
+            _ => panic!("Kids is not indirect reference."),
+        };
+        let kids = doc.get(&kids).unwrap();
+        let kids = match kids {
+            Object::Dictionary(d) => d,
+            _ => panic!("Kids is not dictionary."),
+        };
+        let kids_rhs = Dictionary::from([
+            (b"Type".to_vec(), Object::Name(b"Page".to_vec())),
+            (
+                b"MediaBox".to_vec(),
+                Object::Array(vec![
+                    Object::Integer(0),
+                    Object::Integer(0),
+                    Object::Integer(612),
+                    Object::Integer(792),
+                ]),
+            ),
+            (
+                b"Parent".to_vec(),
+                Object::IndirectReference(IndirectReference {
+                    object_number: 2,
+                    generation_number: 0,
+                }),
+            ),
+            (
+                b"Resources".to_vec(),
+                Object::IndirectReference(IndirectReference {
+                    object_number: 4,
+                    generation_number: 0,
+                }),
+            ),
+            (
+                b"Contents".to_vec(),
+                Object::IndirectReference(IndirectReference {
+                    object_number: 5,
+                    generation_number: 0,
+                }),
+            ),
+        ]);
+        assert_eq!(kids, &kids_rhs);
     }
 }
