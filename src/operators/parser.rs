@@ -1,7 +1,9 @@
-use crate::operators::operations::{CMYK, Color, LineCap, LineJoin, RGB, StringOrNumber, TextRendering};
-use crate::parser::parser::Object;
 use super::operations::Operation;
 use super::operators::Operator;
+use crate::operators::operations::{
+    Color, LineCap, LineJoin, StringOrNumber, TextRendering, CMYK, RGB,
+};
+use crate::parser::parser::Object;
 
 macro_rules! coerce_f64 {
     ($obj:expr) => {
@@ -73,18 +75,14 @@ impl<'a> OperatorParser<'a> {
 
     fn next(&mut self) -> Option<Operation<'a>> {
         macro_rules! op {
-            ($op:expr) => {
-                {
-                    self.advance();
-                    $op
-                }
-            };
-            ($op:expr, $i:expr) => {
-                {
-                    self.seek($i);
-                    $op
-                }
-            };
+            ($op:expr) => {{
+                self.advance();
+                $op
+            }};
+            ($op:expr, $i:expr) => {{
+                self.seek($i);
+                $op
+            }};
         }
 
         let operand = match self.pop()? {
@@ -94,7 +92,9 @@ impl<'a> OperatorParser<'a> {
             Object::Operator(Operator::FillPathEvenOdd) => Operation::FillPathEvenOdd,
             Object::Operator(Operator::CloseFillStrokePath) => Operation::CloseFillStrokePath,
             Object::Operator(Operator::FillStrokePath) => Operation::FillStrokePath,
-            Object::Operator(Operator::CloseFillStrokePathEvenOdd) => Operation::CloseFillStrokePathEvenOdd,
+            Object::Operator(Operator::CloseFillStrokePathEvenOdd) => {
+                Operation::CloseFillStrokePathEvenOdd
+            }
             Object::Operator(Operator::FillStrokePathEvenOdd) => Operation::FillStrokePathEvenOdd,
             Object::Operator(Operator::EndPathNoFill) => Operation::EndPathNoFill,
             Object::Operator(Operator::SetClippingPath) => Operation::SetClippingPath,
@@ -103,19 +103,31 @@ impl<'a> OperatorParser<'a> {
                 Object::Name(name) => op!(Operation::DefineMarkedContentPoint(name)),
                 _ => return None,
             },
-            Object::Operator(Operator::DefineMarkedContentPointPropertyList) => match (self.peek()?, self.nth(1)?) {
-                (Object::Dictionary(dict), Object::Name(name)) => op!(Operation::DefineMarkedContentPointPropertyList(name, dict), 2),
-                _ => return None,
-            },
+            Object::Operator(Operator::DefineMarkedContentPointPropertyList) => {
+                match (self.peek()?, self.nth(1)?) {
+                    (Object::Dictionary(dict), Object::Name(name)) => op!(
+                        Operation::DefineMarkedContentPointPropertyList(name, dict),
+                        2
+                    ),
+                    _ => return None,
+                }
+            }
             Object::Operator(Operator::BeginMarkedContentSequence) => match self.peek()? {
                 Object::Name(name) => op!(Operation::BeginMarkedContentSequence(name)),
                 _ => return None,
             },
-            Object::Operator(Operator::BeginMarkedContentSequencePropertyList) => match (self.peek()?, self.nth(1)?) {
-                (Object::Dictionary(dict), Object::Name(name)) => op!(Operation::BeginMarkedContentSequencePropertyList(name, dict), 2),
-                _ => return None,
-            },
-            Object::Operator(Operator::EndMarkedContentSequence) => Operation::EndMarkedContentSequence,
+            Object::Operator(Operator::BeginMarkedContentSequencePropertyList) => {
+                match (self.peek()?, self.nth(1)?) {
+                    (Object::Dictionary(dict), Object::Name(name)) => op!(
+                        Operation::BeginMarkedContentSequencePropertyList(name, dict),
+                        2
+                    ),
+                    _ => return None,
+                }
+            }
+            Object::Operator(Operator::EndMarkedContentSequence) => {
+                Operation::EndMarkedContentSequence
+            }
             Object::Operator(Operator::BeginInlineImageObject) => Operation::BeginInlineImageObject,
             Object::Operator(Operator::BeginInlineImageData) => Operation::BeginInlineImageData,
             Object::Operator(Operator::EndInlineImage) => Operation::EndInlineImage,
@@ -137,7 +149,7 @@ impl<'a> OperatorParser<'a> {
                         vec.push(element);
                     }
                     op!(Operation::ShowTextAdjusted(vec))
-                },
+                }
                 _ => return None,
             },
             Object::Operator(Operator::MoveNextLineShowText) => match self.peek()? {
@@ -152,17 +164,17 @@ impl<'a> OperatorParser<'a> {
                 let ac = coerce_f64!(ac);
                 let text = coerce_string!(text);
                 op!(Operation::SetSpacingMoveNextLineShowText(aw, ac, text), 3)
-            },
+            }
             Object::Operator(Operator::MoveTextPosition) => {
                 let ty = coerce_f64!(self.peek()?);
                 let tx = coerce_f64!(self.nth(1)?);
                 op!(Operation::MoveTextPosition(tx, ty), 2)
-            },
+            }
             Object::Operator(Operator::MoveTextPositionLeading) => {
                 let ty = coerce_f64!(self.peek()?);
                 let tx = coerce_f64!(self.nth(1)?);
                 op!(Operation::MoveTextPositionLeading(tx, ty), 2)
-            },
+            }
             Object::Operator(Operator::SetTextMatrix) => {
                 let f = coerce_f64!(self.peek()?);
                 let e = coerce_f64!(self.nth(1)?);
@@ -172,47 +184,47 @@ impl<'a> OperatorParser<'a> {
                 let a = coerce_f64!(self.nth(5)?);
                 let matrix = [a, b, c, d, e, f];
                 op!(Operation::SetTextMatrix(matrix), 6)
-            },
+            }
             Object::Operator(Operator::MoveStartNextLine) => Operation::MoveStartNextLine,
             Object::Operator(Operator::SetCharSpacing) => {
                 let char_space = coerce_f64!(self.peek()?);
                 op!(Operation::SetCharSpacing(char_space))
-            },
+            }
             Object::Operator(Operator::SelectFont) => {
                 let size = coerce_f64!(self.peek()?);
                 let text = coerce_name!(self.nth(1)?);
                 op!(Operation::SelectFont(text, size), 2)
-            },
+            }
             Object::Operator(Operator::SetTextLeading) => {
                 let leading = coerce_f64!(self.peek()?);
                 op!(Operation::SetTextLeading(leading))
-            },
+            }
             Object::Operator(Operator::SetTextRendering) => match self.peek()? {
                 Object::Integer(i) => {
                     let render = TextRendering::from_i64(*i)?;
                     op!(Operation::SetTextRendering(render))
-                },
+                }
                 _ => return None,
             },
             Object::Operator(Operator::SetTextRise) => {
                 let rise = coerce_f64!(self.peek()?);
                 op!(Operation::SetTextRise(rise))
-            },
+            }
             Object::Operator(Operator::SetWordSpacing) => {
                 let word_space = coerce_f64!(self.peek()?);
                 op!(Operation::SetWordSpacing(word_space))
-            },
+            }
             Object::Operator(Operator::SetHorizontalTextScaling) => {
                 let scale = coerce_f64!(self.peek()?);
                 op!(Operation::SetHorizontalTextScaling(scale))
-            },
+            }
             Object::Operator(Operator::EndText) => Operation::EndText,
             Object::Operator(Operator::BeginCompat) => Operation::BeginCompat,
             Object::Operator(Operator::SetCharWidth) => {
                 let wy = coerce_f64!(self.peek()?);
                 let wx = coerce_f64!(self.nth(1)?);
                 op!(Operation::SetCharWidth(wx, wy), 2)
-            },
+            }
             Object::Operator(Operator::SetCacheDevice) => {
                 let ur_y = coerce_f64!(self.peek()?);
                 let ur_x = coerce_f64!(self.nth(1)?);
@@ -220,8 +232,11 @@ impl<'a> OperatorParser<'a> {
                 let ll_x = coerce_f64!(self.nth(3)?);
                 let wy = coerce_f64!(self.nth(4)?);
                 let wx = coerce_f64!(self.nth(5)?);
-                op!(Operation::SetCacheDevice((wx, wy), (ll_x, ll_y), (ur_x, ur_y)), 6)
-            },
+                op!(
+                    Operation::SetCacheDevice((wx, wy), (ll_x, ll_y), (ur_x, ur_y)),
+                    6
+                )
+            }
             Object::Operator(Operator::InvokeXObject) => match self.peek()? {
                 Object::Name(name) => op!(Operation::InvokeXObject(name)),
                 _ => return None,
@@ -231,12 +246,12 @@ impl<'a> OperatorParser<'a> {
                 let y = coerce_f64!(self.peek()?);
                 let x = coerce_f64!(self.nth(1)?);
                 op!(Operation::MoveTo(x, y), 2)
-            },
+            }
             Object::Operator(Operator::LineTo) => {
                 let y = coerce_f64!(self.peek()?);
                 let x = coerce_f64!(self.nth(1)?);
                 op!(Operation::LineTo(x, y), 2)
-            },
+            }
             Object::Operator(Operator::AppendCurveThreePoints) => {
                 let y3 = coerce_f64!(self.peek()?);
                 let x3 = coerce_f64!(self.nth(1)?);
@@ -244,34 +259,43 @@ impl<'a> OperatorParser<'a> {
                 let x2 = coerce_f64!(self.nth(3)?);
                 let y1 = coerce_f64!(self.nth(4)?);
                 let x1 = coerce_f64!(self.nth(5)?);
-                op!(Operation::AppendCurveThreePoints((x1, y1), (x2, y2), (x3, y3)), 6)
-            },
+                op!(
+                    Operation::AppendCurveThreePoints((x1, y1), (x2, y2), (x3, y3)),
+                    6
+                )
+            }
             Object::Operator(Operator::AppendCurveInitialReplicated) => {
                 let y3 = coerce_f64!(self.peek()?);
                 let x3 = coerce_f64!(self.nth(1)?);
                 let y2 = coerce_f64!(self.nth(2)?);
                 let x2 = coerce_f64!(self.nth(3)?);
-                op!(Operation::AppendCurveInitialReplicated((x2, y2), (x3, y3)), 4)
-            },
+                op!(
+                    Operation::AppendCurveInitialReplicated((x2, y2), (x3, y3)),
+                    4
+                )
+            }
             Object::Operator(Operator::AppendCurveFinalReplicated) => {
                 let y3 = coerce_f64!(self.peek()?);
                 let x3 = coerce_f64!(self.nth(1)?);
                 let y1 = coerce_f64!(self.nth(2)?);
                 let x1 = coerce_f64!(self.nth(3)?);
-                op!(Operation::AppendCurveInitialReplicated((x1, y1), (x3, y3)), 4)
-            },
+                op!(
+                    Operation::AppendCurveInitialReplicated((x1, y1), (x3, y3)),
+                    4
+                )
+            }
             Object::Operator(Operator::AppendRectangle) => {
                 let height = coerce_f64!(self.peek()?);
                 let width = coerce_f64!(self.nth(1)?);
                 let y = coerce_f64!(self.nth(2)?);
                 let x = coerce_f64!(self.nth(3)?);
                 op!(Operation::AppendRectangle(x, y, width, height), 4)
-            },
+            }
             Object::Operator(Operator::CloseSubpath) => Operation::CloseSubpath,
             Object::Operator(Operator::SetMiterLimit) => {
                 let miter_limit = coerce_f64!(self.peek()?);
                 op!(Operation::SetMiterLimit(miter_limit))
-            },
+            }
             Object::Operator(Operator::ConcatMatrix) => {
                 let f = coerce_f64!(self.peek()?);
                 let e = coerce_f64!(self.nth(1)?);
@@ -281,23 +305,23 @@ impl<'a> OperatorParser<'a> {
                 let a = coerce_f64!(self.nth(5)?);
                 let matrix = [a, b, c, d, e, f];
                 op!(Operation::ConcatMatrix(matrix), 6)
-            },
+            }
             Object::Operator(Operator::SetLineWidth) => {
                 let width = coerce_f64!(self.peek()?);
                 op!(Operation::SetLineWidth(width))
-            },
+            }
             Object::Operator(Operator::SetLineJoin) => match self.peek()? {
                 Object::Integer(i) => {
                     let join = LineJoin::from_i64(*i)?;
                     op!(Operation::SetLineJoin(join))
-                },
+                }
                 _ => return None,
             },
             Object::Operator(Operator::SetLineCap) => match self.peek()? {
                 Object::Integer(i) => {
                     let cap = LineCap::from_i64(*i)?;
                     op!(Operation::SetLineCap(cap))
-                },
+                }
                 _ => return None,
             },
             Object::Operator(Operator::SetDash) => match (self.peek()?, self.nth(1)?) {
@@ -309,7 +333,7 @@ impl<'a> OperatorParser<'a> {
                         }
                     }
                     op!(Operation::SetDash(vec, *i), 2)
-                },
+                }
                 _ => return None,
             },
             Object::Operator(Operator::GSave) => Operation::GSave,
@@ -321,7 +345,7 @@ impl<'a> OperatorParser<'a> {
             Object::Operator(Operator::SetFlat) => {
                 let flatness = coerce_f32!(self.peek()?);
                 op!(Operation::SetFlat(flatness))
-            },
+            }
             Object::Operator(Operator::SetGraphicsStateParams) => match self.peek()? {
                 Object::Name(name) => op!(Operation::SetGraphicsStateParams(name)),
                 _ => return None,
@@ -335,10 +359,10 @@ impl<'a> OperatorParser<'a> {
                     cyan,
                     magenta,
                     yellow,
-                    black
+                    black,
                 };
                 op!(Operation::SetCMYKColorStroke(cmyk), 4)
-            },
+            }
             Object::Operator(Operator::SetCMYKColorNonstroke) => {
                 let black = coerce_f32!(self.peek()?);
                 let yellow = coerce_f32!(self.nth(1)?);
@@ -348,18 +372,18 @@ impl<'a> OperatorParser<'a> {
                     cyan,
                     magenta,
                     yellow,
-                    black
+                    black,
                 };
                 op!(Operation::SetCMYKColorNonstroke(cmyk), 4)
-            },
+            }
             Object::Operator(Operator::SetColorStroke) => {
                 let color = self.handle_color(0)?;
                 Operation::SetColorStroke(color)
-            },
+            }
             Object::Operator(Operator::SetColorNonstroke) => {
                 let color = self.handle_color(0)?;
                 Operation::SetColorNonstroke(color)
-            },
+            }
             Object::Operator(Operator::SetColorSpecialStroke) => {
                 let name = match self.peek()? {
                     Object::Name(n) => Some(n),
@@ -368,7 +392,7 @@ impl<'a> OperatorParser<'a> {
                 let start: usize = if name.is_some() { 1 } else { 0 };
                 let color = self.handle_color(start)?;
                 Operation::SetColorSpecialStroke(color, name)
-            },
+            }
             Object::Operator(Operator::SetColorSpecialNonstroke) => {
                 let first = self.peek()?;
                 let name = match first {
@@ -378,7 +402,7 @@ impl<'a> OperatorParser<'a> {
                 let start: usize = if name.is_some() { 1 } else { 0 };
                 let color = self.handle_color(start)?;
                 Operation::SetColorSpecialNonstroke(color, name)
-            },
+            }
             Object::Operator(Operator::SetColorSpaceStroke) => match self.peek()? {
                 Object::Name(name) => op!(Operation::SetColorSpaceStroke(name)),
                 _ => return None,
@@ -391,32 +415,24 @@ impl<'a> OperatorParser<'a> {
                 let blue = coerce_f32!(self.peek()?);
                 let green = coerce_f32!(self.nth(1)?);
                 let red = coerce_f32!(self.nth(2)?);
-                let rgb = RGB {
-                    red,
-                    green,
-                    blue,
-                };
+                let rgb = RGB { red, green, blue };
                 op!(Operation::SetRGBColorStroke(rgb), 3)
-            },
+            }
             Object::Operator(Operator::SetRGBColorNonstroke) => {
                 let blue = coerce_f32!(self.peek()?);
                 let green = coerce_f32!(self.nth(1)?);
                 let red = coerce_f32!(self.nth(2)?);
-                let rgb = RGB {
-                    red,
-                    green,
-                    blue,
-                };
+                let rgb = RGB { red, green, blue };
                 op!(Operation::SetRGBColorNonstroke(rgb), 3)
-            },
+            }
             Object::Operator(Operator::SetGrayStroke) => {
                 let gray = coerce_f32!(self.peek()?);
                 op!(Operation::SetGrayStroke(gray))
-            },
+            }
             Object::Operator(Operator::SetGrayNonstroke) => {
                 let gray = coerce_f32!(self.peek()?);
                 op!(Operation::SetGrayNonstroke(gray))
-            },
+            }
             Object::Operator(Operator::ShFill) => match self.peek()? {
                 Object::Name(name) => op!(Operation::ShFill(name)),
                 _ => return None,
@@ -428,7 +444,10 @@ impl<'a> OperatorParser<'a> {
 
     fn handle_color(&mut self, start: usize) -> Option<Color> {
         let first = coerce_f32!(self.nth(start)?);
-        if matches!(self.nth(start + 1), Some(Object::Integer(_)) | Some(Object::Real(_))) {
+        if matches!(
+            self.nth(start + 1),
+            Some(Object::Integer(_)) | Some(Object::Real(_))
+        ) {
             let second = coerce_f32!(self.nth(start + 1)?);
             let third = match self.nth(start + 2) {
                 Some(Object::Real(r)) => *r as f32,
@@ -436,7 +455,7 @@ impl<'a> OperatorParser<'a> {
                 _ => {
                     self.seek(start + 2);
                     return Some(Color::Gray(first));
-                },
+                }
             };
             let fourth = match self.nth(start + 3) {
                 Some(Object::Real(r)) => *r as f32,
@@ -449,7 +468,7 @@ impl<'a> OperatorParser<'a> {
                         blue: first,
                     };
                     return Some(Color::RGB(rgb));
-                },
+                }
             };
             let cmyk = CMYK {
                 cyan: fourth,
@@ -509,8 +528,8 @@ impl<'a> OperatorParser<'a> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeMap;
     use super::*;
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_empty() {
@@ -530,9 +549,7 @@ mod test {
 
     #[test]
     fn test_too_few_args() {
-        let objects = vec![
-            Object::Operator(Operator::SetGrayStroke)
-        ];
+        let objects = vec![Object::Operator(Operator::SetGrayStroke)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![];
         assert_eq!(parser.parse(), operations);
@@ -542,7 +559,7 @@ mod test {
     fn test_one_arg_int() {
         let objects = vec![
             Object::Integer(0),
-            Object::Operator(Operator::SetGrayStroke)
+            Object::Operator(Operator::SetGrayStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetGrayStroke(0.0)];
@@ -553,7 +570,7 @@ mod test {
     fn test_one_arg_real() {
         let objects = vec![
             Object::Real(0.5),
-            Object::Operator(Operator::SetGrayNonstroke)
+            Object::Operator(Operator::SetGrayNonstroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetGrayNonstroke(0.5)];
@@ -564,7 +581,7 @@ mod test {
     fn test_one_arg_name() {
         let objects = vec![
             Object::Name(b"test".to_vec()),
-            Object::Operator(Operator::DefineMarkedContentPoint)
+            Object::Operator(Operator::DefineMarkedContentPoint),
         ];
         let mut parser = OperatorParser::new(&objects);
         let name = b"test".to_vec();
@@ -579,15 +596,18 @@ mod test {
         let objects = vec![
             Object::Name(b"test".to_vec()),
             Object::Dictionary(properties),
-            Object::Operator(Operator::DefineMarkedContentPointPropertyList)
+            Object::Operator(Operator::DefineMarkedContentPointPropertyList),
         ];
         let mut parser = OperatorParser::new(&objects);
         let key = b"Length".to_vec();
         let result = parser.parse();
-        assert!(matches!(result[0], Operation::DefineMarkedContentPointPropertyList(..)));
+        assert!(matches!(
+            result[0],
+            Operation::DefineMarkedContentPointPropertyList(..)
+        ));
         let length = match result[0] {
             Operation::DefineMarkedContentPointPropertyList(_, dict) => dict.get(&key),
-            _ => None
+            _ => None,
         };
         assert!(matches!(length, Some(&Object::Integer(6))));
         let name = match result[0] {
@@ -604,7 +624,7 @@ mod test {
             Object::Real(1.0),
             Object::Real(1.0),
             Object::Real(1.0),
-            Object::Operator(Operator::SetRGBColorStroke)
+            Object::Operator(Operator::SetRGBColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetRGBColorStroke(RGB {
@@ -621,7 +641,7 @@ mod test {
             Object::Null,
             Object::Real(1.0),
             Object::Real(1.0),
-            Object::Operator(Operator::SetRGBColorStroke)
+            Object::Operator(Operator::SetRGBColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![];
@@ -635,7 +655,7 @@ mod test {
             Object::Integer(0),
             Object::Real(1.0),
             Object::Real(0.0),
-            Object::Operator(Operator::SetColorStroke)
+            Object::Operator(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = CMYK {
@@ -654,7 +674,7 @@ mod test {
             Object::Real(0.3),
             Object::Integer(0),
             Object::Real(0.7),
-            Object::Operator(Operator::SetColorStroke)
+            Object::Operator(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = RGB {
@@ -670,7 +690,7 @@ mod test {
     fn test_color_gray() {
         let objects = vec![
             Object::Real(0.7),
-            Object::Operator(Operator::SetColorStroke)
+            Object::Operator(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetColorStroke(Color::Gray(0.7))];
@@ -685,7 +705,7 @@ mod test {
             Object::Real(1.0),
             Object::Real(0.0),
             Object::Name(b"COLOR".to_vec()),
-            Object::Operator(Operator::SetColorSpecialStroke)
+            Object::Operator(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = CMYK {
@@ -695,7 +715,10 @@ mod test {
             black: 0.0,
         };
         let name = b"COLOR".to_vec();
-        let operations = vec![Operation::SetColorSpecialStroke(Color::CMYK(color), Some(&name))];
+        let operations = vec![Operation::SetColorSpecialStroke(
+            Color::CMYK(color),
+            Some(&name),
+        )];
         assert_eq!(parser.parse(), operations);
     }
 
@@ -706,7 +729,7 @@ mod test {
             Object::Integer(0),
             Object::Real(0.7),
             Object::Name(b"COLOR".to_vec()),
-            Object::Operator(Operator::SetColorSpecialStroke)
+            Object::Operator(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = RGB {
@@ -715,7 +738,10 @@ mod test {
             blue: 0.7,
         };
         let name = b"COLOR".to_vec();
-        let operations = vec![Operation::SetColorSpecialStroke(Color::RGB(color), Some(&name))];
+        let operations = vec![Operation::SetColorSpecialStroke(
+            Color::RGB(color),
+            Some(&name),
+        )];
         assert_eq!(parser.parse(), operations);
     }
 
@@ -724,11 +750,14 @@ mod test {
         let objects = vec![
             Object::Real(0.7),
             Object::Name(b"COLOR".to_vec()),
-            Object::Operator(Operator::SetColorSpecialStroke)
+            Object::Operator(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let name = b"COLOR".to_vec();
-        let operations = vec![Operation::SetColorSpecialStroke(Color::Gray(0.7), Some(&name))];
+        let operations = vec![Operation::SetColorSpecialStroke(
+            Color::Gray(0.7),
+            Some(&name),
+        )];
         assert_eq!(parser.parse(), operations);
     }
 
@@ -739,7 +768,7 @@ mod test {
             Object::Integer(0),
             Object::Real(1.0),
             Object::Real(0.0),
-            Object::Operator(Operator::SetColorSpecialStroke)
+            Object::Operator(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = CMYK {
@@ -758,7 +787,7 @@ mod test {
             Object::Real(0.3),
             Object::Integer(0),
             Object::Real(0.7),
-            Object::Operator(Operator::SetColorSpecialStroke)
+            Object::Operator(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = RGB {
@@ -774,7 +803,7 @@ mod test {
     fn test_color_pattern_gray() {
         let objects = vec![
             Object::Real(0.7),
-            Object::Operator(Operator::SetColorSpecialStroke)
+            Object::Operator(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetColorSpecialStroke(Color::Gray(0.7), None)];
@@ -796,7 +825,7 @@ mod test {
         ];
         let objects = vec![
             Object::Array(array),
-            Object::Operator(Operator::ShowTextAdjusted)
+            Object::Operator(Operator::ShowTextAdjusted),
         ];
         let mut parser = OperatorParser::new(&objects);
         let text = vec![
@@ -817,7 +846,7 @@ mod test {
         let objects = vec![
             Object::Name(name.clone()),
             Object::Real(6.9738),
-            Object::Operator(Operator::SelectFont)
+            Object::Operator(Operator::SelectFont),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SelectFont(&name, 6.9738)];

@@ -113,83 +113,83 @@ pub enum StringOrNumber<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Operation<'a> {
     // Path operators
-    CloseStrokePath, // s
-    StrokePath, // S
-    FillPath, // f, F (obsolete)
-    FillPathEvenOdd, // f*
-    CloseFillStrokePath, // b
-    FillStrokePath, // B
+    CloseStrokePath,            // s
+    StrokePath,                 // S
+    FillPath,                   // f, F (obsolete)
+    FillPathEvenOdd,            // f*
+    CloseFillStrokePath,        // b
+    FillStrokePath,             // B
     CloseFillStrokePathEvenOdd, // b*
-    FillStrokePathEvenOdd, // B*
-    EndPathNoFill, // n
-    SetClippingPath, // W
-    SetClippingPathEvenOdd, // W*
+    FillStrokePathEvenOdd,      // B*
+    EndPathNoFill,              // n
+    SetClippingPath,            // W
+    SetClippingPathEvenOdd,     // W*
     // Marked content operators
     DefineMarkedContentPoint(&'a Name), // MP
     DefineMarkedContentPointPropertyList(&'a Name, &'a Dictionary), // DP
     BeginMarkedContentSequence(&'a Name), // BMC
     BeginMarkedContentSequencePropertyList(&'a Name, &'a Dictionary), // BDC
-    EndMarkedContentSequence, // EMC
+    EndMarkedContentSequence,           // EMC
     // Image operators
     BeginInlineImageObject, // BI
-    BeginInlineImageData, // ID
-    EndInlineImage, // EI
+    BeginInlineImageData,   // ID
+    EndInlineImage,         // EI
     // Text operators
-    BeginText, // BT
-    ShowText(&'a Vec<u8>), // Tj
+    BeginText,                                 // BT
+    ShowText(&'a Vec<u8>),                     // Tj
     ShowTextAdjusted(Vec<StringOrNumber<'a>>), // TJ
-    MoveNextLineShowText(&'a Vec<u8>), // '
+    MoveNextLineShowText(&'a Vec<u8>),         // '
     SetSpacingMoveNextLineShowText(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit, &'a Vec<u8>), // "
     MoveTextPosition(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit), // Td
     MoveTextPositionLeading(UnscaledTextSpaceUnit, UnscaledTextSpaceUnit), // TD
-    SetTextMatrix([f64; 6]), // Tm
-    MoveStartNextLine, // T*
-    SetCharSpacing(UnscaledTextSpaceUnit), // Tc
-    SelectFont(&'a Name, f64), // Tf
-    SetTextLeading(UnscaledTextSpaceUnit), // TL
-    SetTextRendering(TextRendering), // Tr
-    SetTextRise(UnscaledTextSpaceUnit), // Ts
-    SetWordSpacing(UnscaledTextSpaceUnit), // Tw
-    SetHorizontalTextScaling(f64), // Tz
-    EndText, // ET
-    BeginCompat, // BX
+    SetTextMatrix([f64; 6]),                   // Tm
+    MoveStartNextLine,                         // T*
+    SetCharSpacing(UnscaledTextSpaceUnit),     // Tc
+    SelectFont(&'a Name, f64),                 // Tf
+    SetTextLeading(UnscaledTextSpaceUnit),     // TL
+    SetTextRendering(TextRendering),           // Tr
+    SetTextRise(UnscaledTextSpaceUnit),        // Ts
+    SetWordSpacing(UnscaledTextSpaceUnit),     // Tw
+    SetHorizontalTextScaling(f64),             // Tz
+    EndText,                                   // ET
+    BeginCompat,                               // BX
     // Type 3 font operators
-    SetCharWidth(f64, f64), // d0
+    SetCharWidth(f64, f64),                             // d0
     SetCacheDevice((f64, f64), (f64, f64), (f64, f64)), // d1
-    InvokeXObject(&'a Name), // Do
-    EndCompat, // EX
+    InvokeXObject(&'a Name),                            // Do
+    EndCompat,                                          // EX
     // Path construction operators
-    MoveTo(f64, f64), // m
-    LineTo(f64, f64), // l
+    MoveTo(f64, f64),                                           // m
+    LineTo(f64, f64),                                           // l
     AppendCurveThreePoints((f64, f64), (f64, f64), (f64, f64)), // c
-    AppendCurveInitialReplicated((f64, f64), (f64, f64)), // v
-    AppendCurveFinalReplicated((f64, f64), (f64, f64)), // y
-    AppendRectangle(f64, f64, f64, f64), // re
-    CloseSubpath, // h
-    SetMiterLimit(f64), // M
-    ConcatMatrix([f64; 6]), // cm
-    SetLineWidth(f64), // w
-    SetLineJoin(LineJoin), // j
-    SetLineCap(LineCap), // J
-    SetDash(Vec<i64>, i64), // d
-    GSave, // q
-    GRestore, // Q
-    SetColorRenderingIntent(&'a Name), // ri
-    SetFlat(Percent), // i
-    SetGraphicsStateParams(&'a Name), // gs
+    AppendCurveInitialReplicated((f64, f64), (f64, f64)),       // v
+    AppendCurveFinalReplicated((f64, f64), (f64, f64)),         // y
+    AppendRectangle(f64, f64, f64, f64),                        // re
+    CloseSubpath,                                               // h
+    SetMiterLimit(f64),                                         // M
+    ConcatMatrix([f64; 6]),                                     // cm
+    SetLineWidth(f64),                                          // w
+    SetLineJoin(LineJoin),                                      // j
+    SetLineCap(LineCap),                                        // J
+    SetDash(Vec<i64>, i64),                                     // d
+    GSave,                                                      // q
+    GRestore,                                                   // Q
+    SetColorRenderingIntent(&'a Name),                          // ri
+    SetFlat(Percent),                                           // i
+    SetGraphicsStateParams(&'a Name),                           // gs
     // Color operators
-    SetCMYKColorStroke(CMYK), // K
-    SetCMYKColorNonstroke(CMYK), // k
-    SetColorStroke(Color), // SC
-    SetColorNonstroke(Color), // sc
-    SetColorSpecialStroke(Color, Option<&'a Name>), // SCN
+    SetCMYKColorStroke(CMYK),                          // K
+    SetCMYKColorNonstroke(CMYK),                       // k
+    SetColorStroke(Color),                             // SC
+    SetColorNonstroke(Color),                          // sc
+    SetColorSpecialStroke(Color, Option<&'a Name>),    // SCN
     SetColorSpecialNonstroke(Color, Option<&'a Name>), // scn
-    SetColorSpaceStroke(&'a Name), // CS
-    SetColorSpaceNonstroke(&'a Name), // cs
-    SetRGBColorStroke(RGB), // RG
-    SetRGBColorNonstroke(RGB), // rg
-    SetGrayStroke(UnitInterval), // G
-    SetGrayNonstroke(UnitInterval), // g
+    SetColorSpaceStroke(&'a Name),                     // CS
+    SetColorSpaceNonstroke(&'a Name),                  // cs
+    SetRGBColorStroke(RGB),                            // RG
+    SetRGBColorNonstroke(RGB),                         // rg
+    SetGrayStroke(UnitInterval),                       // G
+    SetGrayNonstroke(UnitInterval),                    // g
     // Shading operators
     ShFill(&'a Name), // sh
 }

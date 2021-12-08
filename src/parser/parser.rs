@@ -1,7 +1,11 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
 use super::lexer::Token;
-use crate::{filter::{Filter, decode}, operators::operators::Operator, util::{hex_string_to_string, literal_string_to_string, name_to_name}};
+use crate::{
+    filter::{decode, Filter},
+    operators::operators::Operator,
+    util::{hex_string_to_string, literal_string_to_string, name_to_name},
+};
 
 const FILTER: &[u8] = b"Filter";
 const SIZE: &[u8] = b"Size";
@@ -83,10 +87,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token<'a>]) -> Self {
-        Self {
-            tokens,
-            pos: 0,
-        }
+        Self { tokens, pos: 0 }
     }
 
     pub fn parse(&mut self) -> Vec<Object> {
@@ -111,7 +112,7 @@ impl<'a> Parser<'a> {
             Token::Integer(i) => {
                 let i = *i;
                 self.integer(i)?
-            },
+            }
             Token::LiteralString(lit) => Object::String(literal_string_to_string(*lit)?),
             Token::HexString(hex) => Object::String(hex_string_to_string(*hex)?),
             Token::Name(name) => Object::Name(name_to_name(*name)?),
@@ -128,7 +129,12 @@ impl<'a> Parser<'a> {
     }
 
     fn xref_subsection(&mut self, xref_subsection: &mut XrefSubsection) {
-        while let (Some(Token::Integer(offset)), Some(Token::Integer(generation_number)), Some(in_use)) = (self.peek(), self.nth(1), self.nth(2)) {
+        while let (
+            Some(Token::Integer(offset)),
+            Some(Token::Integer(generation_number)),
+            Some(in_use),
+        ) = (self.peek(), self.nth(1), self.nth(2))
+        {
             let in_use = match in_use {
                 Token::F => false,
                 Token::N => true,
@@ -150,7 +156,9 @@ impl<'a> Parser<'a> {
         let mut xref_section = XrefSection {
             subsections: vec![],
         };
-        while let (Some(Token::Integer(first)), Some(Token::Integer(entries))) = (self.peek(), self.nth(1)) {
+        while let (Some(Token::Integer(first)), Some(Token::Integer(entries))) =
+            (self.peek(), self.nth(1))
+        {
             let start_number = *first as u32;
             let subsection_length = *entries as u32;
             self.seek(2);
@@ -204,7 +212,7 @@ impl<'a> Parser<'a> {
                     if depth == 0 {
                         break;
                     }
-                },
+                }
                 _ => continue,
             }
         }
@@ -224,7 +232,7 @@ impl<'a> Parser<'a> {
                 } else {
                     return None;
                 }
-            },
+            }
             Some(Object::Array(names)) => {
                 for name in names {
                     if let Object::Name(name) = name {
@@ -237,7 +245,7 @@ impl<'a> Parser<'a> {
                         return None;
                     }
                 }
-            },
+            }
             _ => (),
         };
         // Iterate through filters
@@ -261,10 +269,7 @@ impl<'a> Parser<'a> {
                     };
                     if let Some(vec) = self.stream_content(&dict, content) {
                         self.advance();
-                        let stream = Stream {
-                            dict,
-                            content: vec,
-                        };
+                        let stream = Stream { dict, content: vec };
                         return Some(Object::Stream(stream));
                     }
                 }
@@ -292,22 +297,20 @@ impl<'a> Parser<'a> {
                     object_number: number as u32,
                     generation_number,
                 }))
-            },
+            }
             (Some(Token::Integer(i)), Some(Token::Obj)) => {
                 let generation_number = *i as u32;
                 self.seek(2);
                 let object = self.next()?;
                 match self.pop()? {
-                    Token::Endobj => {
-                        Some(Object::IndirectObject(IndirectObject {
-                            object_number: number as u32,
-                            generation_number,
-                            object: Box::new(object),
-                        }))
-                    },
+                    Token::Endobj => Some(Object::IndirectObject(IndirectObject {
+                        object_number: number as u32,
+                        generation_number,
+                        object: Box::new(object),
+                    })),
                     _ => None,
                 }
-            },
+            }
             (Some(Token::Integer(i)), Some(Token::F)) => {
                 let generation_number = *i as u32;
                 self.seek(2);
@@ -316,7 +319,7 @@ impl<'a> Parser<'a> {
                     generation_number,
                     in_use: false,
                 }))
-            },
+            }
             (Some(Token::Integer(i)), Some(Token::N)) => {
                 let generation_number = *i as u32;
                 self.seek(2);
@@ -325,7 +328,7 @@ impl<'a> Parser<'a> {
                     generation_number,
                     in_use: true,
                 }))
-            },
+            }
             _ => Some(Object::Integer(number)),
         }
     }
@@ -362,10 +365,10 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::path::PathBuf;
     use super::*;
     use crate::parser::lexer::Lexer;
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn test_integer() {
@@ -389,7 +392,10 @@ mod tests {
             object_number: 17,
             generation_number: 0,
         };
-        let objects: Vec<Object> = vec![Object::IndirectReference(indirect_ref), Object::Boolean(false)];
+        let objects: Vec<Object> = vec![
+            Object::IndirectReference(indirect_ref),
+            Object::Boolean(false),
+        ];
         assert_eq!(parser.parse(), objects);
     }
 
@@ -454,7 +460,11 @@ mod tests {
             generation_number: 65535,
             in_use: false,
         };
-        let expected: Vec<Object> = vec![Object::Integer(0), Object::Integer(8), Object::CrossReference(cross_ref)];
+        let expected: Vec<Object> = vec![
+            Object::Integer(0),
+            Object::Integer(8),
+            Object::CrossReference(cross_ref),
+        ];
         let objects = parser.parse();
         assert_eq!(objects, expected);
     }

@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-mod error;
-mod util;
-mod operators;
-mod filter;
-mod parser;
 mod document;
+mod error;
+mod filter;
+mod operators;
+mod parser;
+mod util;

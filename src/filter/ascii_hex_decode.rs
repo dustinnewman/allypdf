@@ -1,4 +1,4 @@
-use crate::util::{RTHAN, byte_to_numeric, is_whitespace};
+use crate::util::{byte_to_numeric, is_whitespace, RTHAN};
 
 pub fn ascii_hex_decode(content: &[u8]) -> Option<Vec<u8>> {
     let mut buf = Vec::with_capacity(content.len() * 2);
@@ -16,15 +16,15 @@ pub fn ascii_hex_decode(content: &[u8]) -> Option<Vec<u8>> {
             Some(&b) if b == RTHAN => {
                 buf.push(first);
                 break;
-            },
+            }
             Some(&b) => {
                 let second = byte_to_numeric(b, 16)?;
                 buf.push(first + second);
-            },
+            }
             None => {
                 buf.push(first);
                 break;
-            },
+            }
         };
     }
     Some(buf)

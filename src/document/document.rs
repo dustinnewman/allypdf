@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use crate::{error::{PdfError, Result}, parser::parser::{Dictionary, IndirectReference, Name, Object, Stream, Trailer, XrefSection}};
+use crate::{
+    error::{PdfError, Result},
+    parser::parser::{Dictionary, IndirectReference, Name, Object, Stream, Trailer, XrefSection},
+};
 
 const TYPE: &[u8] = b"Type";
 const PAGE_ROOT: &[u8] = b"Pages";
@@ -57,7 +60,7 @@ pub struct Catalog<'a> {
     pages: PagesRoot<'a>,
 }
 
-pub type Version = (u8,u8);
+pub type Version = (u8, u8);
 pub type ObjectMap = BTreeMap<IndirectReference, Object>;
 
 pub struct PDFDocument {
@@ -94,7 +97,7 @@ impl TryFrom<Vec<Object>> for PDFDocument {
                         generation_number: ind.generation_number,
                     };
                     object_map.insert(key, *ind.object);
-                },
+                }
                 Object::Xref(x) => xref_section = Ok(x),
                 _ => continue,
             }
@@ -111,9 +114,9 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 
 #[cfg(test)]
 mod test {
-    use std::{fs, path::PathBuf};
-    use crate::parser::{parser::Parser, lexer::Lexer};
     use super::*;
+    use crate::parser::{lexer::Lexer, parser::Parser};
+    use std::{fs, path::PathBuf};
 
     #[test]
     fn test_hello() {
@@ -129,6 +132,19 @@ mod test {
             Object::Dictionary(d) => d,
             _ => panic!("Catalog is not a dictionary"),
         };
-        assert!(matches!(catalog.get(&b"Type".to_vec()).unwrap(), Object::Name(x) if *x == b"Catalog".to_vec()));
+        assert!(
+            matches!(catalog.get(&b"Type".to_vec()).unwrap(), Object::Name(x) if *x == b"Catalog".to_vec())
+        );
+        let pages = match catalog.get(&b"Pages".to_vec()) {
+            Some(Object::IndirectReference(
+                r
+                @
+                IndirectReference {
+                    object_number,
+                    generation_number,
+                },
+            )) if *object_number == 2 && *generation_number == 0 => r,
+            _ => panic!("Catalog's pages is not indirect reference."),
+        };
     }
 }

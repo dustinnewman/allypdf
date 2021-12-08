@@ -1,11 +1,11 @@
-use std::convert::TryFrom;
 use crate::error::PdfError;
 use crate::parser::parser::{Dictionary, Name};
+use std::convert::TryFrom;
 
-mod ascii_hex_decode;
 mod ascii_85_decode;
-mod lzw_decode;
+mod ascii_hex_decode;
 mod flate_decode;
+mod lzw_decode;
 mod run_length_decode;
 // TODO: For LZW and Flate, you need a separate PNG parser after the data has
 // been decoded. Luckily, I don't believe you need to pass any of those params
@@ -14,10 +14,10 @@ mod run_length_decode;
 // TOOD: Look how Chrome handles the "predictor" component. I didn't see it
 // anywhere in their code, but all the other PDF parsing libraries use it.
 mod ccitt_fax_decode;
-mod jbig2_decode;
-mod dct_decode;
-mod jpx_decode;
 mod crypt_decode;
+mod dct_decode;
+mod jbig2_decode;
+mod jpx_decode;
 
 pub const ASCII_HEX_DECODE: &[u8] = b"AsciiHexDecode";
 pub const ASCII_85_DECODE: &[u8] = b"Ascii85Decode";
@@ -60,9 +60,11 @@ impl TryFrom<&Name> for Filter {
             DCT_DECODE => Filter::DCTDecode,
             JPX_DECODE => Filter::JPXDecode,
             CRYPT_DECODE => Filter::Crypt,
-            _ => return Err(PdfError::Other {
-                msg: "Name to filter conversion failed.".to_string()
-            }),
+            _ => {
+                return Err(PdfError::Other {
+                    msg: "Name to filter conversion failed.".to_string(),
+                })
+            }
         };
         Ok(filter)
     }
@@ -87,7 +89,7 @@ pub fn decode(content: &[u8], filter: Filter, _params: &Dictionary) -> Option<Ve
                 data.push(combo);
             }
             lzw_decode::lwz_decode(&data)
-        },
+        }
         Filter::FlateDecode => flate_decode::flate_decode(content),
         Filter::RunLengthDecode => run_length_decode::run_length_decode(content),
         Filter::CCITTFaxDecode => ccitt_fax_decode::ccitt_fax_decode(content),

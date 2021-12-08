@@ -29,12 +29,7 @@ pub type Byte = u8;
 
 pub fn is_whitespace(byte: Byte) -> bool {
     match byte {
-        SPACE |
-        CARRIAGE_RETURN |
-        LINE_FEED |
-        TAB |
-        NULL_BYTE |
-        FORM_FEED => true,
+        SPACE | CARRIAGE_RETURN | LINE_FEED | TAB | NULL_BYTE | FORM_FEED => true,
         _ => false,
     }
 }
@@ -45,16 +40,8 @@ pub fn isnt_whitespace(byte: Byte) -> bool {
 
 pub fn is_delimiter(byte: Byte) -> bool {
     match byte {
-        LPAREN |
-        RPAREN |
-        LTHAN |
-        RTHAN |
-        LBRACKET |
-        RBRACKET |
-        LBRACE |
-        RBRACE |
-        FSLASH |
-        PERCENT => true,
+        LPAREN | RPAREN | LTHAN | RTHAN | LBRACKET | RBRACKET | LBRACE | RBRACE | FSLASH
+        | PERCENT => true,
         _ => false,
     }
 }
@@ -78,14 +65,14 @@ pub fn is_whitespace_or_comment(byte: Byte) -> bool {
 pub fn is_octal(byte: Byte) -> bool {
     match byte {
         b'0'..=b'7' => true,
-        _ => false
+        _ => false,
     }
 }
 
 pub fn is_decimal(byte: Byte) -> bool {
     match byte {
         b'0'..=b'9' => true,
-        _ => false
+        _ => false,
     }
 }
 
@@ -108,7 +95,7 @@ pub fn byte_to_numeric(byte: Byte, radix: u8) -> Option<u8> {
             b'0'..=b'9' => Some(byte - b'0'),
             b'a'..=b'f' => Some(10 + (byte - b'a')),
             b'A'..=b'F' => Some(10 + (byte - b'A')),
-            _ => None
+            _ => None,
         }
     } else if radix == 8 {
         if is_octal(byte) {
@@ -164,7 +151,7 @@ pub fn literal_string_to_string(literal: &[u8]) -> Option<Vec<u8>> {
                     let code = slice_to_numeric(slice, 8)?;
                     vec.push(code);
                     original_pos += octal_len - 1;
-                },
+                }
                 _ => (),
             };
             original_pos += 2;

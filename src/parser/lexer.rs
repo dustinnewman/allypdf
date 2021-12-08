@@ -1,6 +1,10 @@
-use crate::error::{Result, PdfError};
-use crate::util::{Byte, DQUOTE, FSLASH, LBRACE, LBRACKET, LINE_FEED, LPAREN, LTHAN, PERCENT, PERIOD, RBRACE, RBRACKET, RPAREN, RTHAN, SQUOTE, byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace};
+use crate::error::{PdfError, Result};
 use crate::operators::operators::Operator;
+use crate::util::{
+    byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace, Byte,
+    DQUOTE, FSLASH, LBRACE, LBRACKET, LINE_FEED, LPAREN, LTHAN, PERCENT, PERIOD, RBRACE, RBRACKET,
+    RPAREN, RTHAN, SQUOTE,
+};
 
 enum Character {
     Regular(Byte),
@@ -73,12 +77,10 @@ impl<'a> Lexer<'a> {
         // Yes defining a macro inside a function is very ugly but this way we
         // can use `self` without problems
         macro_rules! op {
-            ($op:expr) => {
-                {
-                    self.advance();
-                    Token::Operator($op)
-                }
-            };
+            ($op:expr) => {{
+                self.advance();
+                Token::Operator($op)
+            }};
         }
 
         let curr = self.peek()?;
@@ -91,14 +93,14 @@ impl<'a> Lexer<'a> {
                 Some(LTHAN) => {
                     self.advance();
                     Token::DoubleLThan
-                },
+                }
                 _ => self.hex_string()?,
             },
             RTHAN => match self.peek() {
                 Some(RTHAN) => {
                     self.advance();
                     Token::DoubleRThan
-                },
+                }
                 _ => return None,
             },
             b'b' => match self.peek() {
@@ -116,14 +118,14 @@ impl<'a> Lexer<'a> {
                         b'C' => Token::Operator(Operator::BeginMarkedContentSequence),
                         _ => return None,
                     }
-                },
+                }
                 Some(b'D') => {
                     self.advance();
                     match self.pop()? {
                         b'C' => Token::Operator(Operator::BeginMarkedContentSequencePropertyList),
                         _ => return None,
                     }
-                },
+                }
                 _ => Token::Operator(Operator::FillStrokePath),
             },
             b'c' => match self.peek() {
@@ -138,7 +140,7 @@ impl<'a> Lexer<'a> {
             b'd' => match self.peek() {
                 Some(b'0') => op!(Operator::SetCharWidth),
                 Some(b'1') => op!(Operator::SetCacheDevice),
-                _ => Token::Operator(Operator::SetDash)
+                _ => Token::Operator(Operator::SetDash),
             },
             b'D' => match self.peek()? {
                 b'o' => op!(Operator::InvokeXObject),
@@ -156,7 +158,7 @@ impl<'a> Lexer<'a> {
                         b'C' => Token::Operator(Operator::EndMarkedContentSequence),
                         _ => return None,
                     }
-                },
+                }
                 _ => return None,
             },
             b'f' => match self.peek() {
@@ -219,7 +221,7 @@ impl<'a> Lexer<'a> {
                         Some(b'n') => op!(Operator::SetColorSpecialNonstroke),
                         _ => Token::Operator(Operator::SetColorNonstroke),
                     }
-                },
+                }
                 Some(b't') => {
                     self.advance();
                     match self.pop()? {
@@ -227,7 +229,7 @@ impl<'a> Lexer<'a> {
                         b'a' => self.startxref()?,
                         _ => return None,
                     }
-                },
+                }
                 Some(b'h') => op!(Operator::ShFill),
                 _ => Token::Operator(Operator::CloseStrokePath),
             },
@@ -238,7 +240,7 @@ impl<'a> Lexer<'a> {
                         Some(b'N') => op!(Operator::SetColorSpecialStroke),
                         _ => Token::Operator(Operator::SetColorStroke),
                     }
-                },
+                }
                 _ => Token::Operator(Operator::StrokePath),
             },
             b't' => match (self.pop(), self.pop(), self.pop()) {
@@ -297,7 +299,7 @@ impl<'a> Lexer<'a> {
                 Some(PERIOD) => {
                     self.advance();
                     is_real = true
-                },
+                }
                 _ => break,
             }
         }
@@ -317,7 +319,7 @@ impl<'a> Lexer<'a> {
             Some(x) if x == string => {
                 self.seek(string.len());
                 Token::Trailer
-            },
+            }
             _ => return None,
         };
         Some(token)
@@ -329,7 +331,7 @@ impl<'a> Lexer<'a> {
             Some(x) if x == string => {
                 self.seek(string.len());
                 Token::StartXref
-            },
+            }
             _ => return None,
         };
         Some(token)
@@ -341,7 +343,7 @@ impl<'a> Lexer<'a> {
             Some(x) if x == string => {
                 self.seek(string.len());
                 Token::Endobj
-            },
+            }
             _ => return None,
         };
         Some(token)
@@ -364,17 +366,17 @@ impl<'a> Lexer<'a> {
                             let end = self.pos;
                             self.seek(endstream_string.len());
                             return Some(Token::Stream(&self.buf[start..end]));
-                        },
+                        }
                         Some(_) => {
                             self.advance();
-                        },
+                        }
                         None => {
                             return None;
-                        },
+                        }
                     }
                 }
-            },
-            _ => None
+            }
+            _ => None,
         }
     }
 
@@ -395,7 +397,7 @@ impl<'a> Lexer<'a> {
                 depth -= 1;
                 // End of string
                 if depth == 0 {
-                    return Some(Token::LiteralString(&self.buf[start..self.pos-1]));
+                    return Some(Token::LiteralString(&self.buf[start..self.pos - 1]));
                 }
             }
         }
@@ -408,14 +410,14 @@ impl<'a> Lexer<'a> {
             match self.peek() {
                 Some(c) if is_whitespace(c) => {
                     break;
-                },
+                }
                 Some(FSLASH) => {
                     break;
-                },
+                }
                 Some(c) if is_regular(c) => {
                     self.advance();
                     continue;
-                },
+                }
                 _ => break,
             };
         }
@@ -428,28 +430,37 @@ impl<'a> Lexer<'a> {
             Some(x) if x == string => {
                 self.seek_end();
                 Token::Eof
-            },
+            }
             _ => {
                 self.next_line();
-                return None
-            },
+                return None;
+            }
         };
         Some(token)
     }
-    
+
     fn header_version(&mut self) -> Option<Token<'a>> {
-        let token = match (self.nth(1), self.nth(2), self.nth(3), self.nth(4), self.nth(5), self.nth(6)) {
-            (Some(b'D'), Some(b'F'), Some(b'-'), Some(m), Some(b'.'), Some(n)) if is_decimal(m) && is_decimal(n) => {
+        let token = match (
+            self.nth(1),
+            self.nth(2),
+            self.nth(3),
+            self.nth(4),
+            self.nth(5),
+            self.nth(6),
+        ) {
+            (Some(b'D'), Some(b'F'), Some(b'-'), Some(m), Some(b'.'), Some(n))
+                if is_decimal(m) && is_decimal(n) =>
+            {
                 // Skip past "DF-m.n"
                 self.seek(7);
                 let major = byte_to_numeric(m, 10)?;
                 let minor = byte_to_numeric(n, 10)?;
                 Token::Header(major, minor)
-            },
+            }
             _ => {
                 self.next_line();
-                return None
-            },
+                return None;
+            }
         };
         Some(token)
     }
@@ -459,12 +470,12 @@ impl<'a> Lexer<'a> {
             Some(PERCENT) => {
                 self.advance();
                 self.eof()?
-            },
+            }
             Some(b'P') => self.header_version()?,
             _ => {
-                    self.next_line();
-                    return None
-            },
+                self.next_line();
+                return None;
+            }
         };
         Some(token)
     }
@@ -527,7 +538,7 @@ impl<'a> Lexer<'a> {
         if start + length > self.len {
             None
         } else {
-            Some(&self.buf[start..start+length])
+            Some(&self.buf[start..start + length])
         }
     }
 
@@ -599,7 +610,8 @@ mod tests {
             Token::Operator(Operator::ShFill),
             Token::Operator(Operator::SetColorSpecialNonstroke),
             Token::F,
-            Token::Eof];
+            Token::Eof,
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
@@ -614,7 +626,8 @@ mod tests {
             Token::Operator(Operator::AppendCurveThreePoints),
             Token::Integer(5),
             Token::Operator(Operator::SetColorSpaceNonstroke),
-            Token::Eof];
+            Token::Eof,
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
@@ -628,7 +641,8 @@ mod tests {
             Token::Operator(Operator::MoveTextPosition),
             Token::Operator(Operator::SetTextRise),
             Token::F,
-            Token::Eof];
+            Token::Eof,
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
@@ -645,7 +659,8 @@ mod tests {
             Token::Operator(Operator::EndCompat),
             Token::Operator(Operator::EndInlineImage),
             Token::Integer(5),
-            Token::Eof];
+            Token::Eof,
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 
@@ -669,7 +684,7 @@ mod tests {
             Token::LiteralString(&"Hello, World".as_bytes()),
             Token::Operator(Operator::ShowText),
             Token::Operator(Operator::EndText),
-            Token::Eof
+            Token::Eof,
         ];
         assert_eq!(lexer.lex(), tokens);
     }
@@ -691,7 +706,7 @@ mod tests {
             Token::Name(&"F13".as_bytes()),
             Token::Real(6.9738),
             Token::Operator(Operator::SelectFont),
-            Token::Eof
+            Token::Eof,
         ];
         assert_eq!(lexer.lex(), tokens);
     }
@@ -713,7 +728,7 @@ mod tests {
             Token::Endobj,
             Token::StartXref,
             Token::Integer(57184),
-            Token::Eof
+            Token::Eof,
         ];
         assert_eq!(lexer.lex(), tokens);
     }
@@ -728,7 +743,7 @@ mod tests {
             Token::Name("Producer".as_bytes()),
             Token::LiteralString(&"GPL Ghostscript 8.71".as_bytes()),
             Token::DoubleRThan,
-            Token::Eof
+            Token::Eof,
         ];
         assert_eq!(lexer.lex(), tokens);
     }
