@@ -163,8 +163,8 @@ impl<'a> Lexer<'a> {
             },
             b'f' => match self.peek() {
                 Some(b'*') => op!(Operator::FillPathEvenOdd),
-                Some(b'a') => match (self.pop()?, self.pop()?, self.pop()?) {
-                    (b'l', b's', b'e') => Token::Boolean(false),
+                Some(b'a') => match (self.pop()?, self.pop()?, self.pop()?, self.pop()?) {
+                    (b'a', b'l', b's', b'e') => Token::Boolean(false),
                     _ => return None,
                 },
                 _ => Token::F,
@@ -596,6 +596,28 @@ mod tests {
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = vec![Token::Null, Token::Eof];
+        assert_eq!(lexer.lex(), tokens);
+    }
+
+    #[test]
+    fn test_lexer_dict_with_boolean_value() {
+        let text = b"12 0 obj
+        <<\n/Type /ExtGState\n/SA false\n>>\nendobj
+        %%EOF";
+        let mut lexer = Lexer::new(text);
+        let tokens = vec![
+            Token::Integer(12),
+            Token::Integer(0),
+            Token::Obj,
+            Token::DoubleLThan,
+            Token::Name(b"Type"),
+            Token::Name(b"ExtGState"),
+            Token::Name(b"SA"),
+            Token::Boolean(false),
+            Token::DoubleRThan,
+            Token::Endobj,
+            Token::Eof
+        ];
         assert_eq!(lexer.lex(), tokens);
     }
 

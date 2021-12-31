@@ -367,6 +367,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
     use crate::parser::lexer::Lexer;
+    use crate::{boolean, integer, real, name, array, dict, indirect_reference};
     use std::fs;
     use std::path::PathBuf;
 
@@ -377,7 +378,18 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let objects: Vec<Object> = vec![Object::Integer(0)];
+        let objects = vec![integer!(0)];
+        assert_eq!(parser.parse(), objects);
+    }
+
+    #[test]
+    fn test_parser_real() {
+        let text = "0.02
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let objects = vec![real!(0.02)];
         assert_eq!(parser.parse(), objects);
     }
 
@@ -388,13 +400,9 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let indirect_ref = IndirectReference {
-            object_number: 17,
-            generation_number: 0,
-        };
-        let objects: Vec<Object> = vec![
-            Object::IndirectReference(indirect_ref),
-            Object::Boolean(false),
+        let objects = vec![
+            indirect_reference!(17),
+            boolean!(false),
         ];
         assert_eq!(parser.parse(), objects);
     }
@@ -406,10 +414,11 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let mut dict = BTreeMap::new();
-        dict.insert(b"A".to_vec(), Object::Name(b"B".to_vec()));
-        dict.insert(b"C".to_vec(), Object::Name(b"D".to_vec()));
-        let objects: Vec<Object> = vec![Object::Dictionary(dict)];
+        let dict = dict!(
+            b"A" => name!("B"),
+            b"C" => name!("D")
+        );
+        let objects = vec![dict];
         assert_eq!(parser.parse(), objects);
     }
 
@@ -420,13 +429,46 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let mut dict = BTreeMap::new();
-        dict.insert(b"A".to_vec(), Object::Name(b"B".to_vec()));
-        let mut sub_dict = BTreeMap::new();
-        sub_dict.insert(b"D".to_vec(), Object::Name(b"E".to_vec()));
-        dict.insert(b"C".to_vec(), Object::Dictionary(sub_dict));
-        let objects: Vec<Object> = vec![Object::Dictionary(dict)];
+        let dict = dict!(
+            b"A" => name!("B"),
+            b"C" => dict!(
+                b"D" => name!("E")
+            )
+        );
+        let objects = vec![dict];
         assert_eq!(parser.parse(), objects);
+    }
+
+    #[test]
+    fn test_nested_dict_newline() {
+        let text = b"3 0 obj\n<<\n/ProcSet [/PDF /Text /ImageB ]\n/Font <<\n/F1 4 0 R\n>>\n/XObject <<\n/Im1 11 0 R\n>>\n/ExtGState <<\n/GS1 12 0 R\n>>\n>>\nendobj
+        %%EOF";
+        let mut lexer = Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let ext_gstate = dict!(
+            b"GS1" => indirect_reference!(12)
+        );
+        let x_object = dict!(
+            b"Im1" => indirect_reference!(11)
+        );
+        let font = dict!(
+            b"F1" => indirect_reference!(4)
+        );
+        let array = array![name!("PDF"), name!("Text"), name!("ImageB")];
+        let dict = dict!(
+            b"ProcSet" => array,
+            b"Font" => font,
+            b"XObject" => x_object,
+            b"ExtGState" => ext_gstate
+        );
+        let object = Object::IndirectObject(IndirectObject {
+            object_number: 3,
+            generation_number: 0,
+            object: Box::new(dict),
+        });
+        let expected = vec![object];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -442,7 +484,7 @@ mod tests {
             generation_number: 0,
             in_use: true,
         };
-        let objects: Vec<Object> = vec![Object::CrossReference(cross_ref)];
+        let objects = vec![Object::CrossReference(cross_ref)];
         assert_eq!(parser.parse(), objects);
     }
 
@@ -460,9 +502,9 @@ mod tests {
             generation_number: 65535,
             in_use: false,
         };
-        let expected: Vec<Object> = vec![
-            Object::Integer(0),
-            Object::Integer(8),
+        let expected = vec![
+            integer!(0),
+            integer!(8),
             Object::CrossReference(cross_ref),
         ];
         let objects = parser.parse();
@@ -470,13 +512,80 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_file() {
+    fn test_parser_stream_null_content() {
+        let text = b"11 0 obj\n<<\n/Type /Image\n>>\nstream\r\n\0\nendstream\nendobj
+        %%EOF";
+        let mut lexer = Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let dict = BTreeMap::from([
+            (b"Type".to_vec(), name!("Image"))
+        ]);
+        let stream = Object::Stream(Stream {
+            dict,
+            content: b"\0\n".to_vec(),
+        });
+        let object = Object::IndirectObject(IndirectObject {
+            object_number: 11,
+            generation_number: 0,
+            object: Box::new(stream),
+        });
+        let expected = vec![object];
+        let objects = parser.parse();
+        assert_eq!(objects, expected);
+    }
+
+    #[test]
+    fn test_parser_dict_and_float() {
+        let text = b"12 0 obj
+        <<\n/Type /ExtGState\n/SA false\n/SM 0.02\n/OP false\n/op false\n/OPM 1
+        /BG2 /Default\n/UCR2 /Default\n/HT /Default\n/TR2 /Default\n>>\nendobj
+        %%EOF";
+        let mut lexer = Lexer::new(text);
+        let tokens = lexer.lex();
+        println!("{:?}", tokens);
+        let mut parser = Parser::new(&tokens);
+        let dict = dict!(
+            b"Type" => name!("ExtGState"),
+            b"SA" => boolean!(false),
+            b"SM" => real!(0.02),
+            b"OP" => boolean!(false),
+            b"op" => boolean!(false),
+            b"OPM" => integer!(1),
+            b"BG2" => name!("Default"),
+            b"UCR2" => name!("Default"),
+            b"HT" => name!("Default"),
+            b"TR2" => name!("Default")
+        );
+        let object = Object::IndirectObject(IndirectObject {
+            object_number: 12,
+            generation_number: 0,
+            object: Box::new(dict),
+        });
+        let expected = vec![object];
+        assert_eq!(parser.parse(), expected);
+    }
+
+    #[test]
+    fn test_parser_basic_file() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("test_data/hello.pdf");
         let file = fs::read(d).unwrap();
         let mut lexer = Lexer::new(&file);
         let tokens = lexer.lex();
         // assert_eq!(tokens, vec![]);
+        let mut parser = Parser::new(&tokens);
+        let objects = parser.parse();
+        assert_eq!(objects, vec![]);
+    }
+
+    #[test]
+    fn test_parser_postscript_file() {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("test_data/heinz.pdf");
+        let file = fs::read(d).unwrap();
+        let mut lexer = Lexer::new(&file);
+        let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
         let objects = parser.parse();
         assert_eq!(objects, vec![]);

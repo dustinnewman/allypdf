@@ -27,6 +27,69 @@ pub const DQUOTE: Byte = b'\x22'; // "
 
 pub type Byte = u8;
 
+#[macro_export]
+macro_rules! integer {
+    ($int:expr) => (
+        Object::Integer($int)
+    );
+}
+
+#[macro_export]
+macro_rules! real {
+    ($real:expr) => (
+        Object::Real($real)
+    );
+}
+
+#[macro_export]
+macro_rules! boolean {
+    ($boolean:expr) => (
+        Object::Boolean($boolean)
+    );
+}
+
+#[macro_export]
+macro_rules! name {
+    ($str:expr) => (
+        Object::Name($str.as_bytes().to_vec())
+    );
+}
+
+#[macro_export]
+macro_rules! array {
+    () => (
+        Object::Array(vec![])
+    );
+    ($($elem:expr),+ $(,)?) => (
+        Object::Array(vec![$($elem),+])
+    );
+}
+
+#[macro_export]
+macro_rules! dict {
+    ($($key:expr => $val:expr),*) => (
+        Object::Dictionary(BTreeMap::from([
+            $(($key.to_vec(), $val),)*
+        ]))
+    );
+}
+
+#[macro_export]
+macro_rules! indirect_reference {
+    ($object_number:expr) => (
+        Object::IndirectReference(IndirectReference {
+            object_number: $object_number,
+            generation_number: 0,
+        })
+    );
+    ($object_number:expr, $generation_number:expr) => (
+        Object::IndirectReference(IndirectReference {
+            object_number: $object_number,
+            generation_number: $generation_number,
+        })
+    )
+}
+
 pub fn is_whitespace(byte: Byte) -> bool {
     match byte {
         SPACE | CARRIAGE_RETURN | LINE_FEED | TAB | NULL_BYTE | FORM_FEED => true,
