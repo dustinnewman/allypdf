@@ -86,7 +86,6 @@ impl TryFrom<PathBuf> for PDFDocument {
         let tokens = Lexer::new(&file).lex();
         let mut parser = Parser::new(&tokens);
         let tokens = parser.parse();
-        println!("Tokens: {:?}", tokens);
         PDFDocument::try_from(tokens)
     }
 }
@@ -185,7 +184,7 @@ mod test {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/heinz.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
-        println!("{:#?}", doc);
+        println!("{:?}", doc);
         assert!(false);
     }
 }
