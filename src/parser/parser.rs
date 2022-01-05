@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use super::lexer::Token;
+use super::lexer::{Token, TokenKind};
 use crate::{
     filter::{decode, Filter},
     operators::operators::Operator,
@@ -57,7 +57,7 @@ pub struct Trailer {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Object {
+pub enum ObjectKind {
     Boolean(bool),
     Integer(i64),
     Real(f64),
@@ -75,6 +75,29 @@ pub enum Object {
     StartXref(u64),
     Operator(Operator),
     Null,
+}
+
+#[derive(Debug)]
+#[cfg_attr(not(test), derive(PartialEq))]
+pub struct Object {
+    pub offset: u64,
+    pub kind: ObjectKind,
+}
+
+// We do not want to test if the offsets are equal during testing so we don't
+// to specify the offsets everywhere when they are not relevant.
+#[cfg(test)]
+impl PartialEq for Object {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+#[cfg(test)]
+impl PartialEq<ObjectKind> for Object {
+    fn eq(&self, other: &ObjectKind) -> bool {
+        self.kind == *other
+    }
 }
 
 pub type Name = Vec<u8>;
@@ -103,45 +126,50 @@ impl<'a> Parser<'a> {
     }
 
     fn next(&mut self) -> Option<Object> {
-        let object = match self.pop()? {
-            Token::Boolean(b) => Object::Boolean(*b),
-            Token::Null => Object::Null,
-            Token::Real(r) => Object::Real(*r),
-            Token::Header(m, n) => Object::Header(*m, *n),
-            Token::Trailer => self.trailer()?,
-            Token::Integer(i) => {
-                let i = *i;
-                self.integer(i)?
-            }
-            Token::LiteralString(lit) => Object::String(literal_string_to_string(*lit)?),
-            Token::HexString(hex) => Object::String(hex_string_to_string(*hex)?),
-            Token::Name(name) => Object::Name(name_to_name(*name)?),
-            Token::Operator(op) => Object::Operator(*op),
-            Token::F => Object::Operator(Operator::FillPath),
-            Token::N => Object::Operator(Operator::EndPathNoFill),
-            Token::Xref => self.xref(),
-            Token::StartXref => self.start_xref()?,
-            Token::LBracket => self.array()?,
-            Token::DoubleLThan => self.dictionary()?,
+        let token = self.pop()?;
+        let offset = token.offset;
+        let kind = match token.kind {
+            TokenKind::Boolean(b) => ObjectKind::Boolean(b),
+            TokenKind::Null => ObjectKind::Null,
+            TokenKind::Real(r) => ObjectKind::Real(r),
+            TokenKind::Header(m, n) => ObjectKind::Header(m, n),
+            TokenKind::Trailer => self.trailer()?,
+            TokenKind::Integer(i) => self.integer(i)?,
+            TokenKind::LiteralString(lit) => ObjectKind::String(literal_string_to_string(lit)?),
+            TokenKind::HexString(hex) => ObjectKind::String(hex_string_to_string(hex)?),
+            TokenKind::Name(name) => ObjectKind::Name(name_to_name(name)?),
+            TokenKind::Operator(op) => ObjectKind::Operator(op),
+            TokenKind::F => ObjectKind::Operator(Operator::FillPath),
+            TokenKind::N => ObjectKind::Operator(Operator::EndPathNoFill),
+            TokenKind::Xref => self.xref(),
+            TokenKind::StartXref => self.start_xref()?,
+            TokenKind::LBracket => self.array()?,
+            TokenKind::DoubleLThan => self.dictionary()?,
             _ => return None,
         };
+        let object = Object { offset, kind };
         Some(object)
     }
 
     fn xref_subsection(&mut self, xref_subsection: &mut XrefSubsection) {
         while let (
-            Some(Token::Integer(offset)),
-            Some(Token::Integer(generation_number)),
-            Some(in_use),
+            Some(Token {
+                kind: TokenKind::Integer(offset),
+                ..
+            }),
+            Some(Token {
+                kind: TokenKind::Integer(generation_number),
+                ..
+            }),
+            Some(Token {
+                kind: TokenKind::Boolean(in_use),
+                ..
+            }),
         ) = (self.peek(), self.nth(1), self.nth(2))
         {
-            let in_use = match in_use {
-                Token::F => false,
-                Token::N => true,
-                _ => break,
-            };
             let offset = *offset as u64;
             let generation_number = *generation_number as u32;
+            let in_use = *in_use;
             let xref = CrossReference {
                 offset,
                 generation_number,
@@ -152,12 +180,20 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn xref(&mut self) -> Object {
+    fn xref(&mut self) -> ObjectKind {
         let mut xref_section = XrefSection {
             subsections: vec![],
         };
-        while let (Some(Token::Integer(first)), Some(Token::Integer(entries))) =
-            (self.peek(), self.nth(1))
+        while let (
+            Some(Token {
+                kind: TokenKind::Integer(first),
+                ..
+            }),
+            Some(Token {
+                kind: TokenKind::Integer(entries),
+                ..
+            }),
+        ) = (self.peek(), self.nth(1))
         {
             let start_number = *first as u32;
             let subsection_length = *entries as u32;
@@ -170,44 +206,50 @@ impl<'a> Parser<'a> {
             self.xref_subsection(&mut xref_subsection);
             xref_section.subsections.push(xref_subsection);
         }
-        Object::Xref(xref_section)
+        ObjectKind::Xref(xref_section)
     }
 
-    fn trailer(&mut self) -> Option<Object> {
-        if let Some(Object::Dictionary(d)) = self.next() {
+    fn trailer(&mut self) -> Option<ObjectKind> {
+        let next = self.next()?;
+        if let ObjectKind::Dictionary(d) = next.kind {
             let size = d.get(SIZE)?;
             let root = d.get(ROOT)?;
-            if let Object::Integer(size) = size {
-                if let Object::IndirectReference(root) = root {
+            if let ObjectKind::Integer(size) = size.kind {
+                if let ObjectKind::IndirectReference(root) = root.kind {
                     let trailer = Trailer {
-                        size: *size as u64,
-                        root: *root,
+                        size: size as u64,
+                        root: root,
                         dictionary: d,
                     };
-                    return Some(Object::Trailer(trailer));
+                    return Some(ObjectKind::Trailer(trailer));
                 }
             }
         }
         None
     }
 
-    fn start_xref(&mut self) -> Option<Object> {
-        if let Token::Integer(i) = self.peek()? {
+    fn start_xref(&mut self) -> Option<ObjectKind> {
+        if let Token {
+            kind: TokenKind::Integer(i),
+            ..
+        } = self.peek()?
+        {
             let i = *i as u64;
             self.advance();
-            Some(Object::StartXref(i))
+            Some(ObjectKind::StartXref(i))
         } else {
             None
         }
     }
 
-    fn array(&mut self) -> Option<Object> {
+    fn array(&mut self) -> Option<ObjectKind> {
         let mut depth: u32 = 1;
         let start = self.pos;
         loop {
-            match self.pop()? {
-                Token::LBracket => depth += 1,
-                Token::RBracket => {
+            let next_token = self.pop()?;
+            match next_token.kind {
+                TokenKind::LBracket => depth += 1,
+                TokenKind::RBracket => {
                     depth -= 1;
                     if depth == 0 {
                         break;
@@ -219,23 +261,33 @@ impl<'a> Parser<'a> {
         let tokens = &self.tokens[start..self.pos];
         let mut parser = Parser::new(tokens);
         let array = parser.parse();
-        Some(Object::Array(array))
+        Some(ObjectKind::Array(array))
     }
 
     fn stream_content(&self, dict: &Dictionary, content: &[u8]) -> Option<Vec<u8>> {
         let mut vec = content.to_vec();
         let mut filters = vec![];
         match dict.get(&FILTER.to_vec()) {
-            Some(Object::Name(name)) => {
+            Some(Object {
+                kind: ObjectKind::Name(name),
+                ..
+            }) => {
                 if let Ok(filter) = Filter::try_from(name) {
                     filters.push(filter);
                 } else {
                     return None;
                 }
             }
-            Some(Object::Array(names)) => {
+            Some(Object {
+                kind: ObjectKind::Array(names),
+                ..
+            }) => {
                 for name in names {
-                    if let Object::Name(name) = name {
+                    if let Object {
+                        kind: ObjectKind::Name(name),
+                        ..
+                    } = name
+                    {
                         if let Ok(filter) = Filter::try_from(name) {
                             filters.push(filter);
                         } else {
@@ -255,28 +307,42 @@ impl<'a> Parser<'a> {
         Some(vec)
     }
 
-    fn dictionary(&mut self) -> Option<Object> {
+    fn dictionary(&mut self) -> Option<ObjectKind> {
         let mut dict = BTreeMap::new();
         loop {
-            if let Some(Token::DoubleRThan) = self.peek() {
+            if let Some(Token {
+                kind: TokenKind::DoubleRThan,
+                ..
+            }) = self.peek()
+            {
                 self.advance();
                 // Handle stream after dict
-                if let Some(Token::Stream(_)) = self.peek() {
+                if let Some(Token {
+                    kind: TokenKind::Stream(_),
+                    ..
+                }) = self.peek()
+                {
                     // Parse stream
                     let content = match self.peek() {
-                        Some(Token::Stream(x)) => x,
+                        Some(Token {
+                            kind: TokenKind::Stream(x),
+                            ..
+                        }) => x,
                         _ => break,
                     };
                     if let Some(vec) = self.stream_content(&dict, content) {
                         self.advance();
                         let stream = Stream { dict, content: vec };
-                        return Some(Object::Stream(stream));
+                        return Some(ObjectKind::Stream(stream));
                     }
                 }
                 break;
             }
             let key = match self.next() {
-                Some(Object::Name(vec)) => vec,
+                Some(Object {
+                    kind: ObjectKind::Name(vec),
+                    ..
+                }) => vec,
                 _ => break,
             };
             let value = match self.next() {
@@ -285,25 +351,43 @@ impl<'a> Parser<'a> {
             };
             dict.insert(key, value);
         }
-        Some(Object::Dictionary(dict))
+        Some(ObjectKind::Dictionary(dict))
     }
 
-    fn integer(&mut self, number: i64) -> Option<Object> {
+    fn integer(&mut self, number: i64) -> Option<ObjectKind> {
         match (self.peek(), self.nth(1)) {
-            (Some(Token::Integer(i)), Some(Token::Reference)) => {
+            (
+                Some(Token {
+                    kind: TokenKind::Integer(i),
+                    ..
+                }),
+                Some(Token {
+                    kind: TokenKind::Reference,
+                    ..
+                }),
+            ) => {
                 let generation_number = *i as u32;
                 self.seek(2);
-                Some(Object::IndirectReference(IndirectReference {
+                Some(ObjectKind::IndirectReference(IndirectReference {
                     object_number: number as u32,
                     generation_number,
                 }))
             }
-            (Some(Token::Integer(i)), Some(Token::Obj)) => {
+            (
+                Some(Token {
+                    kind: TokenKind::Integer(i),
+                    ..
+                }),
+                Some(Token {
+                    kind: TokenKind::Obj,
+                    ..
+                }),
+            ) => {
                 let generation_number = *i as u32;
                 self.seek(2);
                 let object = self.next()?;
-                match self.pop()? {
-                    Token::Endobj => Some(Object::IndirectObject(IndirectObject {
+                match self.pop()?.kind {
+                    TokenKind::Endobj => Some(ObjectKind::IndirectObject(IndirectObject {
                         object_number: number as u32,
                         generation_number,
                         object: Box::new(object),
@@ -311,25 +395,41 @@ impl<'a> Parser<'a> {
                     _ => None,
                 }
             }
-            (Some(Token::Integer(i)), Some(Token::F)) => {
+            (
+                Some(Token {
+                    kind: TokenKind::Integer(i),
+                    ..
+                }),
+                Some(Token {
+                    kind: TokenKind::F, ..
+                }),
+            ) => {
                 let generation_number = *i as u32;
                 self.seek(2);
-                Some(Object::CrossReference(CrossReference {
+                Some(ObjectKind::CrossReference(CrossReference {
                     offset: number as u64,
                     generation_number,
                     in_use: false,
                 }))
             }
-            (Some(Token::Integer(i)), Some(Token::N)) => {
+            (
+                Some(Token {
+                    kind: TokenKind::Integer(i),
+                    ..
+                }),
+                Some(Token {
+                    kind: TokenKind::N, ..
+                }),
+            ) => {
                 let generation_number = *i as u32;
                 self.seek(2);
-                Some(Object::CrossReference(CrossReference {
+                Some(ObjectKind::CrossReference(CrossReference {
                     offset: number as u64,
                     generation_number,
                     in_use: true,
                 }))
             }
-            _ => Some(Object::Integer(number)),
+            _ => Some(ObjectKind::Integer(number)),
         }
     }
 
@@ -367,7 +467,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
     use crate::parser::lexer::Lexer;
-    use crate::{boolean, integer, real, name, array, dict, indirect_reference};
+    use crate::{array, boolean, dict, indirect_reference, inner, integer, name, offset, real};
     use std::fs;
     use std::path::PathBuf;
 
@@ -378,8 +478,8 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let objects = vec![integer!(0)];
-        assert_eq!(parser.parse(), objects);
+        let expected = vec![integer!(0)];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -389,8 +489,8 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let objects = vec![real!(0.02)];
-        assert_eq!(parser.parse(), objects);
+        let expected = vec![real!(0.02)];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -400,11 +500,8 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let objects = vec![
-            indirect_reference!(17),
-            boolean!(false),
-        ];
-        assert_eq!(parser.parse(), objects);
+        let expected = vec![indirect_reference!(17), boolean!(false)];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -418,8 +515,8 @@ mod tests {
             b"A" => name!("B"),
             b"C" => name!("D")
         );
-        let objects = vec![dict];
-        assert_eq!(parser.parse(), objects);
+        let expected = vec![dict];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -435,8 +532,8 @@ mod tests {
                 b"D" => name!("E")
             )
         );
-        let objects = vec![dict];
-        assert_eq!(parser.parse(), objects);
+        let expected = vec![dict];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -462,7 +559,7 @@ mod tests {
             b"XObject" => x_object,
             b"ExtGState" => ext_gstate
         );
-        let object = Object::IndirectObject(IndirectObject {
+        let object = ObjectKind::IndirectObject(IndirectObject {
             object_number: 3,
             generation_number: 0,
             object: Box::new(dict),
@@ -484,8 +581,8 @@ mod tests {
             generation_number: 0,
             in_use: true,
         };
-        let objects = vec![Object::CrossReference(cross_ref)];
-        assert_eq!(parser.parse(), objects);
+        let expected = vec![ObjectKind::CrossReference(cross_ref)];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -505,10 +602,9 @@ mod tests {
         let expected = vec![
             integer!(0),
             integer!(8),
-            Object::CrossReference(cross_ref),
+            offset!(ObjectKind::CrossReference(cross_ref)),
         ];
-        let objects = parser.parse();
-        assert_eq!(objects, expected);
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -518,21 +614,29 @@ mod tests {
         let mut lexer = Lexer::new(text);
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let dict = BTreeMap::from([
-            (b"Type".to_vec(), name!("Image"))
-        ]);
-        let stream = Object::Stream(Stream {
+        let dict = dict!(
+            b"Type" => name!("Image")
+        );
+        let dict = inner!(
+            dict.kind,
+            ObjectKind::Dictionary,
+            "Image type is not a dictionary."
+        );
+        let stream = ObjectKind::Stream(Stream {
             dict,
             content: b"\0\n".to_vec(),
         });
-        let object = Object::IndirectObject(IndirectObject {
+        let stream = Object {
+            offset: 31,
+            kind: stream,
+        };
+        let object = ObjectKind::IndirectObject(IndirectObject {
             object_number: 11,
             generation_number: 0,
             object: Box::new(stream),
         });
         let expected = vec![object];
-        let objects = parser.parse();
-        assert_eq!(objects, expected);
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -557,12 +661,12 @@ mod tests {
             b"HT" => name!("Default"),
             b"TR2" => name!("Default")
         );
-        let object = Object::IndirectObject(IndirectObject {
+        let kind = ObjectKind::IndirectObject(IndirectObject {
             object_number: 12,
             generation_number: 0,
             object: Box::new(dict),
         });
-        let expected = vec![object];
+        let expected = vec![kind];
         assert_eq!(parser.parse(), expected);
     }
 
@@ -575,8 +679,38 @@ mod tests {
         let tokens = lexer.lex();
         // assert_eq!(tokens, vec![]);
         let mut parser = Parser::new(&tokens);
-        let objects = parser.parse();
-        assert_eq!(objects, vec![]);
+        let expected: Vec<Object> = vec![
+            offset!(ObjectKind::Header(1, 4)),
+            offset!(ObjectKind::IndirectObject(IndirectObject {
+                object_number: 1,
+                generation_number: 0,
+                object: Box::new(dict!(
+                    b"Pages" => indirect_reference!(2, 0),
+                    b"Type" => name!("Catalog")
+                ))
+            })),
+            offset!(ObjectKind::IndirectObject(IndirectObject {
+                object_number: 2,
+                generation_number: 0,
+                object: Box::new(dict!(
+                    b"Count" => integer!(1),
+                    b"Type" => name!("Pages"),
+                    b"Kids" => array![indirect_reference!(3, 0)]
+                ))
+            })),
+            offset!(ObjectKind::IndirectObject(IndirectObject {
+                object_number: 3,
+                generation_number: 0,
+                object: Box::new(dict!(
+                    b"Type" => name!("Page"),
+                    b"MediaBox" => array![integer!(0), integer!(0), integer!(612), integer!(792)],
+                    b"Parent" => indirect_reference!(2, 0),
+                    b"Resources" => indirect_reference!(4, 0),
+                    b"Contents" => indirect_reference!(5, 0)
+                ))
+            })),
+        ];
+        assert_eq!(parser.parse(), expected);
     }
 
     #[test]
@@ -587,7 +721,7 @@ mod tests {
         let mut lexer = Lexer::new(&file);
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let objects = parser.parse();
-        assert_eq!(objects, vec![]);
+        let expected: Vec<ObjectKind> = vec![];
+        assert_eq!(parser.parse(), expected);
     }
 }

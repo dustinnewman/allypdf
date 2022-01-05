@@ -13,7 +13,7 @@ enum Character {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Token<'a> {
+pub enum TokenKind<'a> {
     Boolean(bool),
     Integer(i64),
     Real(f64),
@@ -42,6 +42,29 @@ pub enum Token<'a> {
     Eof,
 }
 
+#[derive(Debug)]
+#[cfg_attr(not(test), derive(PartialEq))]
+pub struct Token<'a> {
+    pub(crate) offset: u64,
+    pub(crate) kind: TokenKind<'a>,
+}
+
+// We do not want to test if the offsets are equal during testing so we don't
+// to specify the offsets everywhere when they are not relevant.
+#[cfg(test)]
+impl PartialEq for Token<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+#[cfg(test)]
+impl PartialEq<TokenKind<'_>> for Token<'_> {
+    fn eq(&self, other: &TokenKind) -> bool {
+        self.kind == *other
+    }
+}
+
 pub struct Lexer<'a> {
     pos: usize,
     len: usize,
@@ -63,7 +86,7 @@ impl<'a> Lexer<'a> {
         // without EOF marker
         loop {
             if let Some(token) = self.next() {
-                let do_break = token == Token::Eof;
+                let do_break = token.kind == TokenKind::Eof;
                 vec.push(token);
                 if do_break {
                     break;
@@ -79,7 +102,7 @@ impl<'a> Lexer<'a> {
         macro_rules! op {
             ($op:expr) => {{
                 self.advance();
-                Token::Operator($op)
+                TokenKind::Operator($op)
             }};
         }
 
@@ -88,24 +111,25 @@ impl<'a> Lexer<'a> {
             self.skip_whitespace();
         }
         let curr = self.pop()?;
-        let token: Token = match curr {
+        let offset = self.pos as u64;
+        let kind: TokenKind = match curr {
             LTHAN => match self.peek() {
                 Some(LTHAN) => {
                     self.advance();
-                    Token::DoubleLThan
+                    TokenKind::DoubleLThan
                 }
                 _ => self.hex_string()?,
             },
             RTHAN => match self.peek() {
                 Some(RTHAN) => {
                     self.advance();
-                    Token::DoubleRThan
+                    TokenKind::DoubleRThan
                 }
                 _ => return None,
             },
             b'b' => match self.peek() {
                 Some(b'*') => op!(Operator::CloseFillStrokePathEvenOdd),
-                _ => Token::Operator(Operator::CloseFillStrokePath),
+                _ => TokenKind::Operator(Operator::CloseFillStrokePath),
             },
             b'B' => match self.peek() {
                 Some(b'*') => op!(Operator::FillStrokePathEvenOdd),
@@ -115,23 +139,25 @@ impl<'a> Lexer<'a> {
                 Some(b'M') => {
                     self.advance();
                     match self.pop()? {
-                        b'C' => Token::Operator(Operator::BeginMarkedContentSequence),
+                        b'C' => TokenKind::Operator(Operator::BeginMarkedContentSequence),
                         _ => return None,
                     }
                 }
                 Some(b'D') => {
                     self.advance();
                     match self.pop()? {
-                        b'C' => Token::Operator(Operator::BeginMarkedContentSequencePropertyList),
+                        b'C' => {
+                            TokenKind::Operator(Operator::BeginMarkedContentSequencePropertyList)
+                        }
                         _ => return None,
                     }
                 }
-                _ => Token::Operator(Operator::FillStrokePath),
+                _ => TokenKind::Operator(Operator::FillStrokePath),
             },
             b'c' => match self.peek() {
                 Some(b'm') => op!(Operator::ConcatMatrix),
                 Some(b's') => op!(Operator::SetColorSpaceNonstroke),
-                _ => Token::Operator(Operator::AppendCurveThreePoints),
+                _ => TokenKind::Operator(Operator::AppendCurveThreePoints),
             },
             b'C' => match self.peek()? {
                 b'S' => op!(Operator::SetColorSpaceStroke),
@@ -140,7 +166,7 @@ impl<'a> Lexer<'a> {
             b'd' => match self.peek() {
                 Some(b'0') => op!(Operator::SetCharWidth),
                 Some(b'1') => op!(Operator::SetCacheDevice),
-                _ => Token::Operator(Operator::SetDash),
+                _ => TokenKind::Operator(Operator::SetDash),
             },
             b'D' => match self.peek()? {
                 b'o' => op!(Operator::InvokeXObject),
@@ -155,7 +181,7 @@ impl<'a> Lexer<'a> {
                 b'M' => {
                     self.advance();
                     match self.pop()? {
-                        b'C' => Token::Operator(Operator::EndMarkedContentSequence),
+                        b'C' => TokenKind::Operator(Operator::EndMarkedContentSequence),
                         _ => return None,
                     }
                 }
@@ -164,46 +190,46 @@ impl<'a> Lexer<'a> {
             b'f' => match self.peek() {
                 Some(b'*') => op!(Operator::FillPathEvenOdd),
                 Some(b'a') => match (self.pop()?, self.pop()?, self.pop()?, self.pop()?) {
-                    (b'a', b'l', b's', b'e') => Token::Boolean(false),
+                    (b'a', b'l', b's', b'e') => TokenKind::Boolean(false),
                     _ => return None,
                 },
-                _ => Token::F,
+                _ => TokenKind::F,
             },
-            b'F' => Token::Operator(Operator::FillPath),
+            b'F' => TokenKind::Operator(Operator::FillPath),
             b'g' => match self.peek() {
                 Some(b's') => op!(Operator::SetGraphicsStateParams),
-                _ => Token::Operator(Operator::SetGrayNonstroke),
+                _ => TokenKind::Operator(Operator::SetGrayNonstroke),
             },
-            b'G' => Token::Operator(Operator::SetGrayStroke),
-            b'h' => Token::Operator(Operator::CloseSubpath),
-            b'i' => Token::Operator(Operator::SetFlat),
+            b'G' => TokenKind::Operator(Operator::SetGrayStroke),
+            b'h' => TokenKind::Operator(Operator::CloseSubpath),
+            b'i' => TokenKind::Operator(Operator::SetFlat),
             b'I' => match self.peek()? {
                 b'D' => op!(Operator::BeginInlineImageData),
                 _ => return None,
             },
-            b'j' => Token::Operator(Operator::SetLineJoin),
-            b'J' => Token::Operator(Operator::SetLineCap),
-            b'k' => Token::Operator(Operator::SetCMYKColorNonstroke),
-            b'K' => Token::Operator(Operator::SetCMYKColorStroke),
-            b'l' => Token::Operator(Operator::LineTo),
-            b'm' => Token::Operator(Operator::MoveTo),
+            b'j' => TokenKind::Operator(Operator::SetLineJoin),
+            b'J' => TokenKind::Operator(Operator::SetLineCap),
+            b'k' => TokenKind::Operator(Operator::SetCMYKColorNonstroke),
+            b'K' => TokenKind::Operator(Operator::SetCMYKColorStroke),
+            b'l' => TokenKind::Operator(Operator::LineTo),
+            b'm' => TokenKind::Operator(Operator::MoveTo),
             b'M' => match self.peek() {
                 Some(b'P') => op!(Operator::DefineMarkedContentPoint),
-                _ => Token::Operator(Operator::SetMiterLimit),
+                _ => TokenKind::Operator(Operator::SetMiterLimit),
             },
             b'n' => match self.peek() {
                 Some(b'u') => match (self.pop()?, self.pop()?, self.pop()?) {
-                    (b'u', b'l', b'l') => Token::Null,
+                    (b'u', b'l', b'l') => TokenKind::Null,
                     _ => return None,
                 },
-                _ => Token::N,
+                _ => TokenKind::N,
             },
             b'o' => match (self.pop(), self.pop()) {
-                (Some(b'b'), Some(b'j')) => Token::Obj,
+                (Some(b'b'), Some(b'j')) => TokenKind::Obj,
                 _ => return None,
             },
-            b'q' => Token::Operator(Operator::GSave),
-            b'Q' => Token::Operator(Operator::GRestore),
+            b'q' => TokenKind::Operator(Operator::GSave),
+            b'Q' => TokenKind::Operator(Operator::GRestore),
             b'r' => match self.peek()? {
                 b'e' => op!(Operator::AppendRectangle),
                 b'g' => op!(Operator::SetRGBColorNonstroke),
@@ -212,14 +238,14 @@ impl<'a> Lexer<'a> {
             },
             b'R' => match self.peek() {
                 Some(b'G') => op!(Operator::SetRGBColorStroke),
-                _ => Token::Reference,
+                _ => TokenKind::Reference,
             },
             b's' => match self.peek() {
                 Some(b'c') => {
                     self.advance();
                     match self.peek() {
                         Some(b'n') => op!(Operator::SetColorSpecialNonstroke),
-                        _ => Token::Operator(Operator::SetColorNonstroke),
+                        _ => TokenKind::Operator(Operator::SetColorNonstroke),
                     }
                 }
                 Some(b't') => {
@@ -231,20 +257,20 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 Some(b'h') => op!(Operator::ShFill),
-                _ => Token::Operator(Operator::CloseStrokePath),
+                _ => TokenKind::Operator(Operator::CloseStrokePath),
             },
             b'S' => match self.peek() {
                 Some(b'C') => {
                     self.advance();
                     match self.peek() {
                         Some(b'N') => op!(Operator::SetColorSpecialStroke),
-                        _ => Token::Operator(Operator::SetColorStroke),
+                        _ => TokenKind::Operator(Operator::SetColorStroke),
                     }
                 }
-                _ => Token::Operator(Operator::StrokePath),
+                _ => TokenKind::Operator(Operator::StrokePath),
             },
             b't' => match (self.pop(), self.pop(), self.pop()) {
-                (Some(b'r'), Some(b'u'), Some(b'e')) => Token::Boolean(true),
+                (Some(b'r'), Some(b'u'), Some(b'e')) => TokenKind::Boolean(true),
                 (Some(b'r'), Some(b'a'), Some(b'i')) => self.trailer()?,
                 _ => return None,
             },
@@ -264,33 +290,33 @@ impl<'a> Lexer<'a> {
                 b'z' => op!(Operator::SetHorizontalTextScaling),
                 _ => return None,
             },
-            b'v' => Token::Operator(Operator::AppendCurveInitialReplicated),
-            b'w' => Token::Operator(Operator::SetLineWidth),
+            b'v' => TokenKind::Operator(Operator::AppendCurveInitialReplicated),
+            b'w' => TokenKind::Operator(Operator::SetLineWidth),
             b'W' => match self.peek() {
                 Some(b'*') => op!(Operator::SetClippingPathEvenOdd),
-                _ => Token::Operator(Operator::SetClippingPath),
+                _ => TokenKind::Operator(Operator::SetClippingPath),
             },
             b'x' => match (self.pop(), self.pop(), self.pop()) {
-                (Some(b'r'), Some(b'e'), Some(b'f')) => Token::Xref,
+                (Some(b'r'), Some(b'e'), Some(b'f')) => TokenKind::Xref,
                 _ => return None,
             },
-            b'y' => Token::Operator(Operator::AppendCurveFinalReplicated),
+            b'y' => TokenKind::Operator(Operator::AppendCurveFinalReplicated),
             b'0'..=b'9' | b'+' | b'-' | PERIOD => self.number()?,
             PERCENT => self.percent()?,
             LPAREN => self.literal_string()?,
-            LBRACKET => Token::LBracket,
-            RBRACKET => Token::RBracket,
-            LBRACE => Token::LBrace,
-            RBRACE => Token::RBrace,
+            LBRACKET => TokenKind::LBracket,
+            RBRACKET => TokenKind::RBracket,
+            LBRACE => TokenKind::LBrace,
+            RBRACE => TokenKind::RBrace,
             FSLASH => self.name()?,
-            SQUOTE => Token::Operator(Operator::MoveNextLineShowText),
-            DQUOTE => Token::Operator(Operator::SetSpacingMoveNextLineShowText),
+            SQUOTE => TokenKind::Operator(Operator::MoveNextLineShowText),
+            DQUOTE => TokenKind::Operator(Operator::SetSpacingMoveNextLineShowText),
             _ => return None,
         };
-        Some(token)
+        Some(Token { offset, kind })
     }
 
-    fn number(&mut self) -> Option<Token<'a>> {
+    fn number(&mut self) -> Option<TokenKind<'a>> {
         let start = self.pos - 1;
         let mut is_real = false;
         loop {
@@ -306,50 +332,50 @@ impl<'a> Lexer<'a> {
         let buf = &(self.buf[start..self.pos]);
         if is_real {
             let number = std::str::from_utf8(buf).ok().and_then(|x| x.parse().ok())?;
-            Some(Token::Real(number))
+            Some(TokenKind::Real(number))
         } else {
             let number = std::str::from_utf8(buf).ok().and_then(|x| x.parse().ok())?;
-            Some(Token::Integer(number))
+            Some(TokenKind::Integer(number))
         }
     }
 
-    fn trailer(&mut self) -> Option<Token<'a>> {
+    fn trailer(&mut self) -> Option<TokenKind<'a>> {
         let string = "ler".as_bytes();
         let token = match self.slice(self.pos, string.len()) {
             Some(x) if x == string => {
                 self.seek(string.len());
-                Token::Trailer
+                TokenKind::Trailer
             }
             _ => return None,
         };
         Some(token)
     }
 
-    fn startxref(&mut self) -> Option<Token<'a>> {
+    fn startxref(&mut self) -> Option<TokenKind<'a>> {
         let string = "rtxref".as_bytes();
         let token = match self.slice(self.pos, string.len()) {
             Some(x) if x == string => {
                 self.seek(string.len());
-                Token::StartXref
+                TokenKind::StartXref
             }
             _ => return None,
         };
         Some(token)
     }
 
-    fn endobj(&mut self) -> Option<Token<'a>> {
+    fn endobj(&mut self) -> Option<TokenKind<'a>> {
         let string = "ndobj".as_bytes();
         let token = match self.slice(self.pos, string.len()) {
             Some(x) if x == string => {
                 self.seek(string.len());
-                Token::Endobj
+                TokenKind::Endobj
             }
             _ => return None,
         };
         Some(token)
     }
 
-    fn stream(&mut self) -> Option<Token<'a>> {
+    fn stream(&mut self) -> Option<TokenKind<'a>> {
         let stream_string = "eam".as_bytes();
         let endstream_string = "endstream".as_bytes();
         match self.slice(self.pos, stream_string.len()) {
@@ -365,7 +391,7 @@ impl<'a> Lexer<'a> {
                         Some(y) if y == endstream_string => {
                             let end = self.pos;
                             self.seek(endstream_string.len());
-                            return Some(Token::Stream(&self.buf[start..end]));
+                            return Some(TokenKind::Stream(&self.buf[start..end]));
                         }
                         Some(_) => {
                             self.advance();
@@ -380,12 +406,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn hex_string(&mut self) -> Option<Token<'a>> {
+    fn hex_string(&mut self) -> Option<TokenKind<'a>> {
         let string = self.get_next_char_while(is_hexadecimal);
-        Some(Token::HexString(string))
+        Some(TokenKind::HexString(string))
     }
 
-    fn literal_string(&mut self) -> Option<Token<'a>> {
+    fn literal_string(&mut self) -> Option<TokenKind<'a>> {
         // Start at 1 because we have already seen first LPAREN
         let mut depth: u32 = 1;
         let start = self.pos;
@@ -397,14 +423,14 @@ impl<'a> Lexer<'a> {
                 depth -= 1;
                 // End of string
                 if depth == 0 {
-                    return Some(Token::LiteralString(&self.buf[start..self.pos - 1]));
+                    return Some(TokenKind::LiteralString(&self.buf[start..self.pos - 1]));
                 }
             }
         }
         None
     }
 
-    fn name(&mut self) -> Option<Token<'a>> {
+    fn name(&mut self) -> Option<TokenKind<'a>> {
         let start = self.pos;
         loop {
             match self.peek() {
@@ -421,15 +447,15 @@ impl<'a> Lexer<'a> {
                 _ => break,
             };
         }
-        Some(Token::Name(&self.buf[start..self.pos]))
+        Some(TokenKind::Name(&self.buf[start..self.pos]))
     }
 
-    fn eof(&mut self) -> Option<Token<'a>> {
+    fn eof(&mut self) -> Option<TokenKind<'a>> {
         let string = "EOF".as_bytes();
         let token = match self.slice(self.pos, string.len()) {
             Some(x) if x == string => {
                 self.seek_end();
-                Token::Eof
+                TokenKind::Eof
             }
             _ => {
                 self.next_line();
@@ -439,7 +465,7 @@ impl<'a> Lexer<'a> {
         Some(token)
     }
 
-    fn header_version(&mut self) -> Option<Token<'a>> {
+    fn header_version(&mut self) -> Option<TokenKind<'a>> {
         let token = match (
             self.nth(1),
             self.nth(2),
@@ -455,7 +481,7 @@ impl<'a> Lexer<'a> {
                 self.seek(7);
                 let major = byte_to_numeric(m, 10)?;
                 let minor = byte_to_numeric(n, 10)?;
-                Token::Header(major, minor)
+                TokenKind::Header(major, minor)
             }
             _ => {
                 self.next_line();
@@ -465,8 +491,8 @@ impl<'a> Lexer<'a> {
         Some(token)
     }
 
-    fn percent(&mut self) -> Option<Token<'a>> {
-        let token = match self.peek() {
+    fn percent(&mut self) -> Option<TokenKind<'a>> {
+        let kind = match self.peek() {
             Some(PERCENT) => {
                 self.advance();
                 self.eof()?
@@ -477,7 +503,7 @@ impl<'a> Lexer<'a> {
                 return None;
             }
         };
-        Some(token)
+        Some(kind)
     }
 
     fn advance(&mut self) {
@@ -595,8 +621,8 @@ mod tests {
         let text = "null
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![Token::Null, Token::Eof];
-        assert_eq!(lexer.lex(), tokens);
+        let kinds = vec![TokenKind::Null, TokenKind::Eof];
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -605,20 +631,20 @@ mod tests {
         <<\n/Type /ExtGState\n/SA false\n>>\nendobj
         %%EOF";
         let mut lexer = Lexer::new(text);
-        let tokens = vec![
-            Token::Integer(12),
-            Token::Integer(0),
-            Token::Obj,
-            Token::DoubleLThan,
-            Token::Name(b"Type"),
-            Token::Name(b"ExtGState"),
-            Token::Name(b"SA"),
-            Token::Boolean(false),
-            Token::DoubleRThan,
-            Token::Endobj,
-            Token::Eof
+        let kinds = vec![
+            TokenKind::Integer(12),
+            TokenKind::Integer(0),
+            TokenKind::Obj,
+            TokenKind::DoubleLThan,
+            TokenKind::Name(b"Type"),
+            TokenKind::Name(b"ExtGState"),
+            TokenKind::Name(b"SA"),
+            TokenKind::Boolean(false),
+            TokenKind::DoubleRThan,
+            TokenKind::Endobj,
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -626,15 +652,15 @@ mod tests {
         let text = "sscshscnf
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::Operator(Operator::CloseStrokePath),
-            Token::Operator(Operator::SetColorNonstroke),
-            Token::Operator(Operator::ShFill),
-            Token::Operator(Operator::SetColorSpecialNonstroke),
-            Token::F,
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::Operator(Operator::CloseStrokePath),
+            TokenKind::Operator(Operator::SetColorNonstroke),
+            TokenKind::Operator(Operator::ShFill),
+            TokenKind::Operator(Operator::SetColorSpecialNonstroke),
+            TokenKind::F,
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -642,15 +668,15 @@ mod tests {
         let text = "cscmc5cs
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::Operator(Operator::SetColorSpaceNonstroke),
-            Token::Operator(Operator::ConcatMatrix),
-            Token::Operator(Operator::AppendCurveThreePoints),
-            Token::Integer(5),
-            Token::Operator(Operator::SetColorSpaceNonstroke),
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::Operator(Operator::SetColorSpaceNonstroke),
+            TokenKind::Operator(Operator::ConcatMatrix),
+            TokenKind::Operator(Operator::AppendCurveThreePoints),
+            TokenKind::Integer(5),
+            TokenKind::Operator(Operator::SetColorSpaceNonstroke),
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -658,14 +684,14 @@ mod tests {
         let text = "TcTdTTsf
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::Operator(Operator::SetCharSpacing),
-            Token::Operator(Operator::MoveTextPosition),
-            Token::Operator(Operator::SetTextRise),
-            Token::F,
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::Operator(Operator::SetCharSpacing),
+            TokenKind::Operator(Operator::MoveTextPosition),
+            TokenKind::Operator(Operator::SetTextRise),
+            TokenKind::F,
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -673,17 +699,17 @@ mod tests {
         let text = "EIEMCTfETEXEEI5
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::Operator(Operator::EndInlineImage),
-            Token::Operator(Operator::EndMarkedContentSequence),
-            Token::Operator(Operator::SelectFont),
-            Token::Operator(Operator::EndText),
-            Token::Operator(Operator::EndCompat),
-            Token::Operator(Operator::EndInlineImage),
-            Token::Integer(5),
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::Operator(Operator::EndInlineImage),
+            TokenKind::Operator(Operator::EndMarkedContentSequence),
+            TokenKind::Operator(Operator::SelectFont),
+            TokenKind::Operator(Operator::EndText),
+            TokenKind::Operator(Operator::EndCompat),
+            TokenKind::Operator(Operator::EndInlineImage),
+            TokenKind::Integer(5),
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -695,20 +721,20 @@ mod tests {
         ET
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::Operator(Operator::BeginText),
-            Token::Name(&"F0".as_bytes()),
-            Token::Integer(12),
-            Token::Operator(Operator::SelectFont),
-            Token::Integer(100),
-            Token::Integer(700),
-            Token::Operator(Operator::MoveTextPosition),
-            Token::LiteralString(&"Hello, World".as_bytes()),
-            Token::Operator(Operator::ShowText),
-            Token::Operator(Operator::EndText),
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::Operator(Operator::BeginText),
+            TokenKind::Name(&"F0".as_bytes()),
+            TokenKind::Integer(12),
+            TokenKind::Operator(Operator::SelectFont),
+            TokenKind::Integer(100),
+            TokenKind::Integer(700),
+            TokenKind::Operator(Operator::MoveTextPosition),
+            TokenKind::LiteralString(&"Hello, World".as_bytes()),
+            TokenKind::Operator(Operator::ShowText),
+            TokenKind::Operator(Operator::EndText),
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -716,21 +742,21 @@ mod tests {
         let text = "[(Le)15(x)-250(Fridman)]TJ/F13 6.9738 Tf
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::LBracket,
-            Token::LiteralString(&"Le".as_bytes()),
-            Token::Integer(15),
-            Token::LiteralString(&"x".as_bytes()),
-            Token::Integer(-250),
-            Token::LiteralString(&"Fridman".as_bytes()),
-            Token::RBracket,
-            Token::Operator(Operator::ShowTextAdjusted),
-            Token::Name(&"F13".as_bytes()),
-            Token::Real(6.9738),
-            Token::Operator(Operator::SelectFont),
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::LBracket,
+            TokenKind::LiteralString(&"Le".as_bytes()),
+            TokenKind::Integer(15),
+            TokenKind::LiteralString(&"x".as_bytes()),
+            TokenKind::Integer(-250),
+            TokenKind::LiteralString(&"Fridman".as_bytes()),
+            TokenKind::RBracket,
+            TokenKind::Operator(Operator::ShowTextAdjusted),
+            TokenKind::Name(&"F13".as_bytes()),
+            TokenKind::Real(6.9738),
+            TokenKind::Operator(Operator::SelectFont),
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -742,17 +768,17 @@ mod tests {
         57184
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::Header(1, 4),
-            Token::Integer(5),
-            Token::Integer(0),
-            Token::Obj,
-            Token::Endobj,
-            Token::StartXref,
-            Token::Integer(57184),
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::Header(1, 4),
+            TokenKind::Integer(5),
+            TokenKind::Integer(0),
+            TokenKind::Obj,
+            TokenKind::Endobj,
+            TokenKind::StartXref,
+            TokenKind::Integer(57184),
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     #[test]
@@ -760,14 +786,14 @@ mod tests {
         let text = "<</Producer(GPL Ghostscript 8.71)>>
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
-        let tokens = vec![
-            Token::DoubleLThan,
-            Token::Name("Producer".as_bytes()),
-            Token::LiteralString(&"GPL Ghostscript 8.71".as_bytes()),
-            Token::DoubleRThan,
-            Token::Eof,
+        let kinds = vec![
+            TokenKind::DoubleLThan,
+            TokenKind::Name("Producer".as_bytes()),
+            TokenKind::LiteralString(&"GPL Ghostscript 8.71".as_bytes()),
+            TokenKind::DoubleRThan,
+            TokenKind::Eof,
         ];
-        assert_eq!(lexer.lex(), tokens);
+        assert_eq!(lexer.lex(), kinds);
     }
 
     // #[test]
@@ -776,7 +802,7 @@ mod tests {
     //     d.push("test_data/hello.pdf");
     //     let file = std::fs::read(d).unwrap();
     //     let mut lexer = Lexer::new(&file);
-    //     let tokens = vec![Token::Header(1, 4)];
+    //     let tokens = vec![TokenKind::Header(1, 4)];
     //     assert_eq!(lexer.lex(), tokens);
     // }
 }

@@ -2,7 +2,13 @@ use std::{collections::BTreeMap, convert::TryFrom, path::PathBuf};
 
 use crate::{
     error::{PdfError, Result},
-    parser::{parser::{Dictionary, IndirectReference, Name, Object, Stream, Trailer, XrefSection, Parser}, lexer::Lexer},
+    parser::{
+        lexer::Lexer,
+        parser::{
+            Dictionary, IndirectReference, Name, Object, ObjectKind, Parser, Stream, Trailer,
+            XrefSection,
+        },
+    },
 };
 
 const TYPE: &[u8] = b"Type";
@@ -77,6 +83,20 @@ impl PDFDocument {
     pub fn get(&self, key: &IndirectReference) -> Option<&Object> {
         self.object_map.get(key)
     }
+
+    fn catalog(&self) -> Option<&Object> {
+        self.get(&self.trailer.root)
+    }
+
+    // fn pages(&self) -> Option<&Vec<Object>> {
+    //     let catalog = match self.catalog()? {
+    //         Object::Dictionary(dict) => dict,
+    //         _ => return None,
+    //     };
+    //     let pages = match catalog.get(PAGE_ROOT)? {
+    //         Object::IndirectReference(i_ref) => match self.get()
+    //     };
+    // }
 }
 
 impl TryFrom<PathBuf> for PDFDocument {
@@ -86,6 +106,7 @@ impl TryFrom<PathBuf> for PDFDocument {
         let tokens = Lexer::new(&file).lex();
         let mut parser = Parser::new(&tokens);
         let tokens = parser.parse();
+        println!("{:?}", tokens);
         PDFDocument::try_from(tokens)
     }
 }
@@ -99,18 +120,18 @@ impl TryFrom<Vec<Object>> for PDFDocument {
         let mut start_xref = Err(PdfError::NoStartXref);
         let mut object_map: ObjectMap = BTreeMap::new();
         for obj in objects {
-            match obj {
-                Object::Header(m, n) => version = Ok((m, n)),
-                Object::Trailer(t) => trailer = Ok(t),
-                Object::StartXref(s) => start_xref = Ok(s),
-                Object::IndirectObject(ind) => {
+            match obj.kind {
+                ObjectKind::Header(m, n) => version = Ok((m, n)),
+                ObjectKind::Trailer(t) => trailer = Ok(t),
+                ObjectKind::StartXref(s) => start_xref = Ok(s),
+                ObjectKind::IndirectObject(ind) => {
                     let key = IndirectReference {
                         object_number: ind.object_number,
                         generation_number: ind.generation_number,
                     };
                     object_map.insert(key, *ind.object);
                 }
-                Object::Xref(x) => xref_section = Ok(x),
+                ObjectKind::Xref(x) => xref_section = Ok(x),
                 _ => continue,
             }
         }
@@ -127,22 +148,13 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{array, name, indirect_reference, integer, dict};
-    use std::{path::PathBuf};
-
-    macro_rules! inner {
-        ($outer:expr, $inner:path, $msg:literal) => {
-            match $outer {
-                $inner(i) => i,
-                _ => panic!($msg),
-            }
-        };
-    }
+    use crate::{array, dict, indirect_reference, inner, integer, name, offset};
+    use std::path::PathBuf;
 
     macro_rules! get {
-        ($dict:expr, $key:expr) => (
+        ($dict:expr, $key:expr) => {
             $dict.get(&$key).unwrap()
-        );
+        };
     }
 
     #[test]
@@ -152,11 +164,19 @@ mod test {
         let doc = PDFDocument::try_from(file).unwrap();
         assert_eq!(doc.version, (1, 4));
         assert_eq!(doc.start_xref, 491);
-        let catalog = inner!(get!(doc, doc.trailer.root), Object::Dictionary, "Catalog is not a dictionary");
-        assert!(
-            matches!(get!(catalog, b"Type".to_vec()), Object::Name(x) if *x == b"Catalog".to_vec())
+        let catalog = inner!(
+            &get!(doc, doc.trailer.root).kind,
+            ObjectKind::Dictionary,
+            "Catalog is not a dictionary"
         );
-        let pages = inner!(get!(catalog, b"Pages".to_vec()), Object::IndirectReference, "Catalog's pages is not indirect reference.");
+        assert!(
+            matches!(&get!(catalog, b"Type".to_vec()).kind, ObjectKind::Name(x) if *x == b"Catalog".to_vec())
+        );
+        let pages = inner!(
+            get!(catalog, b"Pages".to_vec()).kind,
+            ObjectKind::IndirectReference,
+            "Catalog's pages is not indirect reference."
+        );
         let pages = get!(doc, pages);
         let pages_rhs = dict!(
             b"Type" => name!("Pages"),
@@ -164,9 +184,21 @@ mod test {
             b"Count" => integer!(1)
         );
         assert_eq!(pages, &pages_rhs);
-        let pages = inner!(pages, Object::Dictionary, "Pages is not a dictionary.");
-        let kids = inner!(get!(pages, b"Kids".to_vec()), Object::Array, "Pages' kids is not array.");
-        let kids = inner!(kids[0], Object::IndirectReference, "Kids is not indirect reference.");
+        let pages = inner!(
+            &pages.kind,
+            ObjectKind::Dictionary,
+            "Pages is not a dictionary."
+        );
+        let kids = inner!(
+            &get!(pages, b"Kids".to_vec()).kind,
+            ObjectKind::Array,
+            "Pages' kids is not array."
+        );
+        let kids = inner!(
+            kids[0].kind,
+            ObjectKind::IndirectReference,
+            "Kids is not indirect reference."
+        );
         let kids = get!(doc, kids);
         let kids_rhs = dict!(
             b"Type" => name!("Page"),
@@ -176,13 +208,26 @@ mod test {
             b"Contents" => indirect_reference!(5)
         );
         assert_eq!(kids, &kids_rhs);
-        let kids = inner!(kids, Object::Dictionary, "Kids is not dictionary.");
+        let kids = inner!(
+            &kids.kind,
+            ObjectKind::Dictionary,
+            "Kids is not dictionary."
+        );
     }
 
     #[test]
     fn test_mostly_postscript_contents() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/heinz.pdf");
+        let doc = PDFDocument::try_from(file).unwrap();
+        println!("{:?}", doc);
+        assert!(false);
+    }
+
+    #[test]
+    fn test_pdf_2_spec() {
+        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        file.push("test_data/pdf.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
         println!("{:?}", doc);
         assert!(false);

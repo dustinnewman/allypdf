@@ -3,13 +3,13 @@ use super::operators::Operator;
 use crate::operators::operations::{
     Color, LineCap, LineJoin, StringOrNumber, TextRendering, CMYK, RGB,
 };
-use crate::parser::parser::Object;
+use crate::parser::parser::{Object, ObjectKind};
 
 macro_rules! coerce_f64 {
     ($obj:expr) => {
         match $obj {
-            Object::Real(n) => *n,
-            Object::Integer(n) => *n as f64,
+            ObjectKind::Real(n) => *n,
+            ObjectKind::Integer(n) => *n as f64,
             _ => return None,
         }
     };
@@ -18,8 +18,8 @@ macro_rules! coerce_f64 {
 macro_rules! coerce_f32 {
     ($obj:expr) => {
         match $obj {
-            Object::Real(n) => *n as f32,
-            Object::Integer(n) => *n as f32,
+            ObjectKind::Real(n) => *n as f32,
+            ObjectKind::Integer(n) => *n as f32,
             _ => return None,
         }
     };
@@ -28,7 +28,7 @@ macro_rules! coerce_f32 {
 macro_rules! coerce_string {
     ($obj:expr) => {
         match $obj {
-            Object::String(s) => s,
+            ObjectKind::String(s) => s,
             _ => return None,
         }
     };
@@ -37,7 +37,7 @@ macro_rules! coerce_string {
 macro_rules! coerce_name {
     ($obj:expr) => {
         match $obj {
-            Object::Name(s) => s,
+            ObjectKind::Name(s) => s,
             _ => return None,
         }
     };
@@ -84,66 +84,74 @@ impl<'a> OperatorParser<'a> {
                 $op
             }};
         }
-
-        let operand = match self.pop()? {
-            Object::Operator(Operator::CloseStrokePath) => Operation::CloseStrokePath,
-            Object::Operator(Operator::StrokePath) => Operation::StrokePath,
-            Object::Operator(Operator::FillPath) => Operation::FillPath,
-            Object::Operator(Operator::FillPathEvenOdd) => Operation::FillPathEvenOdd,
-            Object::Operator(Operator::CloseFillStrokePath) => Operation::CloseFillStrokePath,
-            Object::Operator(Operator::FillStrokePath) => Operation::FillStrokePath,
-            Object::Operator(Operator::CloseFillStrokePathEvenOdd) => {
+        let object = self.pop()?;
+        let operand = match object.kind {
+            ObjectKind::Operator(Operator::CloseStrokePath) => Operation::CloseStrokePath,
+            ObjectKind::Operator(Operator::StrokePath) => Operation::StrokePath,
+            ObjectKind::Operator(Operator::FillPath) => Operation::FillPath,
+            ObjectKind::Operator(Operator::FillPathEvenOdd) => Operation::FillPathEvenOdd,
+            ObjectKind::Operator(Operator::CloseFillStrokePath) => Operation::CloseFillStrokePath,
+            ObjectKind::Operator(Operator::FillStrokePath) => Operation::FillStrokePath,
+            ObjectKind::Operator(Operator::CloseFillStrokePathEvenOdd) => {
                 Operation::CloseFillStrokePathEvenOdd
             }
-            Object::Operator(Operator::FillStrokePathEvenOdd) => Operation::FillStrokePathEvenOdd,
-            Object::Operator(Operator::EndPathNoFill) => Operation::EndPathNoFill,
-            Object::Operator(Operator::SetClippingPath) => Operation::SetClippingPath,
-            Object::Operator(Operator::SetClippingPathEvenOdd) => Operation::SetClippingPathEvenOdd,
-            Object::Operator(Operator::DefineMarkedContentPoint) => match self.peek()? {
-                Object::Name(name) => op!(Operation::DefineMarkedContentPoint(name)),
+            ObjectKind::Operator(Operator::FillStrokePathEvenOdd) => {
+                Operation::FillStrokePathEvenOdd
+            }
+            ObjectKind::Operator(Operator::EndPathNoFill) => Operation::EndPathNoFill,
+            ObjectKind::Operator(Operator::SetClippingPath) => Operation::SetClippingPath,
+            ObjectKind::Operator(Operator::SetClippingPathEvenOdd) => {
+                Operation::SetClippingPathEvenOdd
+            }
+            ObjectKind::Operator(Operator::DefineMarkedContentPoint) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::DefineMarkedContentPoint(name)),
                 _ => return None,
             },
-            Object::Operator(Operator::DefineMarkedContentPointPropertyList) => {
-                match (self.peek()?, self.nth(1)?) {
-                    (Object::Dictionary(dict), Object::Name(name)) => op!(
+            ObjectKind::Operator(Operator::DefineMarkedContentPointPropertyList) => {
+                match (&self.peek()?.kind, &self.nth(1)?.kind) {
+                    (ObjectKind::Dictionary(dict), ObjectKind::Name(name)) => op!(
                         Operation::DefineMarkedContentPointPropertyList(name, dict),
                         2
                     ),
                     _ => return None,
                 }
             }
-            Object::Operator(Operator::BeginMarkedContentSequence) => match self.peek()? {
-                Object::Name(name) => op!(Operation::BeginMarkedContentSequence(name)),
-                _ => return None,
-            },
-            Object::Operator(Operator::BeginMarkedContentSequencePropertyList) => {
-                match (self.peek()?, self.nth(1)?) {
-                    (Object::Dictionary(dict), Object::Name(name)) => op!(
-                        Operation::BeginMarkedContentSequencePropertyList(name, dict),
+            ObjectKind::Operator(Operator::BeginMarkedContentSequence) => {
+                match &self.peek()?.kind {
+                    ObjectKind::Name(name) => op!(Operation::BeginMarkedContentSequence(&name)),
+                    _ => return None,
+                }
+            }
+            ObjectKind::Operator(Operator::BeginMarkedContentSequencePropertyList) => {
+                match (&self.peek()?.kind, &self.nth(1)?.kind) {
+                    (ObjectKind::Dictionary(dict), ObjectKind::Name(name)) => op!(
+                        Operation::BeginMarkedContentSequencePropertyList(&name, &dict),
                         2
                     ),
                     _ => return None,
                 }
             }
-            Object::Operator(Operator::EndMarkedContentSequence) => {
+            ObjectKind::Operator(Operator::EndMarkedContentSequence) => {
                 Operation::EndMarkedContentSequence
             }
-            Object::Operator(Operator::BeginInlineImageObject) => Operation::BeginInlineImageObject,
-            Object::Operator(Operator::BeginInlineImageData) => Operation::BeginInlineImageData,
-            Object::Operator(Operator::EndInlineImage) => Operation::EndInlineImage,
-            Object::Operator(Operator::BeginText) => Operation::BeginText,
-            Object::Operator(Operator::ShowText) => match self.peek()? {
-                Object::String(string) => op!(Operation::ShowText(string)),
+            ObjectKind::Operator(Operator::BeginInlineImageObject) => {
+                Operation::BeginInlineImageObject
+            }
+            ObjectKind::Operator(Operator::BeginInlineImageData) => Operation::BeginInlineImageData,
+            ObjectKind::Operator(Operator::EndInlineImage) => Operation::EndInlineImage,
+            ObjectKind::Operator(Operator::BeginText) => Operation::BeginText,
+            ObjectKind::Operator(Operator::ShowText) => match &self.peek()?.kind {
+                ObjectKind::String(string) => op!(Operation::ShowText(&string)),
                 _ => return None,
             },
-            Object::Operator(Operator::ShowTextAdjusted) => match self.peek()? {
-                Object::Array(arr) => {
+            ObjectKind::Operator(Operator::ShowTextAdjusted) => match &self.peek()?.kind {
+                ObjectKind::Array(arr) => {
                     let mut vec = vec![];
                     for obj in arr {
-                        let element = match obj {
-                            Object::String(string) => StringOrNumber::String(string),
-                            Object::Real(n) => StringOrNumber::Number(*n),
-                            Object::Integer(n) => StringOrNumber::Number(*n as f64),
+                        let element = match &obj.kind {
+                            ObjectKind::String(string) => StringOrNumber::String(string),
+                            ObjectKind::Real(n) => StringOrNumber::Number(*n),
+                            ObjectKind::Integer(n) => StringOrNumber::Number(*n as f64),
                             _ => continue,
                         };
                         vec.push(element);
@@ -152,209 +160,207 @@ impl<'a> OperatorParser<'a> {
                 }
                 _ => return None,
             },
-            Object::Operator(Operator::MoveNextLineShowText) => match self.peek()? {
-                Object::String(string) => op!(Operation::MoveNextLineShowText(string)),
+            ObjectKind::Operator(Operator::MoveNextLineShowText) => match &self.peek()?.kind {
+                ObjectKind::String(string) => op!(Operation::MoveNextLineShowText(&string)),
                 _ => return None,
             },
-            Object::Operator(Operator::SetSpacingMoveNextLineShowText) => {
-                let text = self.peek()?;
-                let ac = self.nth(1)?;
-                let aw = self.nth(2)?;
+            ObjectKind::Operator(Operator::SetSpacingMoveNextLineShowText) => {
+                let text = &self.peek()?.kind;
+                let ac = &self.nth(1)?.kind;
+                let aw = &self.nth(2)?.kind;
                 let aw = coerce_f64!(aw);
                 let ac = coerce_f64!(ac);
                 let text = coerce_string!(text);
-                op!(Operation::SetSpacingMoveNextLineShowText(aw, ac, text), 3)
+                op!(Operation::SetSpacingMoveNextLineShowText(aw, ac, &text), 3)
             }
-            Object::Operator(Operator::MoveTextPosition) => {
-                let ty = coerce_f64!(self.peek()?);
-                let tx = coerce_f64!(self.nth(1)?);
+            ObjectKind::Operator(Operator::MoveTextPosition) => {
+                let ty = coerce_f64!(&self.peek()?.kind);
+                let tx = coerce_f64!(&self.nth(1)?.kind);
                 op!(Operation::MoveTextPosition(tx, ty), 2)
             }
-            Object::Operator(Operator::MoveTextPositionLeading) => {
-                let ty = coerce_f64!(self.peek()?);
-                let tx = coerce_f64!(self.nth(1)?);
+            ObjectKind::Operator(Operator::MoveTextPositionLeading) => {
+                let ty = coerce_f64!(&self.peek()?.kind);
+                let tx = coerce_f64!(&self.nth(1)?.kind);
                 op!(Operation::MoveTextPositionLeading(tx, ty), 2)
             }
-            Object::Operator(Operator::SetTextMatrix) => {
-                let f = coerce_f64!(self.peek()?);
-                let e = coerce_f64!(self.nth(1)?);
-                let d = coerce_f64!(self.nth(2)?);
-                let c = coerce_f64!(self.nth(3)?);
-                let b = coerce_f64!(self.nth(4)?);
-                let a = coerce_f64!(self.nth(5)?);
+            ObjectKind::Operator(Operator::SetTextMatrix) => {
+                let f = coerce_f64!(&self.peek()?.kind);
+                let e = coerce_f64!(&self.nth(1)?.kind);
+                let d = coerce_f64!(&self.nth(2)?.kind);
+                let c = coerce_f64!(&self.nth(3)?.kind);
+                let b = coerce_f64!(&self.nth(4)?.kind);
+                let a = coerce_f64!(&self.nth(5)?.kind);
                 let matrix = [a, b, c, d, e, f];
                 op!(Operation::SetTextMatrix(matrix), 6)
             }
-            Object::Operator(Operator::MoveStartNextLine) => Operation::MoveStartNextLine,
-            Object::Operator(Operator::SetCharSpacing) => {
-                let char_space = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::MoveStartNextLine) => Operation::MoveStartNextLine,
+            ObjectKind::Operator(Operator::SetCharSpacing) => {
+                let char_space = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetCharSpacing(char_space))
             }
-            Object::Operator(Operator::SelectFont) => {
-                let size = coerce_f64!(self.peek()?);
-                let text = coerce_name!(self.nth(1)?);
-                op!(Operation::SelectFont(text, size), 2)
+            ObjectKind::Operator(Operator::SelectFont) => {
+                let size = coerce_f64!(&self.peek()?.kind);
+                let text = coerce_name!(&self.nth(1)?.kind);
+                op!(Operation::SelectFont(&text, size), 2)
             }
-            Object::Operator(Operator::SetTextLeading) => {
-                let leading = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::SetTextLeading) => {
+                let leading = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetTextLeading(leading))
             }
-            Object::Operator(Operator::SetTextRendering) => match self.peek()? {
-                Object::Integer(i) => {
-                    let render = TextRendering::from_i64(*i)?;
-                    op!(Operation::SetTextRendering(render))
+            ObjectKind::Operator(Operator::SetTextRendering) => match &self.peek()?.kind {
+                ObjectKind::Integer(i) => {
+                    op!(Operation::SetTextRendering(TextRendering::from_i64(*i)?))
                 }
                 _ => return None,
             },
-            Object::Operator(Operator::SetTextRise) => {
-                let rise = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::SetTextRise) => {
+                let rise = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetTextRise(rise))
             }
-            Object::Operator(Operator::SetWordSpacing) => {
-                let word_space = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::SetWordSpacing) => {
+                let word_space = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetWordSpacing(word_space))
             }
-            Object::Operator(Operator::SetHorizontalTextScaling) => {
-                let scale = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::SetHorizontalTextScaling) => {
+                let scale = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetHorizontalTextScaling(scale))
             }
-            Object::Operator(Operator::EndText) => Operation::EndText,
-            Object::Operator(Operator::BeginCompat) => Operation::BeginCompat,
-            Object::Operator(Operator::SetCharWidth) => {
-                let wy = coerce_f64!(self.peek()?);
-                let wx = coerce_f64!(self.nth(1)?);
+            ObjectKind::Operator(Operator::EndText) => Operation::EndText,
+            ObjectKind::Operator(Operator::BeginCompat) => Operation::BeginCompat,
+            ObjectKind::Operator(Operator::SetCharWidth) => {
+                let wy = coerce_f64!(&self.peek()?.kind);
+                let wx = coerce_f64!(&self.nth(1)?.kind);
                 op!(Operation::SetCharWidth(wx, wy), 2)
             }
-            Object::Operator(Operator::SetCacheDevice) => {
-                let ur_y = coerce_f64!(self.peek()?);
-                let ur_x = coerce_f64!(self.nth(1)?);
-                let ll_y = coerce_f64!(self.nth(2)?);
-                let ll_x = coerce_f64!(self.nth(3)?);
-                let wy = coerce_f64!(self.nth(4)?);
-                let wx = coerce_f64!(self.nth(5)?);
+            ObjectKind::Operator(Operator::SetCacheDevice) => {
+                let ur_y = coerce_f64!(&self.peek()?.kind);
+                let ur_x = coerce_f64!(&self.nth(1)?.kind);
+                let ll_y = coerce_f64!(&self.nth(2)?.kind);
+                let ll_x = coerce_f64!(&self.nth(3)?.kind);
+                let wy = coerce_f64!(&self.nth(4)?.kind);
+                let wx = coerce_f64!(&self.nth(5)?.kind);
                 op!(
                     Operation::SetCacheDevice((wx, wy), (ll_x, ll_y), (ur_x, ur_y)),
                     6
                 )
             }
-            Object::Operator(Operator::InvokeXObject) => match self.peek()? {
-                Object::Name(name) => op!(Operation::InvokeXObject(name)),
+            ObjectKind::Operator(Operator::InvokeXObject) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::InvokeXObject(&name)),
                 _ => return None,
             },
-            Object::Operator(Operator::EndCompat) => Operation::EndCompat,
-            Object::Operator(Operator::MoveTo) => {
-                let y = coerce_f64!(self.peek()?);
-                let x = coerce_f64!(self.nth(1)?);
+            ObjectKind::Operator(Operator::EndCompat) => Operation::EndCompat,
+            ObjectKind::Operator(Operator::MoveTo) => {
+                let y = coerce_f64!(&self.peek()?.kind);
+                let x = coerce_f64!(&self.nth(1)?.kind);
                 op!(Operation::MoveTo(x, y), 2)
             }
-            Object::Operator(Operator::LineTo) => {
-                let y = coerce_f64!(self.peek()?);
-                let x = coerce_f64!(self.nth(1)?);
+            ObjectKind::Operator(Operator::LineTo) => {
+                let y = coerce_f64!(&self.peek()?.kind);
+                let x = coerce_f64!(&self.nth(1)?.kind);
                 op!(Operation::LineTo(x, y), 2)
             }
-            Object::Operator(Operator::AppendCurveThreePoints) => {
-                let y3 = coerce_f64!(self.peek()?);
-                let x3 = coerce_f64!(self.nth(1)?);
-                let y2 = coerce_f64!(self.nth(2)?);
-                let x2 = coerce_f64!(self.nth(3)?);
-                let y1 = coerce_f64!(self.nth(4)?);
-                let x1 = coerce_f64!(self.nth(5)?);
+            ObjectKind::Operator(Operator::AppendCurveThreePoints) => {
+                let y3 = coerce_f64!(&self.peek()?.kind);
+                let x3 = coerce_f64!(&self.nth(1)?.kind);
+                let y2 = coerce_f64!(&self.nth(2)?.kind);
+                let x2 = coerce_f64!(&self.nth(3)?.kind);
+                let y1 = coerce_f64!(&self.nth(4)?.kind);
+                let x1 = coerce_f64!(&self.nth(5)?.kind);
                 op!(
                     Operation::AppendCurveThreePoints((x1, y1), (x2, y2), (x3, y3)),
                     6
                 )
             }
-            Object::Operator(Operator::AppendCurveInitialReplicated) => {
-                let y3 = coerce_f64!(self.peek()?);
-                let x3 = coerce_f64!(self.nth(1)?);
-                let y2 = coerce_f64!(self.nth(2)?);
-                let x2 = coerce_f64!(self.nth(3)?);
+            ObjectKind::Operator(Operator::AppendCurveInitialReplicated) => {
+                let y3 = coerce_f64!(&self.peek()?.kind);
+                let x3 = coerce_f64!(&self.nth(1)?.kind);
+                let y2 = coerce_f64!(&self.nth(2)?.kind);
+                let x2 = coerce_f64!(&self.nth(3)?.kind);
                 op!(
                     Operation::AppendCurveInitialReplicated((x2, y2), (x3, y3)),
                     4
                 )
             }
-            Object::Operator(Operator::AppendCurveFinalReplicated) => {
-                let y3 = coerce_f64!(self.peek()?);
-                let x3 = coerce_f64!(self.nth(1)?);
-                let y1 = coerce_f64!(self.nth(2)?);
-                let x1 = coerce_f64!(self.nth(3)?);
+            ObjectKind::Operator(Operator::AppendCurveFinalReplicated) => {
+                let y3 = coerce_f64!(&self.peek()?.kind);
+                let x3 = coerce_f64!(&self.nth(1)?.kind);
+                let y1 = coerce_f64!(&self.nth(2)?.kind);
+                let x1 = coerce_f64!(&self.nth(3)?.kind);
                 op!(
                     Operation::AppendCurveInitialReplicated((x1, y1), (x3, y3)),
                     4
                 )
             }
-            Object::Operator(Operator::AppendRectangle) => {
-                let height = coerce_f64!(self.peek()?);
-                let width = coerce_f64!(self.nth(1)?);
-                let y = coerce_f64!(self.nth(2)?);
-                let x = coerce_f64!(self.nth(3)?);
+            ObjectKind::Operator(Operator::AppendRectangle) => {
+                let height = coerce_f64!(&self.peek()?.kind);
+                let width = coerce_f64!(&self.nth(1)?.kind);
+                let y = coerce_f64!(&self.nth(2)?.kind);
+                let x = coerce_f64!(&self.nth(3)?.kind);
                 op!(Operation::AppendRectangle(x, y, width, height), 4)
             }
-            Object::Operator(Operator::CloseSubpath) => Operation::CloseSubpath,
-            Object::Operator(Operator::SetMiterLimit) => {
-                let miter_limit = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::CloseSubpath) => Operation::CloseSubpath,
+            ObjectKind::Operator(Operator::SetMiterLimit) => {
+                let miter_limit = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetMiterLimit(miter_limit))
             }
-            Object::Operator(Operator::ConcatMatrix) => {
-                let f = coerce_f64!(self.peek()?);
-                let e = coerce_f64!(self.nth(1)?);
-                let d = coerce_f64!(self.nth(2)?);
-                let c = coerce_f64!(self.nth(3)?);
-                let b = coerce_f64!(self.nth(4)?);
-                let a = coerce_f64!(self.nth(5)?);
+            ObjectKind::Operator(Operator::ConcatMatrix) => {
+                let f = coerce_f64!(&self.peek()?.kind);
+                let e = coerce_f64!(&self.nth(1)?.kind);
+                let d = coerce_f64!(&self.nth(2)?.kind);
+                let c = coerce_f64!(&self.nth(3)?.kind);
+                let b = coerce_f64!(&self.nth(4)?.kind);
+                let a = coerce_f64!(&self.nth(5)?.kind);
                 let matrix = [a, b, c, d, e, f];
                 op!(Operation::ConcatMatrix(matrix), 6)
             }
-            Object::Operator(Operator::SetLineWidth) => {
-                let width = coerce_f64!(self.peek()?);
+            ObjectKind::Operator(Operator::SetLineWidth) => {
+                let width = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetLineWidth(width))
             }
-            Object::Operator(Operator::SetLineJoin) => match self.peek()? {
-                Object::Integer(i) => {
+            ObjectKind::Operator(Operator::SetLineJoin) => match &self.peek()?.kind {
+                ObjectKind::Integer(i) => {
                     let join = LineJoin::from_i64(*i)?;
                     op!(Operation::SetLineJoin(join))
                 }
                 _ => return None,
             },
-            Object::Operator(Operator::SetLineCap) => match self.peek()? {
-                Object::Integer(i) => {
-                    let cap = LineCap::from_i64(*i)?;
-                    op!(Operation::SetLineCap(cap))
-                }
+            ObjectKind::Operator(Operator::SetLineCap) => match &self.peek()?.kind {
+                ObjectKind::Integer(i) => op!(Operation::SetLineCap(LineCap::from_i64(*i)?)),
                 _ => return None,
             },
-            Object::Operator(Operator::SetDash) => match (self.peek()?, self.nth(1)?) {
-                (Object::Integer(i), Object::Array(arr)) => {
-                    let mut vec = vec![];
-                    for obj in arr {
-                        if let Object::Integer(i) = obj {
-                            vec.push(*i)
+            ObjectKind::Operator(Operator::SetDash) => {
+                match (&self.peek()?.kind, &self.nth(1)?.kind) {
+                    (ObjectKind::Integer(i), ObjectKind::Array(arr)) => {
+                        let mut vec = vec![];
+                        for obj in arr {
+                            if let ObjectKind::Integer(j) = obj.kind {
+                                vec.push(j)
+                            }
                         }
+                        op!(Operation::SetDash(vec, *i), 2)
                     }
-                    op!(Operation::SetDash(vec, *i), 2)
+                    _ => return None,
                 }
+            }
+            ObjectKind::Operator(Operator::GSave) => Operation::GSave,
+            ObjectKind::Operator(Operator::GRestore) => Operation::GRestore,
+            ObjectKind::Operator(Operator::SetColorRenderingIntent) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::SetColorRenderingIntent(&name)),
                 _ => return None,
             },
-            Object::Operator(Operator::GSave) => Operation::GSave,
-            Object::Operator(Operator::GRestore) => Operation::GRestore,
-            Object::Operator(Operator::SetColorRenderingIntent) => match self.peek()? {
-                Object::Name(name) => op!(Operation::SetColorRenderingIntent(name)),
-                _ => return None,
-            },
-            Object::Operator(Operator::SetFlat) => {
-                let flatness = coerce_f32!(self.peek()?);
+            ObjectKind::Operator(Operator::SetFlat) => {
+                let flatness = coerce_f32!(&self.peek()?.kind);
                 op!(Operation::SetFlat(flatness))
             }
-            Object::Operator(Operator::SetGraphicsStateParams) => match self.peek()? {
-                Object::Name(name) => op!(Operation::SetGraphicsStateParams(name)),
+            ObjectKind::Operator(Operator::SetGraphicsStateParams) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::SetGraphicsStateParams(&name)),
                 _ => return None,
             },
-            Object::Operator(Operator::SetCMYKColorStroke) => {
-                let black = coerce_f32!(self.peek()?);
-                let yellow = coerce_f32!(self.nth(1)?);
-                let magenta = coerce_f32!(self.nth(2)?);
-                let cyan = coerce_f32!(self.nth(3)?);
+            ObjectKind::Operator(Operator::SetCMYKColorStroke) => {
+                let black = coerce_f32!(&self.peek()?.kind);
+                let yellow = coerce_f32!(&self.nth(1)?.kind);
+                let magenta = coerce_f32!(&self.nth(2)?.kind);
+                let cyan = coerce_f32!(&self.nth(3)?.kind);
                 let cmyk = CMYK {
                     cyan,
                     magenta,
@@ -363,11 +369,11 @@ impl<'a> OperatorParser<'a> {
                 };
                 op!(Operation::SetCMYKColorStroke(cmyk), 4)
             }
-            Object::Operator(Operator::SetCMYKColorNonstroke) => {
-                let black = coerce_f32!(self.peek()?);
-                let yellow = coerce_f32!(self.nth(1)?);
-                let magenta = coerce_f32!(self.nth(2)?);
-                let cyan = coerce_f32!(self.nth(3)?);
+            ObjectKind::Operator(Operator::SetCMYKColorNonstroke) => {
+                let black = coerce_f32!(&self.peek()?.kind);
+                let yellow = coerce_f32!(&self.nth(1)?.kind);
+                let magenta = coerce_f32!(&self.nth(2)?.kind);
+                let cyan = coerce_f32!(&self.nth(3)?.kind);
                 let cmyk = CMYK {
                     cyan,
                     magenta,
@@ -376,65 +382,65 @@ impl<'a> OperatorParser<'a> {
                 };
                 op!(Operation::SetCMYKColorNonstroke(cmyk), 4)
             }
-            Object::Operator(Operator::SetColorStroke) => {
+            ObjectKind::Operator(Operator::SetColorStroke) => {
                 let color = self.handle_color(0)?;
                 Operation::SetColorStroke(color)
             }
-            Object::Operator(Operator::SetColorNonstroke) => {
+            ObjectKind::Operator(Operator::SetColorNonstroke) => {
                 let color = self.handle_color(0)?;
                 Operation::SetColorNonstroke(color)
             }
-            Object::Operator(Operator::SetColorSpecialStroke) => {
-                let name = match self.peek()? {
-                    Object::Name(n) => Some(n),
+            ObjectKind::Operator(Operator::SetColorSpecialStroke) => {
+                let name = match &self.peek()?.kind {
+                    ObjectKind::Name(name) => Some(name),
                     _ => None,
                 };
                 let start: usize = if name.is_some() { 1 } else { 0 };
                 let color = self.handle_color(start)?;
                 Operation::SetColorSpecialStroke(color, name)
             }
-            Object::Operator(Operator::SetColorSpecialNonstroke) => {
-                let first = self.peek()?;
+            ObjectKind::Operator(Operator::SetColorSpecialNonstroke) => {
+                let first = &self.peek()?.kind;
                 let name = match first {
-                    Object::Name(n) => Some(n),
+                    ObjectKind::Name(name) => Some(name),
                     _ => None,
                 };
                 let start: usize = if name.is_some() { 1 } else { 0 };
                 let color = self.handle_color(start)?;
                 Operation::SetColorSpecialNonstroke(color, name)
             }
-            Object::Operator(Operator::SetColorSpaceStroke) => match self.peek()? {
-                Object::Name(name) => op!(Operation::SetColorSpaceStroke(name)),
+            ObjectKind::Operator(Operator::SetColorSpaceStroke) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::SetColorSpaceStroke(&name)),
                 _ => return None,
             },
-            Object::Operator(Operator::SetColorSpaceNonstroke) => match self.peek()? {
-                Object::Name(name) => op!(Operation::SetColorSpaceNonstroke(name)),
+            ObjectKind::Operator(Operator::SetColorSpaceNonstroke) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::SetColorSpaceNonstroke(&name)),
                 _ => return None,
             },
-            Object::Operator(Operator::SetRGBColorStroke) => {
-                let blue = coerce_f32!(self.peek()?);
-                let green = coerce_f32!(self.nth(1)?);
-                let red = coerce_f32!(self.nth(2)?);
+            ObjectKind::Operator(Operator::SetRGBColorStroke) => {
+                let blue = coerce_f32!(&self.peek()?.kind);
+                let green = coerce_f32!(&self.nth(1)?.kind);
+                let red = coerce_f32!(&self.nth(2)?.kind);
                 let rgb = RGB { red, green, blue };
                 op!(Operation::SetRGBColorStroke(rgb), 3)
             }
-            Object::Operator(Operator::SetRGBColorNonstroke) => {
-                let blue = coerce_f32!(self.peek()?);
-                let green = coerce_f32!(self.nth(1)?);
-                let red = coerce_f32!(self.nth(2)?);
+            ObjectKind::Operator(Operator::SetRGBColorNonstroke) => {
+                let blue = coerce_f32!(&self.peek()?.kind);
+                let green = coerce_f32!(&self.nth(1)?.kind);
+                let red = coerce_f32!(&self.nth(2)?.kind);
                 let rgb = RGB { red, green, blue };
                 op!(Operation::SetRGBColorNonstroke(rgb), 3)
             }
-            Object::Operator(Operator::SetGrayStroke) => {
-                let gray = coerce_f32!(self.peek()?);
+            ObjectKind::Operator(Operator::SetGrayStroke) => {
+                let gray = coerce_f32!(&self.peek()?.kind);
                 op!(Operation::SetGrayStroke(gray))
             }
-            Object::Operator(Operator::SetGrayNonstroke) => {
-                let gray = coerce_f32!(self.peek()?);
+            ObjectKind::Operator(Operator::SetGrayNonstroke) => {
+                let gray = coerce_f32!(&self.peek()?.kind);
                 op!(Operation::SetGrayNonstroke(gray))
             }
-            Object::Operator(Operator::ShFill) => match self.peek()? {
-                Object::Name(name) => op!(Operation::ShFill(name)),
+            ObjectKind::Operator(Operator::ShFill) => match &self.peek()?.kind {
+                ObjectKind::Name(name) => op!(Operation::ShFill(&name)),
                 _ => return None,
             },
             _ => return None,
@@ -443,23 +449,42 @@ impl<'a> OperatorParser<'a> {
     }
 
     fn handle_color(&mut self, start: usize) -> Option<Color> {
-        let first = coerce_f32!(self.nth(start)?);
+        let first = coerce_f32!(&self.nth(start)?.kind);
+        let second = self.nth(start + 1);
         if matches!(
-            self.nth(start + 1),
-            Some(Object::Integer(_)) | Some(Object::Real(_))
+            second,
+            Some(Object {
+                kind: ObjectKind::Integer(_),
+                ..
+            }) | Some(Object {
+                kind: ObjectKind::Real(_),
+                ..
+            })
         ) {
-            let second = coerce_f32!(self.nth(start + 1)?);
+            let second = coerce_f32!(&self.nth(start + 1)?.kind);
             let third = match self.nth(start + 2) {
-                Some(Object::Real(r)) => *r as f32,
-                Some(Object::Integer(i)) => *i as f32,
+                Some(Object {
+                    kind: ObjectKind::Real(r),
+                    ..
+                }) => *r as f32,
+                Some(Object {
+                    kind: ObjectKind::Integer(i),
+                    ..
+                }) => *i as f32,
                 _ => {
                     self.seek(start + 2);
                     return Some(Color::Gray(first));
                 }
             };
             let fourth = match self.nth(start + 3) {
-                Some(Object::Real(r)) => *r as f32,
-                Some(Object::Integer(i)) => *i as f32,
+                Some(Object {
+                    kind: ObjectKind::Real(r),
+                    ..
+                }) => *r as f32,
+                Some(Object {
+                    kind: ObjectKind::Integer(i),
+                    ..
+                }) => *i as f32,
                 _ => {
                     self.seek(start + 3);
                     let rgb = RGB {
@@ -528,6 +553,8 @@ impl<'a> OperatorParser<'a> {
 
 #[cfg(test)]
 mod test {
+    use crate::{array, dict, integer, name, offset, operator, real, string};
+
     use super::*;
     use std::collections::BTreeMap;
 
@@ -541,7 +568,7 @@ mod test {
 
     #[test]
     fn test_no_args() {
-        let objects = vec![Object::Operator(Operator::CloseStrokePath)];
+        let objects = vec![operator!(Operator::CloseStrokePath)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::CloseStrokePath];
         assert_eq!(parser.parse(), operations);
@@ -549,7 +576,7 @@ mod test {
 
     #[test]
     fn test_too_few_args() {
-        let objects = vec![Object::Operator(Operator::SetGrayStroke)];
+        let objects = vec![operator!(Operator::SetGrayStroke)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![];
         assert_eq!(parser.parse(), operations);
@@ -557,10 +584,7 @@ mod test {
 
     #[test]
     fn test_one_arg_int() {
-        let objects = vec![
-            Object::Integer(0),
-            Object::Operator(Operator::SetGrayStroke),
-        ];
+        let objects = vec![integer!(0), operator!(Operator::SetGrayStroke)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetGrayStroke(0.0)];
         assert_eq!(parser.parse(), operations);
@@ -568,10 +592,7 @@ mod test {
 
     #[test]
     fn test_one_arg_real() {
-        let objects = vec![
-            Object::Real(0.5),
-            Object::Operator(Operator::SetGrayNonstroke),
-        ];
+        let objects = vec![real!(0.5), operator!(Operator::SetGrayNonstroke)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetGrayNonstroke(0.5)];
         assert_eq!(parser.parse(), operations);
@@ -579,10 +600,7 @@ mod test {
 
     #[test]
     fn test_one_arg_name() {
-        let objects = vec![
-            Object::Name(b"test".to_vec()),
-            Object::Operator(Operator::DefineMarkedContentPoint),
-        ];
+        let objects = vec![name!("test"), operator!(Operator::DefineMarkedContentPoint)];
         let mut parser = OperatorParser::new(&objects);
         let name = b"test".to_vec();
         let operations = vec![Operation::DefineMarkedContentPoint(&name)];
@@ -592,11 +610,13 @@ mod test {
     #[test]
     fn test_two_args_name_dict() {
         let mut properties = BTreeMap::new();
-        properties.insert(b"Length".to_vec(), Object::Integer(6));
+        properties.insert(b"Length".to_vec(), ObjectKind::Integer(6));
         let objects = vec![
-            Object::Name(b"test".to_vec()),
-            Object::Dictionary(properties),
-            Object::Operator(Operator::DefineMarkedContentPointPropertyList),
+            name!("test"),
+            dict!(
+                b"Length" => integer!(6)
+            ),
+            operator!(Operator::DefineMarkedContentPointPropertyList),
         ];
         let mut parser = OperatorParser::new(&objects);
         let key = b"Length".to_vec();
@@ -609,7 +629,13 @@ mod test {
             Operation::DefineMarkedContentPointPropertyList(_, dict) => dict.get(&key),
             _ => None,
         };
-        assert!(matches!(length, Some(&Object::Integer(6))));
+        assert!(matches!(
+            length,
+            Some(&Object {
+                kind: ObjectKind::Integer(6),
+                ..
+            })
+        ));
         let name = match result[0] {
             Operation::DefineMarkedContentPointPropertyList(n, _) => Some(n),
             _ => None,
@@ -621,10 +647,10 @@ mod test {
     #[test]
     fn test_three_args_real() {
         let objects = vec![
-            Object::Real(1.0),
-            Object::Real(1.0),
-            Object::Real(1.0),
-            Object::Operator(Operator::SetRGBColorStroke),
+            real!(1.0),
+            real!(1.0),
+            real!(1.0),
+            operator!(Operator::SetRGBColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetRGBColorStroke(RGB {
@@ -638,10 +664,10 @@ mod test {
     #[test]
     fn test_three_args_too_few() {
         let objects = vec![
-            Object::Null,
-            Object::Real(1.0),
-            Object::Real(1.0),
-            Object::Operator(Operator::SetRGBColorStroke),
+            offset!(ObjectKind::Null),
+            real!(1.0),
+            real!(1.0),
+            operator!(Operator::SetRGBColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![];
@@ -651,11 +677,11 @@ mod test {
     #[test]
     fn test_color_cmyk() {
         let objects = vec![
-            Object::Real(1.0),
-            Object::Integer(0),
-            Object::Real(1.0),
-            Object::Real(0.0),
-            Object::Operator(Operator::SetColorStroke),
+            real!(1.0),
+            integer!(0),
+            real!(1.0),
+            real!(0.0),
+            operator!(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = CMYK {
@@ -671,10 +697,10 @@ mod test {
     #[test]
     fn test_color_rgb() {
         let objects = vec![
-            Object::Real(0.3),
-            Object::Integer(0),
-            Object::Real(0.7),
-            Object::Operator(Operator::SetColorStroke),
+            real!(0.3),
+            integer!(0),
+            real!(0.7),
+            operator!(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = RGB {
@@ -688,10 +714,7 @@ mod test {
 
     #[test]
     fn test_color_gray() {
-        let objects = vec![
-            Object::Real(0.7),
-            Object::Operator(Operator::SetColorStroke),
-        ];
+        let objects = vec![real!(0.7), operator!(Operator::SetColorStroke)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetColorStroke(Color::Gray(0.7))];
         assert_eq!(parser.parse(), operations);
@@ -700,12 +723,12 @@ mod test {
     #[test]
     fn test_color_pattern_name_cmyk() {
         let objects = vec![
-            Object::Real(1.0),
-            Object::Integer(0),
-            Object::Real(1.0),
-            Object::Real(0.0),
-            Object::Name(b"COLOR".to_vec()),
-            Object::Operator(Operator::SetColorSpecialStroke),
+            real!(1.0),
+            integer!(0),
+            real!(1.0),
+            real!(0.0),
+            name!("COLOR"),
+            operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = CMYK {
@@ -725,11 +748,11 @@ mod test {
     #[test]
     fn test_color_pattern_name_rgb() {
         let objects = vec![
-            Object::Real(0.3),
-            Object::Integer(0),
-            Object::Real(0.7),
-            Object::Name(b"COLOR".to_vec()),
-            Object::Operator(Operator::SetColorSpecialStroke),
+            real!(0.3),
+            integer!(0),
+            real!(0.7),
+            name!("COLOR"),
+            operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = RGB {
@@ -748,9 +771,9 @@ mod test {
     #[test]
     fn test_color_pattern_name_gray() {
         let objects = vec![
-            Object::Real(0.7),
-            Object::Name(b"COLOR".to_vec()),
-            Object::Operator(Operator::SetColorSpecialStroke),
+            real!(0.7),
+            name!("COLOR"),
+            operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let name = b"COLOR".to_vec();
@@ -764,11 +787,11 @@ mod test {
     #[test]
     fn test_color_pattern_cmyk() {
         let objects = vec![
-            Object::Real(1.0),
-            Object::Integer(0),
-            Object::Real(1.0),
-            Object::Real(0.0),
-            Object::Operator(Operator::SetColorSpecialStroke),
+            real!(1.0),
+            integer!(0),
+            real!(1.0),
+            real!(0.0),
+            operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = CMYK {
@@ -784,10 +807,10 @@ mod test {
     #[test]
     fn test_color_pattern_rgb() {
         let objects = vec![
-            Object::Real(0.3),
-            Object::Integer(0),
-            Object::Real(0.7),
-            Object::Operator(Operator::SetColorSpecialStroke),
+            real!(0.3),
+            integer!(0),
+            real!(0.7),
+            operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
         let color = RGB {
@@ -801,10 +824,7 @@ mod test {
 
     #[test]
     fn test_color_pattern_gray() {
-        let objects = vec![
-            Object::Real(0.7),
-            Object::Operator(Operator::SetColorSpecialStroke),
-        ];
+        let objects = vec![real!(0.7), operator!(Operator::SetColorSpecialStroke)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SetColorSpecialStroke(Color::Gray(0.7), None)];
         assert_eq!(parser.parse(), operations);
@@ -816,17 +836,14 @@ mod test {
         let le = b"Le".to_vec();
         let x = b"x".to_vec();
         let fridman = b"Fridman".to_vec();
-        let array = vec![
-            Object::String(le.clone()),
-            Object::Integer(15),
-            Object::String(x.clone()),
-            Object::Integer(-250),
-            Object::String(fridman.clone()),
+        let array = array![
+            string!("Le"),
+            integer!(15),
+            string!("x"),
+            integer!(-250),
+            string!("Fridman"),
         ];
-        let objects = vec![
-            Object::Array(array),
-            Object::Operator(Operator::ShowTextAdjusted),
-        ];
+        let objects = vec![array, operator!(Operator::ShowTextAdjusted)];
         let mut parser = OperatorParser::new(&objects);
         let text = vec![
             StringOrNumber::String(&le),
@@ -843,11 +860,7 @@ mod test {
     fn test_select_font() {
         // /F13 6.9738 Tf
         let name = b"F13".to_vec();
-        let objects = vec![
-            Object::Name(name.clone()),
-            Object::Real(6.9738),
-            Object::Operator(Operator::SelectFont),
-        ];
+        let objects = vec![name!("F13"), real!(6.9738), operator!(Operator::SelectFont)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SelectFont(&name, 6.9738)];
         assert_eq!(parser.parse(), operations);

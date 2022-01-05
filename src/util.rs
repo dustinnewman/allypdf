@@ -28,66 +28,106 @@ pub const DQUOTE: Byte = b'\x22'; // "
 pub type Byte = u8;
 
 #[macro_export]
+macro_rules! inner {
+    ($outer:expr, $inner:path, $msg:literal) => {
+        match $outer {
+            $inner(i) => i,
+            _ => panic!($msg),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! offset {
+    ($kind:expr) => {
+        Object {
+            offset: 0,
+            kind: $kind,
+        }
+    };
+    ($offset:expr, $kind:expr) => {
+        Object {
+            offset: $offset,
+            kind: $kind,
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! integer {
-    ($int:expr) => (
-        Object::Integer($int)
-    );
+    ($int:expr) => {
+        offset!(ObjectKind::Integer($int))
+    };
 }
 
 #[macro_export]
 macro_rules! real {
-    ($real:expr) => (
-        Object::Real($real)
-    );
+    ($real:expr) => {
+        offset!(ObjectKind::Real($real))
+    };
 }
 
 #[macro_export]
 macro_rules! boolean {
-    ($boolean:expr) => (
-        Object::Boolean($boolean)
-    );
+    ($boolean:expr) => {
+        offset!(ObjectKind::Boolean($boolean))
+    };
 }
 
 #[macro_export]
 macro_rules! name {
-    ($str:expr) => (
-        Object::Name($str.as_bytes().to_vec())
-    );
+    ($str:expr) => {
+        offset!(ObjectKind::Name($str.as_bytes().to_vec()))
+    };
+}
+
+#[macro_export]
+macro_rules! string {
+    ($str:expr) => {
+        offset!(ObjectKind::String($str.as_bytes().to_vec()))
+    };
+}
+
+#[macro_export]
+macro_rules! operator {
+    ($op:expr) => {
+        offset!(ObjectKind::Operator($op))
+    };
 }
 
 #[macro_export]
 macro_rules! array {
     () => (
-        Object::Array(vec![])
+        offset!(ObjectKind::Array(vec![]))
     );
     ($($elem:expr),+ $(,)?) => (
-        Object::Array(vec![$($elem),+])
+        offset!(ObjectKind::Array(vec![$($elem),+]))
     );
 }
 
 #[macro_export]
 macro_rules! dict {
     ($($key:expr => $val:expr),*) => (
-        Object::Dictionary(BTreeMap::from([
+        offset!(ObjectKind::Dictionary(BTreeMap::from([
             $(($key.to_vec(), $val),)*
-        ]))
+        ])))
     );
 }
 
 #[macro_export]
 macro_rules! indirect_reference {
-    ($object_number:expr) => (
-        Object::IndirectReference(IndirectReference {
+    ($object_number:expr) => {
+        offset!(ObjectKind::IndirectReference(IndirectReference {
             object_number: $object_number,
             generation_number: 0,
-        })
-    );
-    ($object_number:expr, $generation_number:expr) => (
-        Object::IndirectReference(IndirectReference {
+        }))
+    };
+    ($object_number:expr, $generation_number:expr) => {
+        offset!(ObjectKind::IndirectReference(IndirectReference {
             object_number: $object_number,
             generation_number: $generation_number,
-        })
-    )
+        }))
+    };
 }
 
 pub fn is_whitespace(byte: Byte) -> bool {
