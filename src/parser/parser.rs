@@ -184,6 +184,7 @@ impl<'a> Parser<'a> {
         let mut xref_section = XrefSection {
             subsections: vec![],
         };
+        // TODO: THIS
         while let (
             Some(Token {
                 kind: TokenKind::Integer(first),
@@ -198,6 +199,15 @@ impl<'a> Parser<'a> {
             let start_number = *first as u32;
             let subsection_length = *entries as u32;
             self.seek(2);
+            if matches!(self.peek(), Some(Token { kind: TokenKind::F, .. }) | Some(Token { kind: TokenKind::N, .. })) {
+                let in_use = matches!(self.pop(), Some(Token { kind: TokenKind::N, .. }));
+                let xref = CrossReference {
+                    offset: start_number as u64,
+                    generation_number: subsection_length,
+                    in_use,
+                };
+
+            }
             let mut xref_subsection = XrefSubsection {
                 start_number,
                 subsection_length,
@@ -395,40 +405,6 @@ impl<'a> Parser<'a> {
                     _ => None,
                 }
             }
-            (
-                Some(Token {
-                    kind: TokenKind::Integer(i),
-                    ..
-                }),
-                Some(Token {
-                    kind: TokenKind::F, ..
-                }),
-            ) => {
-                let generation_number = *i as u32;
-                self.seek(2);
-                Some(ObjectKind::CrossReference(CrossReference {
-                    offset: number as u64,
-                    generation_number,
-                    in_use: false,
-                }))
-            }
-            (
-                Some(Token {
-                    kind: TokenKind::Integer(i),
-                    ..
-                }),
-                Some(Token {
-                    kind: TokenKind::N, ..
-                }),
-            ) => {
-                let generation_number = *i as u32;
-                self.seek(2);
-                Some(ObjectKind::CrossReference(CrossReference {
-                    offset: number as u64,
-                    generation_number,
-                    in_use: true,
-                }))
-            }
             _ => Some(ObjectKind::Integer(number)),
         }
     }
@@ -467,7 +443,10 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
     use crate::parser::lexer::Lexer;
-    use crate::{array, boolean, dict, indirect_reference, inner, integer, name, offset, real};
+    use crate::{
+        array, boolean, dict, indirect_object, indirect_reference, inner, integer, name, offset,
+        real, stream, xref, xref_section,
+    };
     use std::fs;
     use std::path::PathBuf;
 
@@ -571,17 +550,24 @@ mod tests {
     #[test]
     fn test_cross_reference() {
         // SPEC_BREAK
-        let text = "0000000421 00000 n
+        let text = "xref
+        0 3
+        0000000000 65535 f
+        0000000015 00000 n
+        0000000064 00000 n
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let cross_ref = CrossReference {
-            offset: 421,
-            generation_number: 0,
-            in_use: true,
-        };
-        let expected = vec![ObjectKind::CrossReference(cross_ref)];
+        let expected = vec![xref_section![XrefSubsection {
+            start_number: 0,
+            subsection_length: 3,
+            references: vec![
+                xref!(0, 65535, false),
+                xref!(15, 0, true),
+                xref!(64, 0, true),
+            ]
+        }]];
         assert_eq!(parser.parse(), expected);
     }
 
@@ -679,36 +665,101 @@ mod tests {
         let tokens = lexer.lex();
         // assert_eq!(tokens, vec![]);
         let mut parser = Parser::new(&tokens);
+        let stream_content = b"BT\n/F0 12 Tf\n100 700 Td\n(Hello, World) Tj\nET".to_vec();
         let expected: Vec<Object> = vec![
             offset!(ObjectKind::Header(1, 4)),
-            offset!(ObjectKind::IndirectObject(IndirectObject {
-                object_number: 1,
-                generation_number: 0,
-                object: Box::new(dict!(
+            indirect_object!(
+                1,
+                dict!(
                     b"Pages" => indirect_reference!(2, 0),
                     b"Type" => name!("Catalog")
-                ))
+                )
+            ),
+            indirect_object!(
+                2,
+                dict!(
+                        b"Count" => integer!(1),
+                        b"Type" => name!("Pages"),
+                        b"Kids" => array![indirect_reference!(3, 0)]
+                )
+            ),
+            indirect_object!(
+                3,
+                dict!(
+                        b"Type" => name!("Page"),
+                        b"MediaBox" => array![integer!(0), integer!(0), integer!(612), integer!(792)],
+                        b"Parent" => indirect_reference!(2, 0),
+                        b"Resources" => indirect_reference!(4, 0),
+                        b"Contents" => indirect_reference!(5, 0)
+                )
+            ),
+            indirect_object!(
+                4,
+                dict!(
+                    b"ProcSet" => array!(name!("PDF")),
+                    b"Font" => indirect_reference!(6, 0)
+                )
+            ),
+            indirect_object!(
+                5,
+                stream!(
+                    stream_content,
+                    b"Length" => indirect_reference!(7, 0)
+                )
+            ),
+            indirect_object!(
+                6,
+                dict!(
+                    b"F0" => indirect_reference!(8, 0)
+                )
+            ),
+            indirect_object!(7, integer!(51)),
+            indirect_object!(
+                8,
+                dict!(
+                    b"Type" => name!("Font"),
+                    b"Subtype" => name!("Type1"),
+                    b"BaseFont" => name!("Helvetica")
+                )
+            ),
+            xref_section![XrefSubsection {
+                start_number: 0,
+                subsection_length: 8,
+                references: vec![
+                    xref!(0, 65535, false),
+                    xref!(15, 0, true),
+                    xref!(64, 0, true),
+                    xref!(121, 0, true),
+                    xref!(225, 0, true),
+                    xref!(274, 0, true),
+                    xref!(372, 0, true),
+                    xref!(403, 0, true),
+                    xref!(421, 0, true),
+                ]
+            }],
+            offset!(ObjectKind::Trailer(Trailer {
+                size: 8,
+                root: IndirectReference {
+                    object_number: 1,
+                    generation_number: 0
+                },
+                dictionary: BTreeMap::from([
+                    (b"Root".to_vec(), indirect_reference!(1, 0)),
+                    (
+                        b"ID".to_vec(),
+                        array![
+                            offset!(ObjectKind::String(vec![
+                                1, 35, 69, 103, 137, 10, 188, 222, 240
+                            ])),
+                            offset!(ObjectKind::String(vec![
+                                1, 35, 69, 103, 137, 10, 188, 222, 240
+                            ]))
+                        ]
+                    ),
+                    (b"Size".to_vec(), integer!(8))
+                ])
             })),
-            offset!(ObjectKind::IndirectObject(IndirectObject {
-                object_number: 2,
-                generation_number: 0,
-                object: Box::new(dict!(
-                    b"Count" => integer!(1),
-                    b"Type" => name!("Pages"),
-                    b"Kids" => array![indirect_reference!(3, 0)]
-                ))
-            })),
-            offset!(ObjectKind::IndirectObject(IndirectObject {
-                object_number: 3,
-                generation_number: 0,
-                object: Box::new(dict!(
-                    b"Type" => name!("Page"),
-                    b"MediaBox" => array![integer!(0), integer!(0), integer!(612), integer!(792)],
-                    b"Parent" => indirect_reference!(2, 0),
-                    b"Resources" => indirect_reference!(4, 0),
-                    b"Contents" => indirect_reference!(5, 0)
-                ))
-            })),
+            offset!(ObjectKind::StartXref(491)),
         ];
         assert_eq!(parser.parse(), expected);
     }

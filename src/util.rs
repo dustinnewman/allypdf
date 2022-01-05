@@ -115,6 +115,38 @@ macro_rules! dict {
 }
 
 #[macro_export]
+macro_rules! stream {
+    ($content:expr, $($key:expr => $val:expr),*) => (
+        offset!(ObjectKind::Stream(Stream {
+            dict: BTreeMap::from([
+                $(($key.to_vec(), $val),)*
+            ]),
+            content: $content,
+        }))
+    );
+}
+
+#[macro_export]
+macro_rules! xref {
+    ($offset:expr, $generation_number:expr, $in_use:expr) => {
+        CrossReference {
+            offset: $offset,
+            generation_number: $generation_number,
+            in_use: $in_use,
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! xref_section {
+    ($($elem:expr),+ $(,)?) => (
+        offset!(ObjectKind::Xref(XrefSection {
+            subsections: vec![$($elem),+]
+        }))
+    );
+}
+
+#[macro_export]
 macro_rules! indirect_reference {
     ($object_number:expr) => {
         offset!(ObjectKind::IndirectReference(IndirectReference {
@@ -126,6 +158,24 @@ macro_rules! indirect_reference {
         offset!(ObjectKind::IndirectReference(IndirectReference {
             object_number: $object_number,
             generation_number: $generation_number,
+        }))
+    };
+}
+
+#[macro_export]
+macro_rules! indirect_object {
+    ($object_number:expr, $object:expr) => {
+        offset!(ObjectKind::IndirectObject(IndirectObject {
+            object_number: $object_number,
+            generation_number: 0,
+            object: Box::new($object)
+        }))
+    };
+    ($object_number:expr, $generation_number:expr, $object:expr) => {
+        offset!(ObjectKind::IndirectObject(IndirectObject {
+            object_number: $object_number,
+            generation_number: $generation_number,
+            object: Box::new($object)
         }))
     };
 }
