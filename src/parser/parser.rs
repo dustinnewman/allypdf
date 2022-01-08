@@ -161,22 +161,23 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Integer(generation_number),
                 ..
             }),
-            Some(Token {
-                kind: TokenKind::Boolean(in_use),
-                ..
-            }),
+            Some(in_use),
         ) = (self.peek(), self.nth(1), self.nth(2))
         {
+            let in_use = match in_use.kind {
+                TokenKind::F => false,
+                TokenKind::N => true,
+                _ => break,
+            };
             let offset = *offset as u64;
             let generation_number = *generation_number as u32;
-            let in_use = *in_use;
+            self.seek(3);
             let xref = CrossReference {
                 offset,
                 generation_number,
                 in_use,
             };
             xref_subsection.references.push(xref);
-            self.seek(3);
         }
     }
 
@@ -184,30 +185,20 @@ impl<'a> Parser<'a> {
         let mut xref_section = XrefSection {
             subsections: vec![],
         };
-        // TODO: THIS
         while let (
             Some(Token {
-                kind: TokenKind::Integer(first),
+                kind: TokenKind::Integer(start_number),
                 ..
             }),
             Some(Token {
-                kind: TokenKind::Integer(entries),
+                kind: TokenKind::Integer(subsection_length),
                 ..
             }),
         ) = (self.peek(), self.nth(1))
         {
-            let start_number = *first as u32;
-            let subsection_length = *entries as u32;
+            let start_number = *start_number as u32;
+            let subsection_length = *subsection_length as u32;
             self.seek(2);
-            if matches!(self.peek(), Some(Token { kind: TokenKind::F, .. }) | Some(Token { kind: TokenKind::N, .. })) {
-                let in_use = matches!(self.pop(), Some(Token { kind: TokenKind::N, .. }));
-                let xref = CrossReference {
-                    offset: start_number as u64,
-                    generation_number: subsection_length,
-                    in_use,
-                };
-
-            }
             let mut xref_subsection = XrefSubsection {
                 start_number,
                 subsection_length,
@@ -548,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cross_reference() {
+    fn test_cross_reference_multi_xref() {
         // SPEC_BREAK
         let text = "xref
         0 3
@@ -572,24 +563,55 @@ mod tests {
     }
 
     #[test]
-    fn test_cross_reference_2() {
+    fn test_cross_reference_single_xref() {
         // SPEC_BREAK
-        let text = "0 8 
+        let text = "xref
+        0 8 
         0000000000 65535 f
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
-        let cross_ref = CrossReference {
-            offset: 0,
-            generation_number: 65535,
-            in_use: false,
-        };
-        let expected = vec![
-            integer!(0),
-            integer!(8),
-            offset!(ObjectKind::CrossReference(cross_ref)),
+        let xref_section = xref_section![XrefSubsection {
+            start_number: 0,
+            subsection_length: 8,
+            references: vec![xref!(0, 65535, false),]
+        }];
+        let expected = vec![xref_section];
+        assert_eq!(parser.parse(), expected);
+    }
+
+    #[test]
+    fn test_cross_reference_multi_xrefsection() {
+        // SPEC_BREAK
+        let text = "xref
+        0 3
+        0000000000 65535 f
+        0000000015 00000 n
+        0000000064 00000 n
+        0 1
+        0000000064 00001 n
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let xref_section = xref_section![
+            XrefSubsection {
+                start_number: 0,
+                subsection_length: 3,
+                references: vec![
+                    xref!(0, 65535, false),
+                    xref!(15, 0, true),
+                    xref!(64, 0, true),
+                ],
+            },
+            XrefSubsection {
+                start_number: 0,
+                subsection_length: 1,
+                references: vec![xref!(64, 1, true)],
+            }
         ];
+        let expected = vec![xref_section];
         assert_eq!(parser.parse(), expected);
     }
 
