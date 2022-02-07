@@ -36,7 +36,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_1() {
+    fn test_lzw_to_be_or_not_to_be() {
         let text: [u32; 16] = [
             84, 79, 66, 69, 79, 82, 78, 79, 84, 256, 258, 260, 265, 259, 261, 263,
         ];

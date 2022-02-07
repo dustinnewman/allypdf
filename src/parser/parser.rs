@@ -26,8 +26,8 @@ pub struct IndirectReference {
 
 #[derive(Debug, PartialEq)]
 pub struct Stream {
-    dict: Dictionary,
-    content: Vec<u8>,
+    pub dict: Dictionary,
+    pub content: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -39,14 +39,14 @@ pub struct IndirectObject {
 
 #[derive(Debug, PartialEq)]
 pub struct XrefSubsection {
-    start_number: u32,
-    subsection_length: u32,
-    references: Vec<CrossReference>,
+    pub start_number: u32,
+    pub subsection_length: u32,
+    pub references: Vec<CrossReference>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct XrefSection {
-    subsections: Vec<XrefSubsection>,
+    pub subsections: Vec<XrefSubsection>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -685,9 +685,8 @@ mod tests {
         let file = fs::read(d).unwrap();
         let mut lexer = Lexer::new(&file);
         let tokens = lexer.lex();
-        // assert_eq!(tokens, vec![]);
         let mut parser = Parser::new(&tokens);
-        let stream_content = b"BT\n/F0 12 Tf\n100 700 Td\n(Hello, World) Tj\nET".to_vec();
+        let stream_content = b"BT\n/F0 12 Tf\n100 700 Td\n(Hello, World) Tj\nET\n".to_vec();
         let expected: Vec<Object> = vec![
             offset!(ObjectKind::Header(1, 4)),
             indirect_object!(

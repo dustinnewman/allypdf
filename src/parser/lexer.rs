@@ -84,13 +84,9 @@ impl<'a> Lexer<'a> {
         let mut vec = vec![];
         // TODO: This is susceptible to attack if someone uploads a PDF
         // without EOF marker
-        loop {
+        while self.pos < self.len {
             if let Some(token) = self.next() {
-                let do_break = token.kind == TokenKind::Eof;
                 vec.push(token);
-                if do_break {
-                    break;
-                }
             }
         }
         vec
@@ -110,8 +106,8 @@ impl<'a> Lexer<'a> {
         if is_whitespace(curr) {
             self.skip_whitespace();
         }
-        let curr = self.pop()?;
         let offset = self.pos as u64;
+        let curr = self.pop()?;
         let kind: TokenKind = match curr {
             LTHAN => match self.peek() {
                 Some(LTHAN) => {
@@ -454,7 +450,7 @@ impl<'a> Lexer<'a> {
         let string = "EOF".as_bytes();
         let token = match self.slice(self.pos, string.len()) {
             Some(x) if x == string => {
-                self.seek_end();
+                self.seek(string.len());
                 TokenKind::Eof
             }
             _ => {

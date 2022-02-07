@@ -1,5 +1,5 @@
 use crate::error::PdfError;
-use crate::parser::parser::{Dictionary, Name};
+use crate::parser::parser::{Dictionary, Name, Object, ObjectKind};
 use std::convert::TryFrom;
 
 mod ascii_85_decode;
@@ -18,6 +18,7 @@ mod crypt_decode;
 mod dct_decode;
 mod jbig2_decode;
 mod jpx_decode;
+mod png_predict;
 
 pub const ASCII_HEX_DECODE: &[u8] = b"AsciiHexDecode";
 pub const ASCII_85_DECODE: &[u8] = b"Ascii85Decode";
@@ -29,6 +30,12 @@ pub const JBIG_2_DECODE: &[u8] = b"JBIG2Decode";
 pub const DCT_DECODE: &[u8] = b"DCTDecode";
 pub const JPX_DECODE: &[u8] = b"JPXDecode";
 pub const CRYPT_DECODE: &[u8] = b"Crypt";
+
+const DECODE_PARMS: &[u8] = b"DecodeParms";
+const PREDICTOR: &[u8] = b"Predictor";
+const COLUMNS: &[u8] = b"Columns";
+const COLORS: &[u8] = b"Colors";
+const BITS: &[u8] = b"BitsPerComponent";
 
 #[derive(Debug, PartialEq)]
 pub enum Filter {
@@ -70,7 +77,7 @@ impl TryFrom<&Name> for Filter {
     }
 }
 
-pub fn decode(content: &[u8], filter: Filter, _params: &Dictionary) -> Option<Vec<u8>> {
+pub fn decode(content: &[u8], filter: Filter, params: &Dictionary) -> Option<Vec<u8>> {
     match filter {
         Filter::AsciiHexDecode => ascii_hex_decode::ascii_hex_decode(content),
         Filter::Ascii85Decode => ascii_85_decode::ascii_85_decode(content),
@@ -90,7 +97,35 @@ pub fn decode(content: &[u8], filter: Filter, _params: &Dictionary) -> Option<Ve
             }
             lzw_decode::lwz_decode(&data)
         }
-        Filter::FlateDecode => flate_decode::flate_decode(content),
+        Filter::FlateDecode => {
+            let decode_parms = params.get(&DECODE_PARMS.to_vec());
+            let (predictor, columns, colors, bits) = if let Some(Object{ kind: ObjectKind::Dictionary(dict), .. }) = decode_parms {
+                let predictor = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&PREDICTOR.to_vec()) {
+                    Some(*i as u32)
+                } else {
+                    None
+                };
+                let columns = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&COLUMNS.to_vec()) {
+                    Some(*i as u32)
+                } else {
+                    None
+                };
+                let colors = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&COLORS.to_vec()) {
+                    Some(*i as u32)
+                } else {
+                    None
+                };
+                let bits = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&BITS.to_vec()) {
+                    Some(*i as u32)
+                } else {
+                    None
+                };
+                (predictor, columns, colors, bits)
+            } else {
+                (None, None, None, None)
+            };
+            flate_decode::flate_decode(content, predictor, columns, colors, bits)
+        },
         Filter::RunLengthDecode => run_length_decode::run_length_decode(content),
         Filter::CCITTFaxDecode => ccitt_fax_decode::ccitt_fax_decode(content),
         Filter::JBIG2Decode => jbig2_decode::jbig2_decode(content),
