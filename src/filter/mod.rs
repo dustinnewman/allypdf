@@ -99,23 +99,43 @@ pub fn decode(content: &[u8], filter: Filter, params: &Dictionary) -> Option<Vec
         }
         Filter::FlateDecode => {
             let decode_parms = params.get(&DECODE_PARMS.to_vec());
-            let (predictor, columns, colors, bits) = if let Some(Object{ kind: ObjectKind::Dictionary(dict), .. }) = decode_parms {
-                let predictor = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&PREDICTOR.to_vec()) {
+            let (predictor, columns, colors, bits) = if let Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) = decode_parms
+            {
+                let predictor = if let Some(Object {
+                    kind: ObjectKind::Integer(i),
+                    ..
+                }) = dict.get(&PREDICTOR.to_vec())
+                {
                     Some(*i as u32)
                 } else {
                     None
                 };
-                let columns = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&COLUMNS.to_vec()) {
+                let columns = if let Some(Object {
+                    kind: ObjectKind::Integer(i),
+                    ..
+                }) = dict.get(&COLUMNS.to_vec())
+                {
                     Some(*i as u32)
                 } else {
                     None
                 };
-                let colors = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&COLORS.to_vec()) {
+                let colors = if let Some(Object {
+                    kind: ObjectKind::Integer(i),
+                    ..
+                }) = dict.get(&COLORS.to_vec())
+                {
                     Some(*i as u32)
                 } else {
                     None
                 };
-                let bits = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(&BITS.to_vec()) {
+                let bits = if let Some(Object {
+                    kind: ObjectKind::Integer(i),
+                    ..
+                }) = dict.get(&BITS.to_vec())
+                {
                     Some(*i as u32)
                 } else {
                     None
@@ -125,7 +145,7 @@ pub fn decode(content: &[u8], filter: Filter, params: &Dictionary) -> Option<Vec
                 (None, None, None, None)
             };
             flate_decode::flate_decode(content, predictor, columns, colors, bits)
-        },
+        }
         Filter::RunLengthDecode => run_length_decode::run_length_decode(content),
         Filter::CCITTFaxDecode => ccitt_fax_decode::ccitt_fax_decode(content),
         Filter::JBIG2Decode => jbig2_decode::jbig2_decode(content),

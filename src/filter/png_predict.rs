@@ -16,7 +16,7 @@ impl PNGPredictorAlgorithm {
     fn is_none(&self) -> bool {
         match self {
             PNGPredictorAlgorithm::None => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -617,7 +617,13 @@ struct StreamPredictor<'a> {
 }
 
 impl<'a> StreamPredictor<'a> {
-    pub fn new(data: &'a[u8], predictor: Option<u32>, columns: Option<u32>, colors: Option<u32>, bits_per_component: Option<u32>) -> Self {
+    pub fn new(
+        data: &'a [u8],
+        predictor: Option<u32>,
+        columns: Option<u32>,
+        colors: Option<u32>,
+        bits_per_component: Option<u32>,
+    ) -> Self {
         let algorithm = PNGPredictorAlgorithm::from(predictor.unwrap_or(1));
         let columns = columns.unwrap_or(0);
         let colors = colors.unwrap_or(0);
