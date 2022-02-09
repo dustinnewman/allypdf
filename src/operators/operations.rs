@@ -105,6 +105,12 @@ pub enum RenderingIntent {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct DashPattern {
+    dash_array: Vec<f32>,
+    dash_phase: f32,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum StringOrNumber<'a> {
     String(&'a Vec<u8>),
     Number(f64),

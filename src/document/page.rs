@@ -1,6 +1,9 @@
 use std::convert::TryFrom;
 
-use crate::{parser::parser::{Dictionary, IndirectReference, Name, Stream}, error::PdfError};
+use crate::{
+    error::PdfError,
+    parser::parser::{Dictionary, IndirectReference, Name, Stream},
+};
 
 use super::document::PDFDocument;
 
@@ -32,6 +35,12 @@ pub struct Rectangle {
     pub lower_left_y: f32,
     pub upper_right_x: f32,
     pub upper_right_y: f32,
+}
+
+impl Default for Rectangle {
+    fn default() -> Self {
+        DEFAULT_PAGE_SIZE
+    }
 }
 
 pub struct Page<'a> {
