@@ -8,18 +8,8 @@ use crate::parser::parser::{Object, ObjectKind};
 macro_rules! coerce_f64 {
     ($obj:expr) => {
         match $obj {
-            ObjectKind::Real(n) => *n,
+            ObjectKind::Real(n) => *n as f64,
             ObjectKind::Integer(n) => *n as f64,
-            _ => return None,
-        }
-    };
-}
-
-macro_rules! coerce_f32 {
-    ($obj:expr) => {
-        match $obj {
-            ObjectKind::Real(n) => *n as f32,
-            ObjectKind::Integer(n) => *n as f32,
             _ => return None,
         }
     };
@@ -349,7 +339,7 @@ impl<'a> OperatorParser<'a> {
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetFlat) => {
-                let flatness = coerce_f32!(&self.peek()?.kind);
+                let flatness = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetFlat(flatness))
             }
             ObjectKind::Operator(Operator::SetGraphicsStateParams) => match &self.peek()?.kind {
@@ -357,10 +347,10 @@ impl<'a> OperatorParser<'a> {
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetCMYKColorStroke) => {
-                let black = coerce_f32!(&self.peek()?.kind);
-                let yellow = coerce_f32!(&self.nth(1)?.kind);
-                let magenta = coerce_f32!(&self.nth(2)?.kind);
-                let cyan = coerce_f32!(&self.nth(3)?.kind);
+                let black = coerce_f64!(&self.peek()?.kind);
+                let yellow = coerce_f64!(&self.nth(1)?.kind);
+                let magenta = coerce_f64!(&self.nth(2)?.kind);
+                let cyan = coerce_f64!(&self.nth(3)?.kind);
                 let cmyk = CMYK {
                     cyan,
                     magenta,
@@ -370,10 +360,10 @@ impl<'a> OperatorParser<'a> {
                 op!(Operation::SetCMYKColorStroke(cmyk), 4)
             }
             ObjectKind::Operator(Operator::SetCMYKColorNonstroke) => {
-                let black = coerce_f32!(&self.peek()?.kind);
-                let yellow = coerce_f32!(&self.nth(1)?.kind);
-                let magenta = coerce_f32!(&self.nth(2)?.kind);
-                let cyan = coerce_f32!(&self.nth(3)?.kind);
+                let black = coerce_f64!(&self.peek()?.kind);
+                let yellow = coerce_f64!(&self.nth(1)?.kind);
+                let magenta = coerce_f64!(&self.nth(2)?.kind);
+                let cyan = coerce_f64!(&self.nth(3)?.kind);
                 let cmyk = CMYK {
                     cyan,
                     magenta,
@@ -418,25 +408,25 @@ impl<'a> OperatorParser<'a> {
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetRGBColorStroke) => {
-                let blue = coerce_f32!(&self.peek()?.kind);
-                let green = coerce_f32!(&self.nth(1)?.kind);
-                let red = coerce_f32!(&self.nth(2)?.kind);
+                let blue = coerce_f64!(&self.peek()?.kind);
+                let green = coerce_f64!(&self.nth(1)?.kind);
+                let red = coerce_f64!(&self.nth(2)?.kind);
                 let rgb = RGB { red, green, blue };
                 op!(Operation::SetRGBColorStroke(rgb), 3)
             }
             ObjectKind::Operator(Operator::SetRGBColorNonstroke) => {
-                let blue = coerce_f32!(&self.peek()?.kind);
-                let green = coerce_f32!(&self.nth(1)?.kind);
-                let red = coerce_f32!(&self.nth(2)?.kind);
+                let blue = coerce_f64!(&self.peek()?.kind);
+                let green = coerce_f64!(&self.nth(1)?.kind);
+                let red = coerce_f64!(&self.nth(2)?.kind);
                 let rgb = RGB { red, green, blue };
                 op!(Operation::SetRGBColorNonstroke(rgb), 3)
             }
             ObjectKind::Operator(Operator::SetGrayStroke) => {
-                let gray = coerce_f32!(&self.peek()?.kind);
+                let gray = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetGrayStroke(gray))
             }
             ObjectKind::Operator(Operator::SetGrayNonstroke) => {
-                let gray = coerce_f32!(&self.peek()?.kind);
+                let gray = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetGrayNonstroke(gray))
             }
             ObjectKind::Operator(Operator::ShFill) => match &self.peek()?.kind {
@@ -449,7 +439,7 @@ impl<'a> OperatorParser<'a> {
     }
 
     fn handle_color(&mut self, start: usize) -> Option<Color> {
-        let first = coerce_f32!(&self.nth(start)?.kind);
+        let first = coerce_f64!(&self.nth(start)?.kind);
         let second = self.nth(start + 1);
         if matches!(
             second,
@@ -461,16 +451,16 @@ impl<'a> OperatorParser<'a> {
                 ..
             })
         ) {
-            let second = coerce_f32!(&self.nth(start + 1)?.kind);
+            let second = coerce_f64!(&self.nth(start + 1)?.kind);
             let third = match self.nth(start + 2) {
                 Some(Object {
                     kind: ObjectKind::Real(r),
                     ..
-                }) => *r as f32,
+                }) => *r as f64,
                 Some(Object {
                     kind: ObjectKind::Integer(i),
                     ..
-                }) => *i as f32,
+                }) => *i as f64,
                 _ => {
                     self.seek(start + 2);
                     return Some(Color::Gray(first));
@@ -480,11 +470,11 @@ impl<'a> OperatorParser<'a> {
                 Some(Object {
                     kind: ObjectKind::Real(r),
                     ..
-                }) => *r as f32,
+                }) => *r as f64,
                 Some(Object {
                     kind: ObjectKind::Integer(i),
                     ..
-                }) => *i as f32,
+                }) => *i as f64,
                 _ => {
                     self.seek(start + 3);
                     let rgb = RGB {

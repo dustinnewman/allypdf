@@ -1,9 +1,9 @@
 use crate::parser::parser::{Dictionary, Name};
 
 // A real number between 0 and 1 (inclusive)
-pub type UnitInterval = f32;
+pub type UnitInterval = f64;
 // A real number between 0 and 100 (inclusive)
-pub type Percent = f32;
+pub type Percent = f64;
 // A real number
 pub type UnscaledTextSpaceUnit = f64;
 
@@ -106,8 +106,17 @@ pub enum RenderingIntent {
 
 #[derive(Debug, PartialEq)]
 pub struct DashPattern {
-    dash_array: Vec<f32>,
-    dash_phase: f32,
+    dash_array: Vec<f64>,
+    dash_phase: f64,
+}
+
+impl Default for DashPattern {
+    fn default() -> Self {
+        Self {
+            dash_array: vec![],
+            dash_phase: 0.,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
