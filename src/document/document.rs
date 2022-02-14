@@ -237,6 +237,36 @@ mod test {
     }
 
     #[test]
+    fn test_document_cuierzhuang_contents() {
+        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        file.push("test_data/cuierzhuang.pdf");
+        let doc = PDFDocument::try_from(file).unwrap();
+        let contents = doc
+            .get(&IndirectReference {
+                object_number: 4,
+                generation_number: 0,
+            })
+            .unwrap();
+        println!("{:?}", contents);
+        assert!(false);
+    }
+
+    #[test]
+    fn test_document_crystal_orientation_contents() {
+        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        file.push("test_data/crystal_orientation.pdf");
+        let doc = PDFDocument::try_from(file).unwrap();
+        let contents = doc
+            .get(&IndirectReference {
+                object_number: 9238,
+                generation_number: 0,
+            })
+            .unwrap();
+        println!("{:?}", contents);
+        assert!(false);
+    }
+
+    #[test]
     fn test_hello() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/hello.pdf");

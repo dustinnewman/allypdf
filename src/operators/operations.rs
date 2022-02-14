@@ -7,14 +7,14 @@ pub type Percent = f64;
 // A real number
 pub type UnscaledTextSpaceUnit = f64;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct RGB {
     pub red: UnitInterval,
     pub green: UnitInterval,
     pub blue: UnitInterval,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct CMYK {
     pub cyan: UnitInterval,
     pub magenta: UnitInterval,
@@ -22,14 +22,21 @@ pub struct CMYK {
     pub black: UnitInterval,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Color {
     Gray(UnitInterval),
     RGB(RGB),
     CMYK(CMYK),
 }
 
-#[derive(Debug, PartialEq)]
+impl Default for Color {
+    fn default() -> Self {
+        // PDF 8.4.1 Table 51
+        Color::Gray(0.)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum TextRendering {
     Fill,
     Stroke,
@@ -58,7 +65,7 @@ impl TextRendering {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LineCap {
     Butt,
     Round,
@@ -77,7 +84,7 @@ impl LineCap {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LineJoin {
     MiterJoin,
     RoundJoin,
@@ -96,7 +103,7 @@ impl LineJoin {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum RenderingIntent {
     AbsoluteColorimetric,
     RelativeColorimetric,
@@ -104,10 +111,10 @@ pub enum RenderingIntent {
     Perceptual,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DashPattern {
-    dash_array: Vec<f64>,
-    dash_phase: f64,
+    pub dash_array: Vec<f64>,
+    pub dash_phase: f64,
 }
 
 impl Default for DashPattern {
@@ -186,7 +193,7 @@ pub enum Operation<'a> {
     SetLineWidth(f64),                                          // w
     SetLineJoin(LineJoin),                                      // j
     SetLineCap(LineCap),                                        // J
-    SetDash(Vec<i64>, i64),                                     // d
+    SetDash(Vec<f64>, f64),                                     // d
     GSave,                                                      // q
     GRestore,                                                   // Q
     SetColorRenderingIntent(&'a Name),                          // ri

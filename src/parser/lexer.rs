@@ -82,8 +82,6 @@ impl<'a> Lexer<'a> {
 
     pub fn lex(&mut self) -> Vec<Token<'a>> {
         let mut vec = vec![];
-        // TODO: This is susceptible to attack if someone uploads a PDF
-        // without EOF marker
         while self.pos < self.len {
             if let Some(token) = self.next() {
                 vec.push(token);

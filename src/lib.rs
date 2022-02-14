@@ -5,4 +5,5 @@ mod error;
 mod filter;
 mod operators;
 mod parser;
+mod render;
 mod util;

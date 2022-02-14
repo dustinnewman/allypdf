@@ -319,17 +319,19 @@ impl<'a> OperatorParser<'a> {
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetDash) => {
-                match (&self.peek()?.kind, &self.nth(1)?.kind) {
-                    (ObjectKind::Integer(i), ObjectKind::Array(arr)) => {
-                        let mut vec = vec![];
-                        for obj in arr {
-                            if let ObjectKind::Integer(j) = obj.kind {
-                                vec.push(j)
-                            }
+                let phase = coerce_f64!(&self.peek()?.kind);
+                if let ObjectKind::Array(arr) = &self.nth(1)?.kind {
+                    let mut vec = vec![];
+                    for obj in arr {
+                        if let ObjectKind::Integer(j) = obj.kind {
+                            vec.push(j as f64)
+                        } else if let ObjectKind::Real(r) = obj.kind {
+                            vec.push(r);
                         }
-                        op!(Operation::SetDash(vec, *i), 2)
                     }
-                    _ => return None,
+                    op!(Operation::SetDash(vec, phase), 2)
+                } else {
+                    return None;
                 }
             }
             ObjectKind::Operator(Operator::GSave) => Operation::GSave,

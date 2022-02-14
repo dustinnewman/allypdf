@@ -31,10 +31,10 @@ enum ProcSet {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Rectangle {
-    pub lower_left_x: f32,
-    pub lower_left_y: f32,
-    pub upper_right_x: f32,
-    pub upper_right_y: f32,
+    pub lower_left_x: f64,
+    pub lower_left_y: f64,
+    pub upper_right_x: f64,
+    pub upper_right_y: f64,
 }
 
 impl Default for Rectangle {
