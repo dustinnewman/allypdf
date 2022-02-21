@@ -625,11 +625,7 @@ mod tests {
         let dict = dict!(
             b"Type" => name!("Image")
         );
-        let dict = inner!(
-            dict.kind,
-            ObjectKind::Dictionary,
-            "Image type is not a dictionary."
-        );
+        let dict = inner!(dict, ObjectKind::Dictionary).expect("Image type is not a dictionary.");
         let stream = ObjectKind::Stream(Stream {
             dict,
             content: b"\0\n".to_vec(),

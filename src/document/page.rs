@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use crate::{
     error::PdfError,
-    parser::parser::{Dictionary, IndirectReference, Name, Stream, ObjectKind, Object},
+    parser::parser::{Dictionary, IndirectReference, Name, Object, ObjectKind, Stream},
 };
 
 use super::document::PDFDocument;
@@ -19,7 +19,7 @@ const A4_PAGE: Rectangle = Rectangle {
     lower_left_x: 0.0,
     lower_left_y: 0.0,
     upper_right_x: 595.0,
-    upper_right_y: 842.0
+    upper_right_y: 842.0,
 };
 
 pub struct Annotation<'a> {
@@ -54,37 +54,63 @@ impl TryFrom<&Object> for Rectangle {
     type Error = PdfError;
 
     fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        let error = Err(PdfError::Other { msg: "Could not convert object to rectangle".to_string() });
+        let error = Err(PdfError::Other {
+            msg: "Could not convert object to rectangle".to_string(),
+        });
         match &object.kind {
             ObjectKind::Array(array) => {
                 let lower_left_x = match array.get(0) {
-                    Some(Object { kind: ObjectKind::Integer(x), .. }) => *x as f64,
-                    Some(Object { kind: ObjectKind::Real(x), .. }) => *x,
-                    _ => return error
+                    Some(Object {
+                        kind: ObjectKind::Integer(x),
+                        ..
+                    }) => *x as f64,
+                    Some(Object {
+                        kind: ObjectKind::Real(x),
+                        ..
+                    }) => *x,
+                    _ => return error,
                 };
                 let lower_left_y = match array.get(1) {
-                    Some(Object { kind: ObjectKind::Integer(x), .. }) => *x as f64,
-                    Some(Object { kind: ObjectKind::Real(x), .. }) => *x,
-                    _ => return error
+                    Some(Object {
+                        kind: ObjectKind::Integer(x),
+                        ..
+                    }) => *x as f64,
+                    Some(Object {
+                        kind: ObjectKind::Real(x),
+                        ..
+                    }) => *x,
+                    _ => return error,
                 };
                 let upper_right_x = match array.get(2) {
-                    Some(Object { kind: ObjectKind::Integer(x), .. }) => *x as f64,
-                    Some(Object { kind: ObjectKind::Real(x), .. }) => *x,
-                    _ => return error
+                    Some(Object {
+                        kind: ObjectKind::Integer(x),
+                        ..
+                    }) => *x as f64,
+                    Some(Object {
+                        kind: ObjectKind::Real(x),
+                        ..
+                    }) => *x,
+                    _ => return error,
                 };
                 let upper_right_y = match array.get(3) {
-                    Some(Object { kind: ObjectKind::Integer(x), .. }) => *x as f64,
-                    Some(Object { kind: ObjectKind::Real(x), .. }) => *x,
-                    _ => return error
+                    Some(Object {
+                        kind: ObjectKind::Integer(x),
+                        ..
+                    }) => *x as f64,
+                    Some(Object {
+                        kind: ObjectKind::Real(x),
+                        ..
+                    }) => *x,
+                    _ => return error,
                 };
                 Ok(Self {
                     lower_left_x,
                     lower_left_y,
                     upper_right_x,
-                    upper_right_y
+                    upper_right_y,
                 })
-            },
-            _ => error
+            }
+            _ => error,
         }
     }
 }
@@ -100,6 +126,7 @@ pub struct Page<'a> {
     contents: Option<Vec<&'a Stream>>,
     annotations: Option<Vec<Annotation<'a>>>,
     resources: &'a Dictionary,
+    rotate: u32,
 }
 
 pub struct PagesRoot<'a> {
@@ -123,6 +150,7 @@ impl<'a> Page<'a> {
         resources: &'a Dictionary,
         contents: Option<Vec<&'a Stream>>,
         annotations: Option<Vec<Annotation<'a>>>,
+        rotate: u32,
     ) -> Self {
         Self {
             r#ref,
@@ -135,6 +163,7 @@ impl<'a> Page<'a> {
             contents,
             annotations,
             resources,
+            rotate,
         }
     }
 }

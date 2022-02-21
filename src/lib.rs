@@ -3,8 +3,9 @@
 mod document;
 mod error;
 mod filter;
+mod font;
 mod operators;
-mod parser;
 mod output;
+mod parser;
 mod render;
 mod util;

@@ -1,4 +1,7 @@
-use crate::operators::{path::{Point, Curve}, operations::Color};
+use crate::operators::{
+    operations::Color,
+    path::{Curve, Point},
+};
 
 pub struct Text {
     text: String,
@@ -29,5 +32,5 @@ pub struct AbstractElement {
 }
 
 pub struct GraphicsOutputModel {
-    elements: Vec<AbstractElement>
+    elements: Vec<AbstractElement>,
 }

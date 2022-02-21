@@ -29,10 +29,12 @@ pub type Byte = u8;
 
 #[macro_export]
 macro_rules! inner {
-    ($outer:expr, $inner:path, $msg:literal) => {
+    ($outer:expr, $inner:path) => {
         match $outer {
-            $inner(i) => i,
-            _ => panic!($msg),
+            Object {
+                kind: $inner(i), ..
+            } => Some(i),
+            _ => None,
         }
     };
 }

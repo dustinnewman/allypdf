@@ -1,16 +1,17 @@
-use std::{collections::BTreeMap, convert::TryFrom, path::PathBuf};
+use std::{collections::BTreeMap, convert::TryFrom, fs, path::PathBuf};
 
 use crate::{
     error::{PdfError, Result},
+    inner,
     parser::{
         lexer::Lexer,
         parser::{
-            Dictionary, IndirectReference, Object, ObjectKind, Parser, Trailer, XrefSection, Stream,
+            Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream, Trailer, XrefSection,
         },
     },
 };
 
-use super::page::{Page, Rectangle, Annotation};
+use super::page::{Annotation, Page, Rectangle};
 
 const TYPE: &[u8] = b"Type";
 const PAGE_ROOT: &[u8] = b"Pages";
@@ -30,6 +31,7 @@ const LENGTH: &[u8] = b"Length";
 const RECTANGLE: &[u8] = b"Rect";
 const CATALOG: &[u8] = b"Catalog";
 const ANNOTS_FLAGS: &[u8] = b"F";
+const ROTATE: &[u8] = b"Rotate";
 
 pub type Version = (u8, u8);
 pub type ObjectMap = BTreeMap<IndirectReference, Object>;
@@ -50,13 +52,7 @@ impl PDFDocument {
     }
 
     fn catalog(&self) -> Option<&Dictionary> {
-        match self.get(&self.trailer.root)? {
-            Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            } => Some(dict),
-            _ => None,
-        }
+        inner!(self.get(&self.trailer.root)?, ObjectKind::Dictionary)
     }
 
     fn page_refs(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
@@ -85,105 +81,133 @@ impl PDFDocument {
                 _ => return,
             };
             for kid in kids {
-                let r#ref = match kid {
-                    Object {
-                        kind: ObjectKind::IndirectReference(r#ref),
-                        ..
-                    } => r#ref,
-                    _ => continue,
-                };
-                self.page_refs(r#ref, refs);
+                if let Some(r#ref) = inner!(kid, ObjectKind::IndirectReference) {
+                    self.page_refs(r#ref, refs);
+                }
             }
         }
     }
 
     fn get_inherited_page_key(&self, r#ref: &IndirectReference, key: &[u8]) -> Option<&Object> {
-        let page_object = match self.get(r#ref)? {
-            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
-            _ => return None
-        };
+        let page_object = inner!(self.get(r#ref)?, ObjectKind::Dictionary)?;
         let value = page_object.get(key);
         if value.is_some() {
             return value;
         }
         match page_object.get(PARENT)? {
-            Object { kind: ObjectKind::IndirectReference(parent), .. } => self.get_inherited_page_key(parent, key),
+            Object {
+                kind: ObjectKind::IndirectReference(parent),
+                ..
+            } => self.get_inherited_page_key(parent, key),
             _ => None,
         }
     }
 
     fn content_streams<'a>(&'a self, object: &'a Object, streams: &mut Vec<&'a Stream>) {
         match object {
-            Object { kind: ObjectKind::IndirectReference(r#ref), .. } => if let Some(object) = self.get(r#ref) {
-                self.content_streams(object, streams)
-            },
-            Object { kind: ObjectKind::Stream(stream), .. } => streams.push(stream),
-            Object { kind: ObjectKind::Array(array), .. } => {
+            Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            } => {
+                if let Some(object) = self.get(r#ref) {
+                    self.content_streams(object, streams)
+                }
+            }
+            Object {
+                kind: ObjectKind::Stream(stream),
+                ..
+            } => streams.push(stream),
+            Object {
+                kind: ObjectKind::Array(array),
+                ..
+            } => {
                 for object in array {
                     self.content_streams(object, streams)
                 }
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 
     fn annotation<'a>(&'a self, object: &'a Object) -> Option<Annotation<'a>> {
         let annotation_dict = match object {
-            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
-            Object { kind: ObjectKind::IndirectReference(r#ref), .. } => match self.get(r#ref)? {
-                Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
-                _ => return None
+            Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            } => dict,
+            Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            } => match self.get(r#ref)? {
+                Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                } => dict,
+                _ => return None,
             },
-            _ => return None
+            _ => return None,
         };
-        let subtype = match annotation_dict.get(SUB_TYPE)? {
-            Object { kind: ObjectKind::Name(name), .. } => name,
-            _ => return None
-        };
+        let subtype = inner!(annotation_dict.get(SUB_TYPE)?, ObjectKind::Name)?;
         let rect = Rectangle::try_from(annotation_dict.get(RECTANGLE)?).ok()?;
         let flags = match annotation_dict.get(ANNOTS_FLAGS) {
-            Some(Object { kind: ObjectKind::Integer(i), .. }) => *i as u32,
+            Some(Object {
+                kind: ObjectKind::Integer(i),
+                ..
+            }) => *i as u32,
             // PDF 12.5.2 Table 166
-            _ => 0
+            _ => 0,
         };
         Some(Annotation {
             subtype,
             rect,
-            flags
+            flags,
         })
     }
 
     fn page(&self, r#ref: &IndirectReference) -> Option<Page> {
-        let page_object = match self.get(r#ref)? {
-            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
-            _ => return None
-        };
-        let parent = match page_object.get(PARENT)? {
-            Object { kind: ObjectKind::IndirectReference(r#ref), .. } => *r#ref,
-            _ => return None
-        };
+        let page_object = inner!(self.get(r#ref)?, ObjectKind::Dictionary)?;
+        let parent = *inner!(page_object.get(PARENT)?, ObjectKind::IndirectReference)?;
         let media_box = self.get_inherited_page_key(r#ref, MEDIA_BOX)?;
         let media_box = Rectangle::try_from(media_box).ok()?;
-        let crop_box = page_object.get(CROP_BOX).map_or_else(|| media_box, |x| Rectangle::try_from(x).unwrap_or(media_box));
-        let bleed_box = page_object.get(BLEED_BOX).map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
-        let trim_box = page_object.get(TRIM_BOX).map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
-        let art_box = page_object.get(ART_BOX).map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
-        let resources = match self.get_inherited_page_key(r#ref, RESOURCES)? {
-            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
-            _ => return None
-        };
+        let crop_box = page_object.get(CROP_BOX).map_or_else(
+            || media_box,
+            |x| Rectangle::try_from(x).unwrap_or(media_box),
+        );
+        let bleed_box = page_object
+            .get(BLEED_BOX)
+            .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
+        let trim_box = page_object
+            .get(TRIM_BOX)
+            .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
+        let art_box = page_object
+            .get(ART_BOX)
+            .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
+        let resources = inner!(
+            self.get_inherited_page_key(r#ref, RESOURCES)?,
+            ObjectKind::Dictionary
+        )?;
         let contents = match page_object.get(CONTENTS) {
             Some(object) => {
                 let mut streams = vec![];
                 self.content_streams(object, &mut streams);
                 Some(streams)
-            },
-            _ => None
+            }
+            _ => None,
         };
         let annots = match page_object.get(ANNOTS) {
-            _ => None
+            _ => None,
         };
-        let page = Page::new(*r#ref, parent, media_box, crop_box, bleed_box, trim_box, art_box, resources, contents, annots);
+        let rotate = match page_object.get(ROTATE) {
+            Some(Object {
+                kind: ObjectKind::Integer(i),
+                ..
+            }) if *i % 90 == 0 => *i as u32 % 360,
+            _ => 0,
+        };
+        let page = Page::new(
+            *r#ref, parent, media_box, crop_box, bleed_box, trim_box, art_box, resources, contents,
+            annots, rotate,
+        );
         Some(page)
     }
 
@@ -211,7 +235,7 @@ impl PDFDocument {
 impl TryFrom<PathBuf> for PDFDocument {
     type Error = PdfError;
     fn try_from(pathbuf: PathBuf) -> Result<PDFDocument> {
-        let file = std::fs::read(pathbuf).unwrap();
+        let file = fs::read(pathbuf).unwrap();
         let tokens = Lexer::new(&file).lex();
         let mut parser = Parser::new(&tokens);
         let objects = parser.parse();
@@ -256,8 +280,8 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};
     use crate::parser::parser::Stream;
+    use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};
     use std::path::PathBuf;
 
     macro_rules! get {
@@ -289,7 +313,13 @@ mod test {
             object_number: 3,
             generation_number: 0,
         }];
-        assert_eq!(pages.iter().map(|page| page.r#ref).collect::<Vec<IndirectReference>>(), expected);
+        assert_eq!(
+            pages
+                .iter()
+                .map(|page| page.r#ref)
+                .collect::<Vec<IndirectReference>>(),
+            expected
+        );
     }
 
     #[test]
@@ -358,15 +388,18 @@ mod test {
     #[test]
     fn test_document_crystal_orientation_contents() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/docs_simple_underline.pdf");
+        file.push("test_data/process_calculus.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
         let contents = doc
             .get(&IndirectReference {
-                object_number: 12,
+                object_number: 768,
                 generation_number: 0,
             })
             .unwrap();
-        println!("{:?}", contents);
+        let contents = inner!(contents, ObjectKind::Stream).unwrap();
+        let contents = &contents.content;
+        let contents = std::str::from_utf8(contents).unwrap();
+        println!("{:#?}", contents);
         assert!(false);
     }
 
@@ -392,26 +425,20 @@ mod test {
         );
         assert_eq!(
             &doc.trailer.dictionary,
-            inner!(
-                &expected_trailer.kind,
-                ObjectKind::Dictionary,
-                "Expected trailer is not a dictionary."
-            )
+            inner!(&expected_trailer, ObjectKind::Dictionary)
+                .expect("Expected trailer is not a dictionary.")
         );
         assert_eq!(doc.trailer.size, 8);
-        let catalog = inner!(
-            &get!(doc, doc.trailer.root).kind,
-            ObjectKind::Dictionary,
-            "Catalog is not a dictionary"
-        );
+        let catalog = inner!(&get!(doc, doc.trailer.root), ObjectKind::Dictionary)
+            .expect("Catalog is not a dictionary");
         assert!(
             matches!(&get!(catalog, TYPE.to_vec()).kind, ObjectKind::Name(x) if *x == CATALOG.to_vec())
         );
         let pages = inner!(
-            get!(catalog, PAGE_ROOT.to_vec()).kind,
-            ObjectKind::IndirectReference,
-            "Catalog's pages is not indirect reference."
-        );
+            get!(catalog, PAGE_ROOT.to_vec()),
+            ObjectKind::IndirectReference
+        )
+        .expect("Catalog's pages is not indirect reference.");
         let pages = get!(doc, pages);
         let expected_pages = dict!(
             TYPE => name!("Pages"),
@@ -419,21 +446,11 @@ mod test {
             b"Count" => integer!(1)
         );
         assert_eq!(pages, &expected_pages);
-        let pages = inner!(
-            &pages.kind,
-            ObjectKind::Dictionary,
-            "Pages is not a dictionary."
-        );
-        let kids = inner!(
-            &get!(pages, KIDS.to_vec()).kind,
-            ObjectKind::Array,
-            "Pages' kids is not array."
-        );
-        let kids = inner!(
-            kids[0].kind,
-            ObjectKind::IndirectReference,
-            "Kids is not indirect reference."
-        );
+        let pages = inner!(&pages, ObjectKind::Dictionary).expect("Pages is not a dictionary.");
+        let kids = inner!(&get!(pages, KIDS.to_vec()), ObjectKind::Array)
+            .expect("Pages' kids is not array.");
+        let kids = inner!(kids[0], ObjectKind::IndirectReference)
+            .expect("Kids is not indirect reference.");
         let kids = get!(doc, kids);
         let expected_kids = dict!(
             TYPE => name!("Page"),
@@ -443,53 +460,33 @@ mod test {
             CONTENTS => indirect_reference!(5)
         );
         assert_eq!(kids, &expected_kids);
-        let kids = inner!(
-            &kids.kind,
-            ObjectKind::Dictionary,
-            "Kids is not dictionary."
-        );
+        let kids = inner!(&kids, ObjectKind::Dictionary).expect("Kids is not dictionary.");
         let resources_ref = get!(kids, b"Resources".to_vec());
         assert_eq!(resources_ref, &indirect_reference!(4));
-        let resources_ref = inner!(
-            resources_ref.kind,
-            ObjectKind::IndirectReference,
-            "Kids' resources field is not indirect reference."
-        );
+        let resources_ref = inner!(resources_ref, ObjectKind::IndirectReference)
+            .expect("Kids' resources field is not indirect reference.");
         let resources = get!(doc, resources_ref);
         let expected_resources = dict!(
             b"ProcSet" => array!(name!("PDF")),
             b"Font" => indirect_reference!(6)
         );
         assert_eq!(resources, &expected_resources);
-        let resources = inner!(
-            &resources.kind,
-            ObjectKind::Dictionary,
-            "Resources is not a dictionary"
-        );
+        let resources =
+            inner!(&resources, ObjectKind::Dictionary).expect("Resources is not a dictionary");
         let font_ref = get!(resources, b"Font".to_vec());
         assert_eq!(font_ref, &indirect_reference!(6));
-        let font_ref = inner!(
-            font_ref.kind,
-            ObjectKind::IndirectReference,
-            "Resources' font field is not indirect reference."
-        );
+        let font_ref = inner!(font_ref, ObjectKind::IndirectReference)
+            .expect("Resources' font field is not indirect reference.");
         let font = get!(doc, font_ref);
         let expected_font = dict!(
             b"F0" => indirect_reference!(8)
         );
         assert_eq!(font, &expected_font);
-        let font = inner!(
-            &font.kind,
-            ObjectKind::Dictionary,
-            "Font is not a dictionary."
-        );
+        let font = inner!(&font, ObjectKind::Dictionary).expect("Font is not a dictionary.");
         let helvetica_ref = get!(font, b"F0".to_vec());
         assert_eq!(helvetica_ref, &indirect_reference!(8));
-        let helvetica_ref = inner!(
-            helvetica_ref.kind,
-            ObjectKind::IndirectReference,
-            "F0 is not indirect reference."
-        );
+        let helvetica_ref = inner!(helvetica_ref, ObjectKind::IndirectReference)
+            .expect("F0 is not indirect reference.");
         let helvetica = get!(doc, helvetica_ref);
         let expected_helvetica = dict!(
             TYPE => name!("Font"),
@@ -499,11 +496,8 @@ mod test {
         assert_eq!(helvetica, &expected_helvetica);
         let contents = get!(kids, CONTENTS.to_vec());
         assert_eq!(contents, &indirect_reference!(5));
-        let contents = inner!(
-            contents.kind,
-            ObjectKind::IndirectReference,
-            "Kids' contents field is not indirect reference."
-        );
+        let contents = inner!(contents, ObjectKind::IndirectReference)
+            .expect("Kids' contents field is not indirect reference.");
         let contents = get!(doc, contents);
         let expected_content = b"BT\n/F0 12 Tf\n100 700 Td\n(Hello, World) Tj\nET\n";
         let expected_contents = stream!(
@@ -511,18 +505,11 @@ mod test {
             LENGTH => indirect_reference!(7)
         );
         assert_eq!(contents, &expected_contents);
-        let contents = inner!(
-            &contents.kind,
-            ObjectKind::Stream,
-            "Contents is not a stream."
-        );
+        let contents = inner!(&contents, ObjectKind::Stream).expect("Contents is not a stream.");
         let length = get!(contents.dict, LENGTH.to_vec());
         assert_eq!(length, &indirect_reference!(7));
-        let length = inner!(
-            length.kind,
-            ObjectKind::IndirectReference,
-            "Contents' length is not indirect reference."
-        );
+        let length = inner!(length, ObjectKind::IndirectReference)
+            .expect("Contents' length is not indirect reference.");
         let length_object = get!(doc, length);
         let expected_length_object = integer!(51);
         assert_eq!(length_object, &expected_length_object);

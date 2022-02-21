@@ -1,9 +1,7 @@
 use super::output::Output;
 use crate::operators::engine::GraphicsState;
 
-pub struct HtmlOutput {
-
-}
+pub struct HtmlOutput {}
 
 impl Output for HtmlOutput {
     fn stroke(&mut self, state: &GraphicsState) {
