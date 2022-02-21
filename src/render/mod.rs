@@ -1,2 +1,1 @@
-pub mod html;
-pub mod render;
+pub mod page;

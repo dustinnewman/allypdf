@@ -21,8 +21,8 @@ impl Default for PathMode {
 
 #[derive(Debug, Clone)]
 pub struct Path {
-    subpaths: Vec<Subpath>,
-    current_point: Point,
+    pub subpaths: Vec<Subpath>,
+    pub current_point: Point,
 }
 
 impl Path {
@@ -69,6 +69,8 @@ impl Path {
 
     // PDF 8.5.2.1 Table 58
     pub fn re(&mut self, x: f64, y: f64, width: f64, height: f64) {
+        let to = Point { x, y };
+        self.m(to);
         let to = Point { x: x + width, y };
         self.l(to);
         let to = Point {
@@ -129,26 +131,26 @@ impl From<&Path> for Rectangle {
 
 #[derive(Debug, Clone)]
 pub struct Line {
-    from: Point,
-    to: Point,
+    pub from: Point,
+    pub to: Point,
 }
 
 #[derive(Debug, Clone)]
-struct Curve {
-    line: Line,
-    control_points: (Point, Point),
+pub struct Curve {
+    pub line: Line,
+    pub control_points: (Point, Point),
 }
 
 #[derive(Debug, Clone)]
-enum PathSegment {
+pub enum PathSegment {
     Line(Line),
     Curve(Curve),
 }
 
 #[derive(Debug, Clone)]
 pub struct Subpath {
-    segments: Vec<PathSegment>,
-    closed: bool,
+    pub segments: Vec<PathSegment>,
+    pub closed: bool,
 }
 
 impl Subpath {

@@ -55,55 +55,55 @@ impl Default for TextState {
 #[derive(Debug, Clone)]
 pub struct GraphicsState {
     // Current transformation matrix
-    ctm: Matrix,
+    pub ctm: Matrix,
     // Fill color
-    fill_color: Color,
+    pub fill_color: Color,
     // Stroke color
-    stroke_color: Color,
+    pub stroke_color: Color,
     // Current text matrix
-    text_matrix: Matrix,
+    pub text_matrix: Matrix,
     // Current text line matrix
-    line_matrix: Matrix,
+    pub line_matrix: Matrix,
     // Text state
-    text_state: TextState,
+    pub text_state: TextState,
     // Current coordinates
-    current_point: Point,
+    pub current_point: Point,
     // Line coordinates
-    line_coordinates: Point,
+    pub line_coordinates: Point,
     // Path
-    path: Path,
+    pub path: Path,
     // Clipping mode
-    path_mode: PathMode,
+    pub path_mode: PathMode,
     // Current clip path
-    clip_path: Rectangle,
+    pub clip_path: Rectangle,
     // Line width
-    line_width: f64,
+    pub line_width: f64,
     // Line cap
-    line_cap: LineCap,
+    pub line_cap: LineCap,
     // Line join
-    line_join: LineJoin,
+    pub line_join: LineJoin,
     // Miter limit
-    miter_limit: f64,
+    pub miter_limit: f64,
     // Dash pattern
-    dash_pattern: DashPattern,
+    pub dash_pattern: DashPattern,
     // Rendering intent
-    render_intent: RenderingIntent,
+    pub render_intent: RenderingIntent,
     // Stroke adjustment
-    stroke_adjustment: bool,
+    pub stroke_adjustment: bool,
     // Blend mode
     // TODO
     // Soft mask
     // TODO
     // Alpha constant
-    alpha_constant: f64,
+    pub alpha_constant: f64,
     // Alpha source
-    alpha_source: bool,
+    pub alpha_source: bool,
     // Black point compensation
-    black_point_compensation: Name,
+    pub black_point_compensation: Name,
     // Overprint
-    overprint: bool,
+    pub overprint: bool,
     // Overprint mode
-    overprint_mode: f64,
+    pub overprint_mode: f64,
     // Black generation
     // TODO
     // Undercolor removal
@@ -113,15 +113,9 @@ pub struct GraphicsState {
     // Halftone
     // TODO
     // Flatness
-    flatness: Percent,
+    pub flatness: Percent,
     // Smoothness
-    smoothness: f64,
-}
-
-impl GraphicsState {
-    pub fn set_color_stroke(&mut self) {}
-    pub fn set_color_fill(&mut self) {}
-    pub fn set_dash_pattern(&mut self) {}
+    pub smoothness: f64,
 }
 
 impl Default for GraphicsState {
@@ -347,9 +341,11 @@ impl GraphicsStateMachine {
     fn show_text(&mut self, bytes: &Vec<u8>) {}
     fn show_text_adjusted(&mut self, vec: Vec<StringOrNumber>) {}
     fn move_next_line_show_text(&mut self, bytes: &Vec<u8>) {
+        // PDF 9.4.3 Table 107 Equivalent to T* Tj
         // Move next line
         self.state.line_coordinates.y -= self.state.text_state.leading;
-        // TODO: Show text
+        // Show text
+        self.show_text(bytes);
     }
     fn set_spacing_move_next_line_show_text(
         &mut self,
@@ -357,8 +353,10 @@ impl GraphicsStateMachine {
         char_spacing: UnscaledTextSpaceUnit,
         bytes: &Vec<u8>,
     ) {
+        // PDF 9.4.3 Table 107 Equivalent to Tw Tc '
         self.set_word_spacing(word_spacing);
         self.set_char_spacing(char_spacing);
+        self.move_next_line_show_text(bytes);
     }
     fn move_text_position(&mut self, tx: UnscaledTextSpaceUnit, ty: UnscaledTextSpaceUnit) {
         self.state.line_coordinates.x += tx;
@@ -395,9 +393,7 @@ impl GraphicsStateMachine {
     fn set_horizontal_text_scaling(&mut self, text_scaling: f64) {
         self.state.text_state.hor_scaling = text_scaling;
     }
-    fn end_text(&mut self) {
-        //
-    }
+    fn end_text(&mut self) {}
     fn begin_compat(&mut self) {}
     // Type 3 font operators
     fn set_char_width(&mut self, horizontal_displacement: f64, _vertical_displacement: f64) {}
@@ -442,7 +438,9 @@ impl GraphicsStateMachine {
     fn append_rectangle(&mut self, x: f64, y: f64, width: f64, height: f64) {
         self.state.path.re(x, y, width, height);
     }
-    fn close_subpath(&mut self) {}
+    fn close_subpath(&mut self) {
+        self.state.path.close();
+    }
     fn set_miter_limit(&mut self, miter_limit: f64) {
         self.state.miter_limit = miter_limit;
     }

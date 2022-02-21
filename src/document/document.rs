@@ -5,10 +5,12 @@ use crate::{
     parser::{
         lexer::Lexer,
         parser::{
-            Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream, Trailer, XrefSection,
+            Dictionary, IndirectReference, Object, ObjectKind, Parser, Trailer, XrefSection, Stream,
         },
     },
 };
+
+use super::page::{Page, Rectangle, Annotation};
 
 const TYPE: &[u8] = b"Type";
 const PAGE_ROOT: &[u8] = b"Pages";
@@ -20,9 +22,14 @@ const CROP_BOX: &[u8] = b"CropBox";
 const BLEED_BOX: &[u8] = b"BleedBox";
 const TRIM_BOX: &[u8] = b"TrimBox";
 const ART_BOX: &[u8] = b"ArtBox";
+const RESOURCES: &[u8] = b"Resources";
 const CONTENTS: &[u8] = b"Contents";
+const ANNOTS: &[u8] = b"Annots";
+const SUB_TYPE: &[u8] = b"Subtype";
 const LENGTH: &[u8] = b"Length";
+const RECTANGLE: &[u8] = b"Rect";
 const CATALOG: &[u8] = b"Catalog";
+const ANNOTS_FLAGS: &[u8] = b"F";
 
 pub type Version = (u8, u8);
 pub type ObjectMap = BTreeMap<IndirectReference, Object>;
@@ -52,7 +59,7 @@ impl PDFDocument {
         }
     }
 
-    fn traverse_pages(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
+    fn page_refs(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
         let dict = match self.get(cur) {
             Some(Object {
                 kind: ObjectKind::Dictionary(dict),
@@ -85,12 +92,102 @@ impl PDFDocument {
                     } => r#ref,
                     _ => continue,
                 };
-                self.traverse_pages(r#ref, refs);
+                self.page_refs(r#ref, refs);
             }
         }
     }
 
-    fn pages(&self) -> Option<Vec<IndirectReference>> {
+    fn get_inherited_page_key(&self, r#ref: &IndirectReference, key: &[u8]) -> Option<&Object> {
+        let page_object = match self.get(r#ref)? {
+            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
+            _ => return None
+        };
+        let value = page_object.get(key);
+        if value.is_some() {
+            return value;
+        }
+        match page_object.get(PARENT)? {
+            Object { kind: ObjectKind::IndirectReference(parent), .. } => self.get_inherited_page_key(parent, key),
+            _ => None,
+        }
+    }
+
+    fn content_streams<'a>(&'a self, object: &'a Object, streams: &mut Vec<&'a Stream>) {
+        match object {
+            Object { kind: ObjectKind::IndirectReference(r#ref), .. } => if let Some(object) = self.get(r#ref) {
+                self.content_streams(object, streams)
+            },
+            Object { kind: ObjectKind::Stream(stream), .. } => streams.push(stream),
+            Object { kind: ObjectKind::Array(array), .. } => {
+                for object in array {
+                    self.content_streams(object, streams)
+                }
+            },
+            _ => ()
+        }
+    }
+
+    fn annotation<'a>(&'a self, object: &'a Object) -> Option<Annotation<'a>> {
+        let annotation_dict = match object {
+            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
+            Object { kind: ObjectKind::IndirectReference(r#ref), .. } => match self.get(r#ref)? {
+                Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
+                _ => return None
+            },
+            _ => return None
+        };
+        let subtype = match annotation_dict.get(SUB_TYPE)? {
+            Object { kind: ObjectKind::Name(name), .. } => name,
+            _ => return None
+        };
+        let rect = Rectangle::try_from(annotation_dict.get(RECTANGLE)?).ok()?;
+        let flags = match annotation_dict.get(ANNOTS_FLAGS) {
+            Some(Object { kind: ObjectKind::Integer(i), .. }) => *i as u32,
+            // PDF 12.5.2 Table 166
+            _ => 0
+        };
+        Some(Annotation {
+            subtype,
+            rect,
+            flags
+        })
+    }
+
+    fn page(&self, r#ref: &IndirectReference) -> Option<Page> {
+        let page_object = match self.get(r#ref)? {
+            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
+            _ => return None
+        };
+        let parent = match page_object.get(PARENT)? {
+            Object { kind: ObjectKind::IndirectReference(r#ref), .. } => *r#ref,
+            _ => return None
+        };
+        let media_box = self.get_inherited_page_key(r#ref, MEDIA_BOX)?;
+        let media_box = Rectangle::try_from(media_box).ok()?;
+        let crop_box = page_object.get(CROP_BOX).map_or_else(|| media_box, |x| Rectangle::try_from(x).unwrap_or(media_box));
+        let bleed_box = page_object.get(BLEED_BOX).map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
+        let trim_box = page_object.get(TRIM_BOX).map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
+        let art_box = page_object.get(ART_BOX).map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
+        let resources = match self.get_inherited_page_key(r#ref, RESOURCES)? {
+            Object { kind: ObjectKind::Dictionary(dict), .. } => dict,
+            _ => return None
+        };
+        let contents = match page_object.get(CONTENTS) {
+            Some(object) => {
+                let mut streams = vec![];
+                self.content_streams(object, &mut streams);
+                Some(streams)
+            },
+            _ => None
+        };
+        let annots = match page_object.get(ANNOTS) {
+            _ => None
+        };
+        let page = Page::new(*r#ref, parent, media_box, crop_box, bleed_box, trim_box, art_box, resources, contents, annots);
+        Some(page)
+    }
+
+    fn pages(&self) -> Option<Vec<Page>> {
         let catalog = self.catalog()?;
         let page_root = match catalog.get(PAGE_ROOT)? {
             Object {
@@ -100,8 +197,14 @@ impl PDFDocument {
             _ => return None,
         };
         let mut refs = vec![];
-        self.traverse_pages(page_root, &mut refs);
-        Some(refs)
+        self.page_refs(page_root, &mut refs);
+        let mut pages = vec![];
+        for r#ref in refs {
+            if let Some(page) = self.page(&r#ref) {
+                pages.push(page);
+            }
+        }
+        Some(pages)
     }
 }
 
@@ -154,6 +257,7 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 mod test {
     use super::*;
     use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};
+    use crate::parser::parser::Stream;
     use std::path::PathBuf;
 
     macro_rules! get {
@@ -185,7 +289,7 @@ mod test {
             object_number: 3,
             generation_number: 0,
         }];
-        assert_eq!(pages, expected);
+        assert_eq!(pages.iter().map(|page| page.r#ref).collect::<Vec<IndirectReference>>(), expected);
     }
 
     #[test]
@@ -204,7 +308,7 @@ mod test {
     }
 
     #[test]
-    fn test_document_curtiss_pages() {
+    fn test_document_curtiss_page_refs() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/curtiss.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
@@ -212,7 +316,7 @@ mod test {
             .pages()
             .unwrap()
             .iter()
-            .map(|ir| ir.object_number)
+            .map(|page| page.r#ref.object_number)
             .collect::<Vec<u32>>();
         let expected = vec![
             2, 15, 20, 24, 28, 32, 36, 41, 46, 51, 55, 59, 63, 67, 71, 75, 79, 84, 88, 92, 96, 100,
@@ -254,11 +358,11 @@ mod test {
     #[test]
     fn test_document_crystal_orientation_contents() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/crystal_orientation.pdf");
+        file.push("test_data/docs_simple_underline.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
         let contents = doc
             .get(&IndirectReference {
-                object_number: 9238,
+                object_number: 12,
                 generation_number: 0,
             })
             .unwrap();
