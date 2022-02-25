@@ -6,7 +6,7 @@ use crate::{
     parser::parser::{Dictionary, IndirectReference, Object, ObjectKind, Stream},
 };
 
-use super::{annotation::Annotation, document::PDFDocument};
+use super::annotation::Annotation;
 
 const PDF: &[u8] = b"PDF";
 const TEXT: &[u8] = b"Text";
@@ -110,13 +110,5 @@ impl<'a> Page<'a> {
             resources,
             rotate,
         }
-    }
-}
-
-impl<'a> TryFrom<(&'a PDFDocument, IndirectReference)> for Page<'a> {
-    type Error = PdfError;
-
-    fn try_from(value: (&'a PDFDocument, IndirectReference)) -> Result<Self, Self::Error> {
-        todo!()
     }
 }
