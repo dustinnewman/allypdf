@@ -4,3 +4,4 @@ pub mod operations;
 pub mod operators;
 pub mod parser;
 pub mod path;
+pub mod rect;

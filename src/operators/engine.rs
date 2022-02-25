@@ -1,7 +1,4 @@
-use crate::{
-    document::page::Rectangle,
-    parser::parser::{Dictionary, Name},
-};
+use crate::parser::parser::{Dictionary, Name};
 
 use super::{
     matrix::Matrix,
@@ -10,6 +7,7 @@ use super::{
         TextRendering, UnitInterval, UnscaledTextSpaceUnit, CMYK, RGB,
     },
     path::{Path, PathMode, Point},
+    rect::Rectangle,
 };
 
 // PDF 9.3.1

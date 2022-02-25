@@ -22,6 +22,12 @@ pub enum FontKind {
     CIDFont(CIDFontSubtypeKind),
 }
 
+pub enum BaseEncoding {
+    MacRoman,
+    MacExpert,
+    WinAnsi,
+}
+
 // PDF 9.5
 pub struct Font<'a> {
     kind: FontKind,

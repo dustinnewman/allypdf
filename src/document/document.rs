@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, convert::TryFrom, fs, path::PathBuf};
 use crate::{
     error::{PdfError, Result},
     inner,
+    operators::rect::Rectangle,
     parser::{
         lexer::Lexer,
         parser::{
@@ -11,7 +12,10 @@ use crate::{
     },
 };
 
-use super::page::{Annotation, Page, Rectangle};
+use super::{
+    annotation::{Annotation, AnnotationFlags},
+    page::{Page, ProcSet, Resources},
+};
 
 const TYPE: &[u8] = b"Type";
 const PAGE_ROOT: &[u8] = b"Pages";
@@ -24,6 +28,14 @@ const BLEED_BOX: &[u8] = b"BleedBox";
 const TRIM_BOX: &[u8] = b"TrimBox";
 const ART_BOX: &[u8] = b"ArtBox";
 const RESOURCES: &[u8] = b"Resources";
+const EXT_G_STATE: &[u8] = b"ExtGState";
+const COLOR_SPACE: &[u8] = b"ColorSpace";
+const PATTERN: &[u8] = b"Pattern";
+const SHADING: &[u8] = b"Shading";
+const X_OBJECT: &[u8] = b"XObject";
+const FONT: &[u8] = b"Font";
+const PROC_SET: &[u8] = b"ProcSet";
+const PROPERTIES: &[u8] = b"Properties";
 const CONTENTS: &[u8] = b"Contents";
 const ANNOTS: &[u8] = b"Annots";
 const SUB_TYPE: &[u8] = b"Subtype";
@@ -153,9 +165,8 @@ impl PDFDocument {
             Some(Object {
                 kind: ObjectKind::Integer(i),
                 ..
-            }) => *i as u32,
-            // PDF 12.5.2 Table 166
-            _ => 0,
+            }) => AnnotationFlags::new(*i as u32),
+            _ => AnnotationFlags::default(),
         };
         Some(Annotation {
             subtype,
@@ -164,11 +175,60 @@ impl PDFDocument {
         })
     }
 
+    fn resources<'a>(&'a self, dict: &'a Dictionary) -> Resources<'a> {
+        let ext_g_state = dict
+            .get(EXT_G_STATE)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let color_space = dict
+            .get(COLOR_SPACE)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let pattern = dict
+            .get(PATTERN)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let shading = dict
+            .get(SHADING)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let x_object = dict
+            .get(X_OBJECT)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let font = dict
+            .get(FONT)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let proc_set = match dict
+            .get(PROC_SET)
+            .and_then(|obj| inner!(obj, ObjectKind::Array))
+        {
+            Some(vec) => Some(
+                vec.iter()
+                    .filter_map(|obj| ProcSet::try_from(obj).ok())
+                    .collect(),
+            ),
+            None => None,
+        };
+        let properties = dict
+            .get(PROPERTIES)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        Resources {
+            ext_g_state,
+            color_space,
+            pattern,
+            shading,
+            x_object,
+            font,
+            proc_set,
+            properties,
+        }
+    }
+
     fn page(&self, r#ref: &IndirectReference) -> Option<Page> {
         let page_object = inner!(self.get(r#ref)?, ObjectKind::Dictionary)?;
         let parent = *inner!(page_object.get(PARENT)?, ObjectKind::IndirectReference)?;
         let media_box = self.get_inherited_page_key(r#ref, MEDIA_BOX)?;
         let media_box = Rectangle::try_from(media_box).ok()?;
+        // TODO: Clarify this behavior here. Crop box is inheritable and optional
+        // so do we inherit the value of crop box from parent if present or do we
+        // simply copy the value of media box if crop box is not set on this page
+        // itself?
         let crop_box = page_object.get(CROP_BOX).map_or_else(
             || media_box,
             |x| Rectangle::try_from(x).unwrap_or(media_box),
@@ -182,10 +242,24 @@ impl PDFDocument {
         let art_box = page_object
             .get(ART_BOX)
             .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
-        let resources = inner!(
-            self.get_inherited_page_key(r#ref, RESOURCES)?,
-            ObjectKind::Dictionary
-        )?;
+        let resources = match self.get_inherited_page_key(r#ref, RESOURCES)? {
+            Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            } => dict,
+            Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            } => match self.get(r#ref)? {
+                Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                } => dict,
+                _ => return None,
+            },
+            _ => return None,
+        };
+        let resources = self.resources(resources);
         let contents = match page_object.get(CONTENTS) {
             Some(object) => {
                 let mut streams = vec![];
@@ -194,7 +268,16 @@ impl PDFDocument {
             }
             _ => None,
         };
-        let annots = match page_object.get(ANNOTS) {
+        let annotations = match page_object.get(ANNOTS) {
+            Some(Object {
+                kind: ObjectKind::Array(array),
+                ..
+            }) => Some(
+                array
+                    .iter()
+                    .filter_map(|obj| self.annotation(obj))
+                    .collect(),
+            ),
             _ => None,
         };
         let rotate = match page_object.get(ROTATE) {
@@ -205,8 +288,17 @@ impl PDFDocument {
             _ => 0,
         };
         let page = Page::new(
-            *r#ref, parent, media_box, crop_box, bleed_box, trim_box, art_box, resources, contents,
-            annots, rotate,
+            *r#ref,
+            parent,
+            media_box,
+            crop_box,
+            bleed_box,
+            trim_box,
+            art_box,
+            resources,
+            contents,
+            annotations,
+            rotate,
         );
         Some(page)
     }
@@ -363,21 +455,6 @@ mod test {
         let contents = doc
             .get(&IndirectReference {
                 object_number: 56,
-                generation_number: 0,
-            })
-            .unwrap();
-        println!("{:?}", contents);
-        assert!(false);
-    }
-
-    #[test]
-    fn test_document_cuierzhuang_contents() {
-        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/cuierzhuang.pdf");
-        let doc = PDFDocument::try_from(file).unwrap();
-        let contents = doc
-            .get(&IndirectReference {
-                object_number: 4,
                 generation_number: 0,
             })
             .unwrap();

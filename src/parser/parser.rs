@@ -268,7 +268,7 @@ impl<'a> Parser<'a> {
     fn stream_content(&self, dict: &Dictionary, content: &[u8]) -> Option<Vec<u8>> {
         let mut vec = content.to_vec();
         let mut filters = vec![];
-        match dict.get(&FILTER.to_vec()) {
+        match dict.get(FILTER) {
             Some(Object {
                 kind: ObjectKind::Name(name),
                 ..

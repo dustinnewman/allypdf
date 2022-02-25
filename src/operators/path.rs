@@ -1,4 +1,4 @@
-use crate::document::page::Rectangle;
+use super::rect::Rectangle;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Point {
