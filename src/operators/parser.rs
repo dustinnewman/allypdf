@@ -1,7 +1,9 @@
+use super::color::Color;
 use super::operations::Operation;
 use super::operators::Operator;
+use crate::operators::color::{CMYK, RGB};
 use crate::operators::operations::{
-    Color, LineCap, LineJoin, StringOrNumber, TextRendering, CMYK, RGB,
+    LineCap, LineJoin, StringOrNumber, TextRendering
 };
 use crate::parser::parser::{Object, ObjectKind};
 

@@ -3,11 +3,11 @@ use crate::parser::parser::{Dictionary, Name};
 use super::{
     matrix::Matrix,
     operations::{
-        Color, DashPattern, LineCap, LineJoin, Operation, Percent, RenderingIntent, StringOrNumber,
-        TextRendering, UnitInterval, UnscaledTextSpaceUnit, CMYK, RGB,
+        DashPattern, LineCap, LineJoin, Operation, Percent, RenderingIntent, StringOrNumber,
+        TextRendering, UnitInterval, UnscaledTextSpaceUnit,
     },
     path::{Path, PathMode, Point},
-    rect::Rectangle,
+    rect::Rectangle, color::{Color, CMYK, RGB},
 };
 
 // PDF 9.3.1
@@ -167,7 +167,7 @@ impl GraphicsStateMachine {
         Self { state, stack }
     }
 
-    fn process(&mut self, ops: Vec<Operation>) {
+    pub fn process(&mut self, ops: Vec<Operation>) {
         for op in ops {
             self.transition(op);
         }

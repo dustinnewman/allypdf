@@ -1,6 +1,5 @@
 use crate::operators::{
-    operations::Color,
-    path::{Curve, Point},
+    path::{Curve, Point}, color::Color,
 };
 
 pub struct Text {

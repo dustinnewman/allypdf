@@ -2,8 +2,8 @@ use std::convert::TryFrom;
 
 use crate::{
     error::PdfError,
-    operators::rect::Rectangle,
-    parser::parser::{Dictionary, IndirectReference, Object, ObjectKind, Stream},
+    operators::{rect::Rectangle, parser::OperatorParser, engine::GraphicsStateMachine},
+    parser::{parser::{Dictionary, IndirectReference, Object, ObjectKind, Stream, Parser}, lexer::Lexer},
 };
 
 use super::annotation::Annotation;
@@ -109,6 +109,22 @@ impl<'a> Page<'a> {
             annotations,
             resources,
             rotate,
+        }
+    }
+
+    pub fn parse_contents(&self) {
+        if let Some(content_streams) = &self.contents {
+            for content_stream in content_streams {
+                let content = &content_stream.content;
+                let mut lexer = Lexer::new(content);
+                let tokens = lexer.lex();
+                let mut parser = Parser::new(&tokens);
+                let objects = parser.parse();
+                let mut operator_parser = OperatorParser::new(&objects);
+                let operations = operator_parser.parse();
+                let mut graphics_engine = GraphicsStateMachine::new(Some(self.media_box));
+                graphics_engine.process(operations);
+            }
         }
     }
 }

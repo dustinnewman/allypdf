@@ -1,40 +1,13 @@
 use crate::parser::parser::{Dictionary, Name};
 
+use super::color::{Color, CMYK, RGB};
+
 // A real number between 0 and 1 (inclusive)
 pub type UnitInterval = f64;
 // A real number between 0 and 100 (inclusive)
 pub type Percent = f64;
 // A real number
 pub type UnscaledTextSpaceUnit = f64;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct RGB {
-    pub red: UnitInterval,
-    pub green: UnitInterval,
-    pub blue: UnitInterval,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct CMYK {
-    pub cyan: UnitInterval,
-    pub magenta: UnitInterval,
-    pub yellow: UnitInterval,
-    pub black: UnitInterval,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Color {
-    Gray(UnitInterval),
-    RGB(RGB),
-    CMYK(CMYK),
-}
-
-impl Default for Color {
-    fn default() -> Self {
-        // PDF 8.4.1 Table 51
-        Color::Gray(0.)
-    }
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TextRendering {
