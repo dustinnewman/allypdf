@@ -23,11 +23,19 @@ pub enum Color {
 }
 
 fn min(a: f64, b: f64) -> f64 {
-    if a < b { a } else { b }
+    if a < b {
+        a
+    } else {
+        b
+    }
 }
 
 fn max(a: f64, b: f64) -> f64 {
-    if a < b { b } else { a }
+    if a < b {
+        b
+    } else {
+        a
+    }
 }
 
 impl From<UnitInterval> for RGB {
@@ -36,7 +44,7 @@ impl From<UnitInterval> for RGB {
         Self {
             red: gray,
             green: gray,
-            blue: gray
+            blue: gray,
         }
     }
 }
@@ -56,21 +64,28 @@ impl From<UnitInterval> for CMYK {
             cyan: 0.,
             magenta: 0.,
             yellow: 0.,
-            black: 1. - gray
+            black: 1. - gray,
         }
     }
 }
 
 impl From<CMYK> for UnitInterval {
     // PDF 10.4.2.2 Conversion between DeviceGray and DeviceCMYK
-    fn from(CMYK { cyan, magenta, yellow, black }: CMYK) -> Self {
+    fn from(
+        CMYK {
+            cyan,
+            magenta,
+            yellow,
+            black,
+        }: CMYK,
+    ) -> Self {
         1. - min(1., 0.3 * cyan + 0.59 * magenta + 0.11 * yellow + black)
     }
 }
 
 impl From<RGB> for CMYK {
     // PDF 10.4.2.3 Conversion from DeviceRGB to DeviceCMYK
-    fn from(RGB {red, green, blue}: RGB) -> Self {
+    fn from(RGB { red, green, blue }: RGB) -> Self {
         let c = 1. - red;
         let m = 1. - green;
         let y = 1. - blue;
@@ -83,22 +98,25 @@ impl From<RGB> for CMYK {
             cyan,
             magenta,
             yellow,
-            black
+            black,
         }
     }
 }
 
 impl From<CMYK> for RGB {
     // PDF 10.4.2.4 Conversion from DeviceCMYK to DeviceRGB
-    fn from(CMYK { cyan, magenta, yellow, black }: CMYK) -> Self {
+    fn from(
+        CMYK {
+            cyan,
+            magenta,
+            yellow,
+            black,
+        }: CMYK,
+    ) -> Self {
         let red = 1. - min(1., cyan + black);
         let green = 1. - min(1., magenta + black);
         let blue = 1. - min(1., yellow + black);
-        Self {
-            red,
-            green,
-            blue
-        }
+        Self { red, green, blue }
     }
 }
 

@@ -1,7 +1,11 @@
+use crate::operators::engine::GraphicsState;
+
 use crate::operators::{
-    path::{Curve, Point}, color::Color,
+    color::Color,
+    path::{Curve, Point},
 };
 
+#[derive(Debug)]
 pub struct Text {
     text: String,
     font: String,
@@ -10,18 +14,21 @@ pub struct Text {
     underlined: bool,
 }
 
+#[derive(Debug)]
 pub struct Rectangle {
     width: f32,
     height: f32,
     border_radius: f32,
 }
 
+#[derive(Debug)]
 pub enum AbstractElementKind {
     Text(Text),
     Rectangle(Rectangle),
     Curve(Curve),
 }
 
+#[derive(Debug)]
 pub struct AbstractElement {
     kind: AbstractElementKind,
     upper_left_point: Point,
@@ -30,6 +37,15 @@ pub struct AbstractElement {
     stroke_width: f32,
 }
 
-pub struct GraphicsOutputModel {
+#[derive(Debug)]
+pub struct Canvas {
     elements: Vec<AbstractElement>,
+}
+
+impl Canvas {
+    pub fn new() -> Self {
+        Self { elements: vec![] }
+    }
+    fn stroke(&mut self, state: &GraphicsState) {}
+    fn fill(&mut self, state: &GraphicsState) {}
 }

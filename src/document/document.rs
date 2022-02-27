@@ -284,7 +284,7 @@ impl PDFDocument {
             Some(Object {
                 kind: ObjectKind::Integer(i),
                 ..
-            }) if *i % 90 == 0 => *i as u32 % 360,
+            }) if *i % 90 == 0 => i.abs() as u32 % 360,
             _ => 0,
         };
         let page = Page::new(
