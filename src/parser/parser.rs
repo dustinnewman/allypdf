@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, convert::TryFrom};
 
 use super::lexer::{Token, TokenKind};
 use crate::{
+    error::PdfError,
     filter::{decode, Filter},
     operators::operators::Operator,
     util::{hex_string_to_string, literal_string_to_string, name_to_name},
@@ -82,6 +83,26 @@ pub enum ObjectKind {
 pub struct Object {
     pub offset: u64,
     pub kind: ObjectKind,
+}
+
+impl TryFrom<&Object> for f64 {
+    type Error = PdfError;
+
+    fn try_from(object: &Object) -> Result<Self, Self::Error> {
+        match object {
+            Object {
+                kind: ObjectKind::Integer(i),
+                ..
+            } => Ok(*i as f64),
+            Object {
+                kind: ObjectKind::Real(r),
+                ..
+            } => Ok(*r),
+            _ => Err(PdfError::Other {
+                msg: "Could not convert object to f64".to_string(),
+            }),
+        }
+    }
 }
 
 // We do not want to test if the offsets are equal during testing so we don't

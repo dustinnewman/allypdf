@@ -322,9 +322,7 @@ impl<'a> Page<'a> {
         self.state.line_matrix = Matrix::default();
     }
     fn show_text(&mut self, bytes: &Vec<u8>) {
-        for character_code in bytes {
-            
-        }
+        for character_code in bytes {}
     }
     fn show_text_adjusted(&mut self, vec: Vec<StringOrNumber>) {}
     fn move_next_line_show_text(&mut self, bytes: &Vec<u8>) {

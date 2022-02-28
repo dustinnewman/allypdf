@@ -1,9 +1,18 @@
-use std::{collections::BTreeMap, convert::TryFrom, fs, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    convert::{TryFrom, TryInto},
+    fs,
+    path::PathBuf,
+};
 
 use crate::{
     error::{PdfError, Result},
+    font::font::{
+        Font, FontDescriptor, FontDescriptorFlags, FontProgramKind, FontStretch, FontWeight,
+        TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
+    },
     inner,
-    operators::rect::Rectangle,
+    operators::{matrix::Matrix, rect::Rectangle},
     parser::{
         lexer::Lexer,
         parser::{
@@ -18,6 +27,7 @@ use super::{
 };
 
 const TYPE: &[u8] = b"Type";
+const NAME: &[u8] = b"Name";
 const PAGE_ROOT: &[u8] = b"Pages";
 const KIDS: &[u8] = b"Kids";
 const PAGE: &[u8] = b"Page";
@@ -34,6 +44,43 @@ const PATTERN: &[u8] = b"Pattern";
 const SHADING: &[u8] = b"Shading";
 const X_OBJECT: &[u8] = b"XObject";
 const FONT: &[u8] = b"Font";
+const FONT_DESCRIPTOR: &[u8] = b"FontDescriptor";
+const FONT_NAME: &[u8] = b"FontName";
+const FONT_FAMILY: &[u8] = b"FontFamily";
+const FONT_STRETCH: &[u8] = b"FontStretch";
+const FONT_WEIGHT: &[u8] = b"FontWeight";
+const FLAGS: &[u8] = b"Flags";
+const FONT_B_BOX: &[u8] = b"FontBBox";
+const ITALIC_ANGLE: &[u8] = b"ItalicAngle";
+const ASCENT: &[u8] = b"Ascent";
+const DESCENT: &[u8] = b"Descent";
+const LEADING: &[u8] = b"Leading";
+const CAP_HEIGHT: &[u8] = b"CapHeight";
+const X_HEIGHT: &[u8] = b"XHeight";
+const STEM_V: &[u8] = b"StemV";
+const STEM_H: &[u8] = b"StemH";
+const AVG_WIDTH: &[u8] = b"AvgWidth";
+const MAX_WIDTH: &[u8] = b"MaxWidth";
+const MISSING_WIDTH: &[u8] = b"MissingWidth";
+const FONT_FILE: &[u8] = b"FontFile";
+const FONT_FILE_2: &[u8] = b"FontFile2";
+const FONT_FILE_3: &[u8] = b"FontFile3";
+const CHAR_SET: &[u8] = b"CharSet";
+const CHAR_PROCS: &[u8] = b"CharProcs";
+const TYPE_0: &[u8] = b"Type0";
+const TYPE_1: &[u8] = b"Type1";
+const ENCODING: &[u8] = b"Encoding";
+const TO_UNICODE: &[u8] = b"ToUnicode";
+const TYPE_1_MM: &[u8] = b"MMType1";
+const TYPE_3: &[u8] = b"Type3";
+const FONT_MATRIX: &[u8] = b"FontMatrix";
+const TRUE_TYPE: &[u8] = b"TrueType";
+const CID_FONT_TYPE_0: &[u8] = b"CIDFontType0";
+const CID_FONT_TYPE_2: &[u8] = b"CIDFontType2";
+const BASE_FONT: &[u8] = b"BaseFont";
+const FIRST_CHAR: &[u8] = b"FirstChar";
+const LAST_CHAR: &[u8] = b"LastChar";
+const WIDTHS: &[u8] = b"Widths";
 const PROC_SET: &[u8] = b"ProcSet";
 const PROPERTIES: &[u8] = b"Properties";
 const CONTENTS: &[u8] = b"Contents";
@@ -173,6 +220,303 @@ impl PDFDocument {
             rect,
             flags,
         })
+    }
+
+    fn object_array_to_array<'a, T>(&'a self, object: &'a Object) -> Option<Vec<T>>
+    where
+        T: TryFrom<&'a Object>,
+    {
+        let array = match object {
+            Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            } => inner!(self.get(r#ref)?, ObjectKind::Array)?,
+            Object {
+                kind: ObjectKind::Array(array),
+                ..
+            } => array,
+            _ => return None,
+        };
+        Some(
+            array
+                .iter()
+                .filter_map(|obj| obj.try_into().ok())
+                .collect::<Vec<T>>(),
+        )
+    }
+
+    fn composite_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
+        None
+    }
+
+    fn font_descriptor<'a>(&'a self, dict: &'a Dictionary) -> Option<FontDescriptor<'a>> {
+        let font_name = inner!(dict.get(FONT_NAME)?, ObjectKind::Name)?;
+        let font_family = dict
+            .get(FONT_FAMILY)
+            .and_then(|obj| inner!(obj, ObjectKind::Name));
+        let font_stretch = dict
+            .get(FONT_STRETCH)
+            .and_then(|obj| inner!(obj, ObjectKind::Name))
+            .and_then(|name| FontStretch::try_from(name).ok());
+        let font_weight = dict
+            .get(FONT_WEIGHT)
+            .and_then(|obj| inner!(obj, ObjectKind::Name))
+            .and_then(|name| FontWeight::try_from(name).ok());
+        let flags = *inner!(dict.get(FLAGS)?, ObjectKind::Integer)? as u32;
+        let flags = FontDescriptorFlags::new(flags);
+        let font_b_box = dict
+            .get(FONT_B_BOX)
+            .and_then(|obj| Rectangle::try_from(obj).ok());
+        let italic_angle = f64::try_from(dict.get(ITALIC_ANGLE)?).unwrap();
+        let ascent = dict.get(ASCENT).and_then(|obj| f64::try_from(obj).ok());
+        let descent = dict.get(DESCENT).and_then(|obj| f64::try_from(obj).ok());
+        let leading = dict.get(LEADING).and_then(|obj| f64::try_from(obj).ok());
+        let cap_height = dict.get(CAP_HEIGHT).and_then(|obj| f64::try_from(obj).ok());
+        let x_height = dict.get(X_HEIGHT).and_then(|obj| f64::try_from(obj).ok());
+        let stem_v = dict.get(STEM_V).and_then(|obj| f64::try_from(obj).ok());
+        let stem_h = dict.get(STEM_H).and_then(|obj| f64::try_from(obj).ok());
+        let avg_width = dict.get(AVG_WIDTH).and_then(|obj| f64::try_from(obj).ok());
+        let max_width = dict.get(MAX_WIDTH).and_then(|obj| f64::try_from(obj).ok());
+        let missing_width = dict
+            .get(MISSING_WIDTH)
+            .and_then(|obj| f64::try_from(obj).ok());
+        let font_file = if let Some(obj) = dict.get(FONT_FILE) {
+            inner!(obj, ObjectKind::Stream)
+                .and_then(|stream| Some((FontProgramKind::Type1, stream)))
+        } else if let Some(obj) = dict.get(FONT_FILE_2) {
+            inner!(obj, ObjectKind::Stream)
+                .and_then(|stream| Some((FontProgramKind::TrueType, stream)))
+        } else if let Some(obj) = dict.get(FONT_FILE_3) {
+            inner!(obj, ObjectKind::Stream)
+                .and_then(|stream| Some((FontProgramKind::OpenType, stream)))
+        } else {
+            None
+        };
+        let char_set = dict
+            .get(CHAR_SET)
+            .and_then(|obj| inner!(obj, ObjectKind::Name));
+        Some(FontDescriptor::new(
+            font_name,
+            font_family,
+            font_stretch,
+            font_weight,
+            flags,
+            font_b_box,
+            italic_angle,
+            ascent,
+            descent,
+            leading,
+            cap_height,
+            x_height,
+            stem_v,
+            stem_h,
+            avg_width,
+            max_width,
+            missing_width,
+            font_file,
+            char_set,
+            None,
+            None,
+            None,
+            None,
+        ))
+    }
+
+    fn type_1_font<'a>(
+        &'a self,
+        dict: &'a Dictionary,
+        subtype: Type1SubtypeKind,
+    ) -> Option<Type1Font<'a>> {
+        let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
+        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
+        let first_char = dict
+            .get(FIRST_CHAR)
+            .and_then(|obj| inner!(obj, ObjectKind::Integer))
+            .and_then(|i| Some(*i as u32));
+        let last_char = dict
+            .get(LAST_CHAR)
+            .and_then(|obj| inner!(obj, ObjectKind::Integer))
+            .and_then(|i| Some(*i as u32));
+        let src_widths: Option<Vec<f64>> = dict
+            .get(WIDTHS)
+            .and_then(|obj| self.object_array_to_array::<f64>(obj));
+        let font_descriptor = dict
+            .get(FONT_DESCRIPTOR)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary))
+            .and_then(|dict| self.font_descriptor(dict));
+        let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
+            (first_char, last_char, src_widths)
+        {
+            let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
+            for i in first_char as usize..=last_char as usize {
+                dst_widths[i] = src_widths[i];
+            }
+            Some(dst_widths)
+        } else {
+            None
+        };
+        let encoding = match dict.get(ENCODING) {
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => match self.get(r#ref) {
+                Some(Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                }) => Some(dict),
+                _ => None,
+            },
+            Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) => Some(dict),
+            _ => None,
+        };
+        let to_unicode = dict
+            .get(TO_UNICODE)
+            .and_then(|obj| inner!(obj, ObjectKind::Stream));
+        Some(Type1Font::new(
+            subtype,
+            name,
+            base_font,
+            first_char,
+            last_char,
+            widths,
+            font_descriptor,
+            encoding,
+            to_unicode,
+        ))
+    }
+
+    fn type_3_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
+        let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
+        let resources = todo!();
+        let font_b_box = Rectangle::try_from(dict.get(FONT_B_BOX)?).ok()?;
+        let font_matrix = inner!(dict.get(FONT_MATRIX)?, ObjectKind::Array)?
+            .iter()
+            .filter_map(|obj| f64::try_from(obj).ok())
+            .collect::<Vec<f64>>();
+        let font_matrix: [f64; 6] = font_matrix.try_into().ok()?;
+        let font_matrix = Matrix::new(font_matrix);
+        let char_procs = inner!(dict.get(CHAR_PROCS)?, ObjectKind::Dictionary)?;
+        let first_char = *inner!(dict.get(FIRST_CHAR)?, ObjectKind::Integer)? as u32;
+        let last_char = *inner!(dict.get(LAST_CHAR)?, ObjectKind::Integer)? as u32;
+        let src_widths: Vec<f64> = self.object_array_to_array::<f64>(dict.get(WIDTHS)?)?;
+        let font_descriptor =
+            self.font_descriptor(inner!(dict.get(FONT_DESCRIPTOR)?, ObjectKind::Dictionary)?)?;
+        let mut widths = [font_descriptor.missing_width; 256];
+        for i in first_char as usize..=last_char as usize {
+            widths[i] = src_widths[i];
+        }
+        let encoding = match dict.get(ENCODING)? {
+            Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            } => inner!(self.get(r#ref)?, ObjectKind::Dictionary)?,
+            Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            } => dict,
+            _ => return None,
+        };
+        let to_unicode = dict
+            .get(TO_UNICODE)
+            .and_then(|obj| inner!(obj, ObjectKind::Stream));
+        Some(Type3Font::new(
+            name,
+            font_b_box,
+            font_matrix,
+            char_procs,
+            encoding,
+            first_char,
+            last_char,
+            widths,
+            font_descriptor,
+            resources,
+            to_unicode,
+        ))
+    }
+
+    fn true_type_font<'a>(&'a self, dict: &'a Dictionary) -> Option<TrueTypeFont<'a>> {
+        let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
+        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
+        let first_char = dict
+            .get(FIRST_CHAR)
+            .and_then(|obj| inner!(obj, ObjectKind::Integer))
+            .and_then(|i| Some(*i as u32));
+        let last_char = dict
+            .get(LAST_CHAR)
+            .and_then(|obj| inner!(obj, ObjectKind::Integer))
+            .and_then(|i| Some(*i as u32));
+        let src_widths: Option<Vec<f64>> = dict
+            .get(WIDTHS)
+            .and_then(|obj| self.object_array_to_array::<f64>(obj));
+        let font_descriptor = dict
+            .get(FONT_DESCRIPTOR)
+            .and_then(|obj| inner!(obj, ObjectKind::Dictionary))
+            .and_then(|dict| self.font_descriptor(dict));
+        let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
+            (first_char, last_char, src_widths)
+        {
+            let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
+            for i in first_char as usize..=last_char as usize {
+                dst_widths[i] = src_widths[i];
+            }
+            Some(dst_widths)
+        } else {
+            None
+        };
+        let encoding = match dict.get(ENCODING) {
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => match self.get(r#ref) {
+                Some(Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                }) => Some(dict),
+                _ => None,
+            },
+            Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) => Some(dict),
+            _ => None,
+        };
+        let to_unicode = dict
+            .get(TO_UNICODE)
+            .and_then(|obj| inner!(obj, ObjectKind::Stream));
+        Some(TrueTypeFont::new(
+            name,
+            base_font,
+            first_char,
+            last_char,
+            widths,
+            font_descriptor,
+            encoding,
+            to_unicode,
+        ))
+    }
+
+    fn font_dictionary<'a>(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
+        let name = inner!(dict.get(SUB_TYPE)?, ObjectKind::Name)?;
+        if name == TYPE_0 {
+            Some(Font::Type0(self.composite_font(dict)?))
+        } else if name == TYPE_1 {
+            Some(Font::Type1(
+                self.type_1_font(dict, Type1SubtypeKind::Type1)?,
+            ))
+        } else if name == TYPE_1_MM {
+            Some(Font::Type1(
+                self.type_1_font(dict, Type1SubtypeKind::MMType1)?,
+            ))
+        } else if name == TYPE_3 {
+            Some(Font::Type3(self.type_3_font(dict)?))
+        } else if name == TRUE_TYPE {
+            Some(Font::TrueType(self.true_type_font(dict)?))
+        } else {
+            None
+        }
     }
 
     fn resources<'a>(&'a self, dict: &'a Dictionary) -> Resources<'a> {
