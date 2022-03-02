@@ -245,6 +245,10 @@ impl PDFDocument {
         )
     }
 
+    fn encoding(&self, dict: &Dictionary) -> Option<u32> {
+        None
+    }
+
     fn composite_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
         None
     }

@@ -7,17 +7,9 @@ use crate::{
     parser::parser::{Dictionary, Name, Stream},
 };
 
-const ENCODING_SIZE: usize = 256;
+use super::encoding::ENCODING_SIZE;
 
 type CharCode = u32;
-
-pub type Encoding<'a> = [&'a Name; ENCODING_SIZE];
-
-pub enum DefaultBaseEncoding {
-    MacRoman,
-    MacExpert,
-    WinAnsi,
-}
 
 #[derive(Debug)]
 pub struct FontDescriptorFlags(u32);
