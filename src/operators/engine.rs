@@ -131,7 +131,7 @@ impl Default for GraphicsState {
             clip_path: Rectangle::default(),
             line_width: 1.0,
             line_cap: LineCap::Butt,
-            line_join: LineJoin::MiterJoin,
+            line_join: LineJoin::Miter,
             miter_limit: 10.,
             dash_pattern: DashPattern::default(),
             render_intent: RenderingIntent::RelativeColorimetric,

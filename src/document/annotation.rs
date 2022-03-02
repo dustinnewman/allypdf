@@ -1,6 +1,7 @@
 use crate::{operators::rect::Rectangle, parser::parser::Name};
 
-#[derive(Debug)]
+// PDF 12.5.2 Table 166 - Default value is 0
+#[derive(Debug, Default)]
 pub struct AnnotationFlags(u32);
 
 // Flags
@@ -62,13 +63,6 @@ impl AnnotationFlags {
 
     pub fn locked_contents(&self) -> bool {
         self.n(Self::FLAG_LOCKED_CONTENTS)
-    }
-}
-
-impl Default for AnnotationFlags {
-    // PDF 12.5.2 Table 166 - Default value is 0
-    fn default() -> Self {
-        Self(0)
     }
 }
 

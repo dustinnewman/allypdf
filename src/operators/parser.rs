@@ -34,14 +34,14 @@ macro_rules! coerce_name {
 }
 
 pub struct OperatorParser<'a> {
-    operators: &'a Vec<Object>,
+    operators: &'a [Object],
     pos: usize,
     len: usize,
     done: bool,
 }
 
 impl<'a> OperatorParser<'a> {
-    pub fn new(operators: &'a Vec<Object>) -> Self {
+    pub fn new(operators: &'a [Object]) -> Self {
         let len = operators.len();
         Self {
             operators,
@@ -53,12 +53,8 @@ impl<'a> OperatorParser<'a> {
 
     pub fn parse(&mut self) -> Vec<Operation<'a>> {
         let mut vec = vec![];
-        loop {
-            if let Some(op) = self.next() {
-                vec.push(op);
-            } else {
-                break;
-            }
+        while let Some(op) = self.next() {
+            vec.push(op);
         }
         vec
     }
@@ -108,14 +104,14 @@ impl<'a> OperatorParser<'a> {
             }
             ObjectKind::Operator(Operator::BeginMarkedContentSequence) => {
                 match &self.peek()?.kind {
-                    ObjectKind::Name(name) => op!(Operation::BeginMarkedContentSequence(&name)),
+                    ObjectKind::Name(name) => op!(Operation::BeginMarkedContentSequence(name)),
                     _ => return None,
                 }
             }
             ObjectKind::Operator(Operator::BeginMarkedContentSequencePropertyList) => {
                 match (&self.peek()?.kind, &self.nth(1)?.kind) {
                     (ObjectKind::Dictionary(dict), ObjectKind::Name(name)) => op!(
-                        Operation::BeginMarkedContentSequencePropertyList(&name, &dict),
+                        Operation::BeginMarkedContentSequencePropertyList(name, dict),
                         2
                     ),
                     _ => return None,
@@ -131,7 +127,7 @@ impl<'a> OperatorParser<'a> {
             ObjectKind::Operator(Operator::EndInlineImage) => Operation::EndInlineImage,
             ObjectKind::Operator(Operator::BeginText) => Operation::BeginText,
             ObjectKind::Operator(Operator::ShowText) => match &self.peek()?.kind {
-                ObjectKind::String(string) => op!(Operation::ShowText(&string)),
+                ObjectKind::String(string) => op!(Operation::ShowText(string)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::ShowTextAdjusted) => match &self.peek()?.kind {
@@ -151,7 +147,7 @@ impl<'a> OperatorParser<'a> {
                 _ => return None,
             },
             ObjectKind::Operator(Operator::MoveNextLineShowText) => match &self.peek()?.kind {
-                ObjectKind::String(string) => op!(Operation::MoveNextLineShowText(&string)),
+                ObjectKind::String(string) => op!(Operation::MoveNextLineShowText(string)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetSpacingMoveNextLineShowText) => {
@@ -161,7 +157,7 @@ impl<'a> OperatorParser<'a> {
                 let aw = coerce_f64!(aw);
                 let ac = coerce_f64!(ac);
                 let text = coerce_string!(text);
-                op!(Operation::SetSpacingMoveNextLineShowText(aw, ac, &text), 3)
+                op!(Operation::SetSpacingMoveNextLineShowText(aw, ac, text), 3)
             }
             ObjectKind::Operator(Operator::MoveTextPosition) => {
                 let ty = coerce_f64!(&self.peek()?.kind);
@@ -191,15 +187,15 @@ impl<'a> OperatorParser<'a> {
             ObjectKind::Operator(Operator::SelectFont) => {
                 let size = coerce_f64!(&self.peek()?.kind);
                 let text = coerce_name!(&self.nth(1)?.kind);
-                op!(Operation::SelectFont(&text, size), 2)
+                op!(Operation::SelectFont(text, size), 2)
             }
             ObjectKind::Operator(Operator::SetTextLeading) => {
                 let leading = coerce_f64!(&self.peek()?.kind);
                 op!(Operation::SetTextLeading(leading))
             }
-            ObjectKind::Operator(Operator::SetTextRendering) => match &self.peek()?.kind {
+            ObjectKind::Operator(Operator::SetTextRendering) => match self.peek()?.kind {
                 ObjectKind::Integer(i) => {
-                    op!(Operation::SetTextRendering(TextRendering::from_i64(*i)?))
+                    op!(Operation::SetTextRendering(TextRendering::from_i64(i)?))
                 }
                 _ => return None,
             },
@@ -235,7 +231,7 @@ impl<'a> OperatorParser<'a> {
                 )
             }
             ObjectKind::Operator(Operator::InvokeXObject) => match &self.peek()?.kind {
-                ObjectKind::Name(name) => op!(Operation::InvokeXObject(&name)),
+                ObjectKind::Name(name) => op!(Operation::InvokeXObject(name)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::EndCompat) => Operation::EndCompat,
@@ -337,7 +333,7 @@ impl<'a> OperatorParser<'a> {
             ObjectKind::Operator(Operator::GSave) => Operation::GSave,
             ObjectKind::Operator(Operator::GRestore) => Operation::GRestore,
             ObjectKind::Operator(Operator::SetColorRenderingIntent) => match &self.peek()?.kind {
-                ObjectKind::Name(name) => op!(Operation::SetColorRenderingIntent(&name)),
+                ObjectKind::Name(name) => op!(Operation::SetColorRenderingIntent(name)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetFlat) => {
@@ -345,7 +341,7 @@ impl<'a> OperatorParser<'a> {
                 op!(Operation::SetFlat(flatness))
             }
             ObjectKind::Operator(Operator::SetGraphicsStateParams) => match &self.peek()?.kind {
-                ObjectKind::Name(name) => op!(Operation::SetGraphicsStateParams(&name)),
+                ObjectKind::Name(name) => op!(Operation::SetGraphicsStateParams(name)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetCMYKColorStroke) => {
@@ -402,11 +398,11 @@ impl<'a> OperatorParser<'a> {
                 Operation::SetColorSpecialNonstroke(color, name)
             }
             ObjectKind::Operator(Operator::SetColorSpaceStroke) => match &self.peek()?.kind {
-                ObjectKind::Name(name) => op!(Operation::SetColorSpaceStroke(&name)),
+                ObjectKind::Name(name) => op!(Operation::SetColorSpaceStroke(name)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetColorSpaceNonstroke) => match &self.peek()?.kind {
-                ObjectKind::Name(name) => op!(Operation::SetColorSpaceNonstroke(&name)),
+                ObjectKind::Name(name) => op!(Operation::SetColorSpaceNonstroke(name)),
                 _ => return None,
             },
             ObjectKind::Operator(Operator::SetRGBColorStroke) => {
@@ -432,7 +428,7 @@ impl<'a> OperatorParser<'a> {
                 op!(Operation::SetGrayNonstroke(gray))
             }
             ObjectKind::Operator(Operator::ShFill) => match &self.peek()?.kind {
-                ObjectKind::Name(name) => op!(Operation::ShFill(&name)),
+                ObjectKind::Name(name) => op!(Operation::ShFill(name)),
                 _ => return None,
             },
             _ => return None,
@@ -494,10 +490,10 @@ impl<'a> OperatorParser<'a> {
                 black: first,
             };
             self.seek(start + 4);
-            return Some(Color::CMYK(cmyk));
+            Some(Color::CMYK(cmyk))
         } else {
             self.seek(start + 1);
-            return Some(Color::Gray(first));
+            Some(Color::Gray(first))
         }
     }
 

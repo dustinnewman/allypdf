@@ -59,17 +59,17 @@ impl LineCap {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LineJoin {
-    MiterJoin,
-    RoundJoin,
-    BevelJoin,
+    Miter,
+    Round,
+    Bevel,
 }
 
 impl LineJoin {
     pub fn from_i64(value: i64) -> Option<Self> {
         let render = match value {
-            0 => Self::MiterJoin,
-            1 => Self::RoundJoin,
-            2 => Self::BevelJoin,
+            0 => Self::Miter,
+            1 => Self::Round,
+            2 => Self::Bevel,
             _ => return None,
         };
         Some(render)

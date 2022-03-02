@@ -136,12 +136,8 @@ impl<'a> Parser<'a> {
 
     pub fn parse(&mut self) -> Vec<Object> {
         let mut vec = vec![];
-        loop {
-            if let Some(object) = self.next() {
-                vec.push(object);
-            } else {
-                break;
-            }
+        while let Some(object) = self.next() {
+            vec.push(object);
         }
         vec
     }
@@ -233,15 +229,15 @@ impl<'a> Parser<'a> {
 
     fn trailer(&mut self) -> Option<ObjectKind> {
         let next = self.next()?;
-        if let ObjectKind::Dictionary(d) = next.kind {
-            let size = d.get(SIZE)?;
-            let root = d.get(ROOT)?;
+        if let ObjectKind::Dictionary(dict) = next.kind {
+            let size = dict.get(SIZE)?;
+            let root = dict.get(ROOT)?;
             if let ObjectKind::Integer(size) = size.kind {
                 if let ObjectKind::IndirectReference(root) = root.kind {
                     let trailer = Trailer {
                         size: size as u64,
-                        root: root,
-                        dictionary: d,
+                        root,
+                        dictionary: dict,
                     };
                     return Some(ObjectKind::Trailer(trailer));
                 }

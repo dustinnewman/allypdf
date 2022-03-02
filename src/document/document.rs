@@ -332,11 +332,11 @@ impl PDFDocument {
         let first_char = dict
             .get(FIRST_CHAR)
             .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .and_then(|i| Some(*i as u32));
+            .map(|i| *i as u32);
         let last_char = dict
             .get(LAST_CHAR)
             .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .and_then(|i| Some(*i as u32));
+            .map(|i| *i as u32);
         let src_widths: Option<Vec<f64>> = dict
             .get(WIDTHS)
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
@@ -348,9 +348,8 @@ impl PDFDocument {
             (first_char, last_char, src_widths)
         {
             let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
-            for i in first_char as usize..=last_char as usize {
-                dst_widths[i] = src_widths[i];
-            }
+            dst_widths[(first_char as usize)..(last_char as usize + 1)]
+                .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
             Some(dst_widths)
         } else {
             None
@@ -390,7 +389,23 @@ impl PDFDocument {
 
     fn type_3_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
         let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
-        let resources = todo!();
+        let resources = match dict.get(RESOURCES) {
+            Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) => Some(self.resources(dict)),
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => match self.get(r#ref) {
+                Some(Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                }) => Some(self.resources(dict)),
+                _ => None,
+            },
+            _ => None,
+        };
         let font_b_box = Rectangle::try_from(dict.get(FONT_B_BOX)?).ok()?;
         let font_matrix = inner!(dict.get(FONT_MATRIX)?, ObjectKind::Array)?
             .iter()
@@ -405,9 +420,8 @@ impl PDFDocument {
         let font_descriptor =
             self.font_descriptor(inner!(dict.get(FONT_DESCRIPTOR)?, ObjectKind::Dictionary)?)?;
         let mut widths = [font_descriptor.missing_width; 256];
-        for i in first_char as usize..=last_char as usize {
-            widths[i] = src_widths[i];
-        }
+        widths[(first_char as usize)..(last_char as usize + 1)]
+            .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
         let encoding = match dict.get(ENCODING)? {
             Object {
                 kind: ObjectKind::IndirectReference(r#ref),
@@ -443,11 +457,11 @@ impl PDFDocument {
         let first_char = dict
             .get(FIRST_CHAR)
             .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .and_then(|i| Some(*i as u32));
+            .map(|i| *i as u32);
         let last_char = dict
             .get(LAST_CHAR)
             .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .and_then(|i| Some(*i as u32));
+            .map(|i| *i as u32);
         let src_widths: Option<Vec<f64>> = dict
             .get(WIDTHS)
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
@@ -459,9 +473,8 @@ impl PDFDocument {
             (first_char, last_char, src_widths)
         {
             let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
-            for i in first_char as usize..=last_char as usize {
-                dst_widths[i] = src_widths[i];
-            }
+            dst_widths[(first_char as usize)..(last_char as usize + 1)]
+                .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
             Some(dst_widths)
         } else {
             None
@@ -538,17 +551,14 @@ impl PDFDocument {
         let font = dict
             .get(FONT)
             .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
-        let proc_set = match dict
+        let proc_set = dict
             .get(PROC_SET)
             .and_then(|obj| inner!(obj, ObjectKind::Array))
-        {
-            Some(vec) => Some(
+            .map(|vec| {
                 vec.iter()
                     .filter_map(|obj| ProcSet::try_from(obj).ok())
-                    .collect(),
-            ),
-            None => None,
-        };
+                    .collect()
+            });
         let properties = dict
             .get(PROPERTIES)
             .and_then(|obj| inner!(obj, ObjectKind::Dictionary));

@@ -119,8 +119,10 @@ impl<'a> Page<'a> {
         rotate: u32,
     ) -> Self {
         let canvas = Canvas::new();
-        let mut state = GraphicsState::default();
-        state.clip_path = media_box;
+        let state = GraphicsState {
+            clip_path: media_box,
+            ..Default::default()
+        };
         let stack = vec![];
         Self {
             r#ref,
@@ -321,11 +323,11 @@ impl<'a> Page<'a> {
         self.state.text_matrix = Matrix::default();
         self.state.line_matrix = Matrix::default();
     }
-    fn show_text(&mut self, bytes: &Vec<u8>) {
+    fn show_text(&mut self, bytes: &[u8]) {
         for character_code in bytes {}
     }
     fn show_text_adjusted(&mut self, vec: Vec<StringOrNumber>) {}
-    fn move_next_line_show_text(&mut self, bytes: &Vec<u8>) {
+    fn move_next_line_show_text(&mut self, bytes: &[u8]) {
         // PDF 9.4.3 Table 107 Equivalent to T* Tj
         // Move next line
         self.state.line_coordinates.y -= self.state.text_state.leading;
@@ -336,7 +338,7 @@ impl<'a> Page<'a> {
         &mut self,
         word_spacing: UnscaledTextSpaceUnit,
         char_spacing: UnscaledTextSpaceUnit,
-        bytes: &Vec<u8>,
+        bytes: &[u8],
     ) {
         // PDF 9.4.3 Table 107 Equivalent to Tw Tc '
         self.set_word_spacing(word_spacing);

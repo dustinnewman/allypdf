@@ -14,10 +14,7 @@ pub enum PNGPredictorAlgorithm {
 
 impl PNGPredictorAlgorithm {
     fn is_none(&self) -> bool {
-        match self {
-            PNGPredictorAlgorithm::None => true,
-            _ => false,
-        }
+        matches!(self, PNGPredictorAlgorithm::None)
     }
 }
 

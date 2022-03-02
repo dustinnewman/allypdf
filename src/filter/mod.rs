@@ -55,7 +55,7 @@ impl TryFrom<&Name> for Filter {
     type Error = PdfError;
 
     fn try_from(name: &Name) -> Result<Self, Self::Error> {
-        let name: &[u8] = &name;
+        let name: &[u8] = name;
         let filter = match name {
             ASCII_HEX_DECODE => Filter::AsciiHexDecode,
             ASCII_85_DECODE => Filter::Ascii85Decode,

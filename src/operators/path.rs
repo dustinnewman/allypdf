@@ -95,11 +95,7 @@ impl Default for Path {
 
 impl From<&Path> for Rectangle {
     fn from(path: &Path) -> Self {
-        let rectangles: Vec<Rectangle> = path
-            .subpaths
-            .iter()
-            .map(|subpath| Rectangle::from(subpath))
-            .collect();
+        let rectangles: Vec<Rectangle> = path.subpaths.iter().map(Rectangle::from).collect();
         let lower_left_x = rectangles
             .iter()
             .map(|rectangle| rectangle.lower_left_x)
@@ -194,8 +190,8 @@ impl From<&Subpath> for Rectangle {
             .segments
             .iter()
             .map(|segment| match segment {
-                &PathSegment::Line(Line { from, to }) => f64::min(from.x, to.x),
-                &PathSegment::Curve(Curve {
+                PathSegment::Line(Line { from, to }) => f64::min(from.x, to.x),
+                PathSegment::Curve(Curve {
                     line: Line { from, to },
                     ..
                 }) => f64::min(from.x, to.x),
@@ -206,8 +202,8 @@ impl From<&Subpath> for Rectangle {
             .segments
             .iter()
             .map(|segment| match segment {
-                &PathSegment::Line(Line { from, to }) => f64::max(from.x, to.x),
-                &PathSegment::Curve(Curve {
+                PathSegment::Line(Line { from, to }) => f64::max(from.x, to.x),
+                PathSegment::Curve(Curve {
                     line: Line { from, to },
                     ..
                 }) => f64::max(from.x, to.x),
@@ -218,8 +214,8 @@ impl From<&Subpath> for Rectangle {
             .segments
             .iter()
             .map(|segment| match segment {
-                &PathSegment::Line(Line { from, to }) => f64::min(from.y, to.y),
-                &PathSegment::Curve(Curve {
+                PathSegment::Line(Line { from, to }) => f64::min(from.y, to.y),
+                PathSegment::Curve(Curve {
                     line: Line { from, to },
                     ..
                 }) => f64::min(from.y, to.y),
@@ -230,8 +226,8 @@ impl From<&Subpath> for Rectangle {
             .segments
             .iter()
             .map(|segment| match segment {
-                &PathSegment::Line(Line { from, to }) => f64::max(from.y, to.y),
-                &PathSegment::Curve(Curve {
+                PathSegment::Line(Line { from, to }) => f64::max(from.y, to.y),
+                PathSegment::Curve(Curve {
                     line: Line { from, to },
                     ..
                 }) => f64::max(from.y, to.y),

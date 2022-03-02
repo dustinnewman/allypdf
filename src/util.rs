@@ -183,10 +183,10 @@ macro_rules! indirect_object {
 }
 
 pub fn is_whitespace(byte: Byte) -> bool {
-    match byte {
-        SPACE | CARRIAGE_RETURN | LINE_FEED | TAB | NULL_BYTE | FORM_FEED => true,
-        _ => false,
-    }
+    matches!(
+        byte,
+        SPACE | CARRIAGE_RETURN | LINE_FEED | TAB | NULL_BYTE | FORM_FEED
+    )
 }
 
 pub fn isnt_whitespace(byte: Byte) -> bool {
@@ -194,11 +194,10 @@ pub fn isnt_whitespace(byte: Byte) -> bool {
 }
 
 pub fn is_delimiter(byte: Byte) -> bool {
-    match byte {
-        LPAREN | RPAREN | LTHAN | RTHAN | LBRACKET | RBRACKET | LBRACE | RBRACE | FSLASH
-        | PERCENT => true,
-        _ => false,
-    }
+    matches!(
+        byte,
+        LPAREN | RPAREN | LTHAN | RTHAN | LBRACKET | RBRACKET | LBRACE | RBRACE | FSLASH | PERCENT
+    )
 }
 
 pub fn is_regular(byte: Byte) -> bool {
@@ -218,24 +217,15 @@ pub fn is_whitespace_or_comment(byte: Byte) -> bool {
 }
 
 pub fn is_octal(byte: Byte) -> bool {
-    match byte {
-        b'0'..=b'7' => true,
-        _ => false,
-    }
+    matches!(byte, b'0'..=b'7')
 }
 
 pub fn is_decimal(byte: Byte) -> bool {
-    match byte {
-        b'0'..=b'9' => true,
-        _ => false,
-    }
+    matches!(byte, b'0'..=b'9')
 }
 
 pub fn is_hexadecimal(byte: Byte) -> bool {
-    match byte {
-        b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => true,
-        _ => false,
-    }
+    matches!(byte, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F')
 }
 
 pub fn byte_to_numeric(byte: Byte, radix: u8) -> Option<u8> {
