@@ -7,7 +7,7 @@ use crate::{
     parser::parser::{Dictionary, Name, Stream},
 };
 
-use super::encoding::ENCODING_SIZE;
+use super::encoding::{ENCODING_SIZE, Encoding};
 
 type CharCode = u32;
 
@@ -250,7 +250,7 @@ pub struct Type1Font<'a> {
     last_char: Option<CharCode>,
     widths: Option<[f64; ENCODING_SIZE]>,
     font_descriptor: Option<FontDescriptor<'a>>,
-    encoding: Option<&'a Dictionary>,
+    encoding: Option<Encoding<'a>>,
     to_unicode: Option<&'a Stream>,
 }
 
@@ -263,7 +263,7 @@ impl<'a> Type1Font<'a> {
         last_char: Option<CharCode>,
         widths: Option<[f64; ENCODING_SIZE]>,
         font_descriptor: Option<FontDescriptor<'a>>,
-        encoding: Option<&'a Dictionary>,
+        encoding: Option<Encoding<'a>>,
         to_unicode: Option<&'a Stream>,
     ) -> Self {
         Self {
@@ -288,7 +288,7 @@ pub struct TrueTypeFont<'a> {
     last_char: Option<CharCode>,
     widths: Option<[f64; ENCODING_SIZE]>,
     font_descriptor: Option<FontDescriptor<'a>>,
-    encoding: Option<&'a Dictionary>,
+    encoding: Option<Encoding<'a>>,
     to_unicode: Option<&'a Stream>,
 }
 
@@ -300,7 +300,7 @@ impl<'a> TrueTypeFont<'a> {
         last_char: Option<CharCode>,
         widths: Option<[f64; ENCODING_SIZE]>,
         font_descriptor: Option<FontDescriptor<'a>>,
-        encoding: Option<&'a Dictionary>,
+        encoding: Option<Encoding<'a>>,
         to_unicode: Option<&'a Stream>,
     ) -> Self {
         Self {
@@ -322,7 +322,7 @@ pub struct Type3Font<'a> {
     font_b_box: Rectangle,
     font_matrix: Matrix,
     char_procs: &'a Dictionary,
-    encoding: &'a Dictionary,
+    encoding: Encoding<'a>,
     first_char: CharCode,
     last_char: CharCode,
     widths: [f64; ENCODING_SIZE],
@@ -337,7 +337,7 @@ impl<'a> Type3Font<'a> {
         font_b_box: Rectangle,
         font_matrix: Matrix,
         char_procs: &'a Dictionary,
-        encoding: &'a Dictionary,
+        encoding: Encoding<'a>,
         first_char: CharCode,
         last_char: CharCode,
         widths: [f64; ENCODING_SIZE],
@@ -390,7 +390,7 @@ pub struct CIDFont<'a> {
 // PDF 9.6.2.1 Table 109
 pub struct Type0Font<'a> {
     base_font: Name,
-    encoding: &'a Dictionary,
+    encoding: Encoding<'a>,
     descendant_fonts: CIDFont<'a>,
     to_unicode: Option<&'a Stream>,
 }

@@ -85,7 +85,7 @@ pub struct Page<'a> {
     art_box: Rectangle,
     contents: Option<Vec<&'a Stream>>,
     annotations: Option<Vec<Annotation<'a>>>,
-    resources: Resources<'a>,
+    pub resources: Resources<'a>,
     rotate: u32,
     // Graphics state
     state: GraphicsState,

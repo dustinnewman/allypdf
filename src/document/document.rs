@@ -7,9 +7,12 @@ use std::{
 
 use crate::{
     error::{PdfError, Result},
-    font::font::{
-        Font, FontDescriptor, FontDescriptorFlags, FontProgramKind, FontStretch, FontWeight,
-        TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
+    font::{
+        encoding::Encoding,
+        font::{
+            Font, FontDescriptor, FontDescriptorFlags, FontProgramKind, FontStretch, FontWeight,
+            TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
+        },
     },
     inner,
     operators::{matrix::Matrix, rect::Rectangle},
@@ -189,23 +192,7 @@ impl PDFDocument {
     }
 
     fn annotation<'a>(&'a self, object: &'a Object) -> Option<Annotation<'a>> {
-        let annotation_dict = match object {
-            Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            } => dict,
-            Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            } => match self.get(r#ref)? {
-                Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                } => dict,
-                _ => return None,
-            },
-            _ => return None,
-        };
+        let annotation_dict = self.follow_till_dict(Some(object))?;
         let subtype = inner!(annotation_dict.get(SUB_TYPE)?, ObjectKind::Name)?;
         let rect = Rectangle::try_from(annotation_dict.get(RECTANGLE)?).ok()?;
         let flags = match annotation_dict.get(ANNOTS_FLAGS) {
@@ -344,9 +331,8 @@ impl PDFDocument {
         let src_widths: Option<Vec<f64>> = dict
             .get(WIDTHS)
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
-        let font_descriptor = dict
-            .get(FONT_DESCRIPTOR)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary))
+        let font_descriptor = self
+            .follow_till_dict(dict.get(FONT_DESCRIPTOR))
             .and_then(|dict| self.font_descriptor(dict));
         let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
             (first_char, last_char, src_widths)
@@ -358,23 +344,9 @@ impl PDFDocument {
         } else {
             None
         };
-        let encoding = match dict.get(ENCODING) {
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => match self.get(r#ref) {
-                Some(Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                }) => Some(dict),
-                _ => None,
-            },
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => Some(dict),
-            _ => None,
-        };
+        let encoding = self
+            .follow_till_dict(dict.get(ENCODING))
+            .and_then(|dict| Encoding::try_from(dict).ok());
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -393,23 +365,9 @@ impl PDFDocument {
 
     fn type_3_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
         let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
-        let resources = match dict.get(RESOURCES) {
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => Some(self.resources(dict)),
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => match self.get(r#ref) {
-                Some(Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                }) => Some(self.resources(dict)),
-                _ => None,
-            },
-            _ => None,
-        };
+        let resources = self
+            .follow_till_dict(dict.get(RESOURCES))
+            .map(|dict| self.resources(dict));
         let font_b_box = Rectangle::try_from(dict.get(FONT_B_BOX)?).ok()?;
         let font_matrix = inner!(dict.get(FONT_MATRIX)?, ObjectKind::Array)?
             .iter()
@@ -417,12 +375,12 @@ impl PDFDocument {
             .collect::<Vec<f64>>();
         let font_matrix: [f64; 6] = font_matrix.try_into().ok()?;
         let font_matrix = Matrix::new(font_matrix);
-        let char_procs = inner!(dict.get(CHAR_PROCS)?, ObjectKind::Dictionary)?;
+        let char_procs = self.follow_till_dict(dict.get(CHAR_PROCS))?;
         let first_char = *inner!(dict.get(FIRST_CHAR)?, ObjectKind::Integer)? as u32;
         let last_char = *inner!(dict.get(LAST_CHAR)?, ObjectKind::Integer)? as u32;
         let src_widths: Vec<f64> = self.object_array_to_array::<f64>(dict.get(WIDTHS)?)?;
         let font_descriptor =
-            self.font_descriptor(inner!(dict.get(FONT_DESCRIPTOR)?, ObjectKind::Dictionary)?)?;
+            self.font_descriptor(self.follow_till_dict(dict.get(FONT_DESCRIPTOR))?)?;
         let mut widths = [font_descriptor.missing_width; 256];
         widths[(first_char as usize)..(last_char as usize + 1)]
             .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
@@ -437,6 +395,7 @@ impl PDFDocument {
             } => dict,
             _ => return None,
         };
+        let encoding = Encoding::try_from(encoding).ok()?;
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -469,9 +428,8 @@ impl PDFDocument {
         let src_widths: Option<Vec<f64>> = dict
             .get(WIDTHS)
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
-        let font_descriptor = dict
-            .get(FONT_DESCRIPTOR)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary))
+        let font_descriptor = self
+            .follow_till_dict(dict.get(FONT_DESCRIPTOR))
             .and_then(|dict| self.font_descriptor(dict));
         let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
             (first_char, last_char, src_widths)
@@ -483,23 +441,9 @@ impl PDFDocument {
         } else {
             None
         };
-        let encoding = match dict.get(ENCODING) {
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => match self.get(r#ref) {
-                Some(Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                }) => Some(dict),
-                _ => None,
-            },
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => Some(dict),
-            _ => None,
-        };
+        let encoding = self
+            .follow_till_dict(dict.get(ENCODING))
+            .and_then(|dict| Encoding::try_from(dict).ok());
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -536,25 +480,27 @@ impl PDFDocument {
         }
     }
 
+    fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
+        match object {
+            Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) => Some(dict),
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => self.follow_till_dict(self.get(r#ref)),
+            _ => None,
+        }
+    }
+
     fn resources<'a>(&'a self, dict: &'a Dictionary) -> Resources<'a> {
-        let ext_g_state = dict
-            .get(EXT_G_STATE)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
-        let color_space = dict
-            .get(COLOR_SPACE)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
-        let pattern = dict
-            .get(PATTERN)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
-        let shading = dict
-            .get(SHADING)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
-        let x_object = dict
-            .get(X_OBJECT)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
-        let font = dict
-            .get(FONT)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let ext_g_state = self.follow_till_dict(dict.get(EXT_G_STATE));
+        let color_space = self.follow_till_dict(dict.get(COLOR_SPACE));
+        let pattern = self.follow_till_dict(dict.get(PATTERN));
+        let shading = self.follow_till_dict(dict.get(SHADING));
+        let x_object = self.follow_till_dict(dict.get(X_OBJECT));
+        let font = self.follow_till_dict(dict.get(FONT));
         let proc_set = dict
             .get(PROC_SET)
             .and_then(|obj| inner!(obj, ObjectKind::Array))
@@ -563,9 +509,7 @@ impl PDFDocument {
                     .filter_map(|obj| ProcSet::try_from(obj).ok())
                     .collect()
             });
-        let properties = dict
-            .get(PROPERTIES)
-            .and_then(|obj| inner!(obj, ObjectKind::Dictionary));
+        let properties = self.follow_till_dict(dict.get(PROPERTIES));
         Resources {
             ext_g_state,
             color_space,
@@ -600,23 +544,7 @@ impl PDFDocument {
         let art_box = page_object
             .get(ART_BOX)
             .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
-        let resources = match self.get_inherited_page_key(r#ref, RESOURCES)? {
-            Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            } => dict,
-            Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            } => match self.get(r#ref)? {
-                Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                } => dict,
-                _ => return None,
-            },
-            _ => return None,
-        };
+        let resources = self.follow_till_dict(self.get_inherited_page_key(r#ref, RESOURCES))?;
         let resources = self.resources(resources);
         let contents = match page_object.get(CONTENTS) {
             Some(object) => {
@@ -806,17 +734,14 @@ mod test {
     }
 
     #[test]
-    fn test_document_plasmonic_nanosensors_contents() {
+    fn test_document_process_calculus_pages() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/plasmonic_nanosensors.pdf");
+        file.push("test_data/process_calculus.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
-        let contents = doc
-            .get(&IndirectReference {
-                object_number: 56,
-                generation_number: 0,
-            })
-            .unwrap();
-        println!("{:?}", contents);
+        let pages = doc.pages().unwrap();
+        for page in pages {
+            println!("{:#?}", page.resources);
+        }
         assert!(false);
     }
 
