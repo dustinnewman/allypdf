@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{collections::BTreeMap, convert::TryFrom};
 
 use crate::{
     document::page::Resources,
@@ -7,7 +7,7 @@ use crate::{
     parser::parser::{Dictionary, Name, Stream},
 };
 
-use super::encoding::{ENCODING_SIZE, Encoding};
+use super::encoding::{Encoding, ENCODING_SIZE};
 
 type CharCode = u32;
 
@@ -236,12 +236,14 @@ impl<'a> FontDescriptor<'a> {
 }
 
 // PDF 9.5 Table 108
+#[derive(Debug)]
 pub enum Type1SubtypeKind {
     Type1,
     MMType1,
 }
 
 // PDF 9.6.2.1 Table 109
+#[derive(Debug)]
 pub struct Type1Font<'a> {
     subtype: Type1SubtypeKind,
     name: Option<&'a Name>,
@@ -281,6 +283,7 @@ impl<'a> Type1Font<'a> {
 }
 
 // PDF 9.6.3
+#[derive(Debug)]
 pub struct TrueTypeFont<'a> {
     name: Option<&'a Name>,
     base_font: &'a Name,
@@ -317,6 +320,7 @@ impl<'a> TrueTypeFont<'a> {
 }
 
 // PDF 9.6.4
+#[derive(Debug)]
 pub struct Type3Font<'a> {
     name: Option<&'a Name>,
     font_b_box: Rectangle,
@@ -327,7 +331,7 @@ pub struct Type3Font<'a> {
     last_char: CharCode,
     widths: [f64; ENCODING_SIZE],
     font_descriptor: FontDescriptor<'a>,
-    resources: Option<Resources<'a>>,
+    resources: Option<Box<Resources<'a>>>,
     to_unicode: Option<&'a Stream>,
 }
 
@@ -355,19 +359,21 @@ impl<'a> Type3Font<'a> {
             last_char,
             widths,
             font_descriptor,
-            resources,
+            resources: resources.map(Box::new),
             to_unicode,
         }
     }
 }
 
 // PDF 9.5 Table 108
+#[derive(Debug)]
 pub enum CIDFontSubtypeKind {
     CIDFontType0,
     CIDFontType2,
 }
 
 // PDF 9.7.3 Table 114
+#[derive(Debug)]
 pub struct CIDSystemInfo {
     registry: Vec<u8>,
     ordering: Vec<u8>,
@@ -375,6 +381,7 @@ pub struct CIDSystemInfo {
 }
 
 // PDF 9.7.4.1 Table 115
+#[derive(Debug)]
 pub struct CIDFont<'a> {
     subtype: CIDFontSubtypeKind,
     base_font: Name,
@@ -388,6 +395,7 @@ pub struct CIDFont<'a> {
 }
 
 // PDF 9.6.2.1 Table 109
+#[derive(Debug)]
 pub struct Type0Font<'a> {
     base_font: Name,
     encoding: Encoding<'a>,
@@ -396,6 +404,7 @@ pub struct Type0Font<'a> {
 }
 
 // PDF 9.5 Table 108
+#[derive(Debug)]
 pub enum Font<'a> {
     // Type0 fonts are also called "composite fonts." All others are "simple"
     Type0(Type0Font<'a>),
@@ -404,3 +413,5 @@ pub enum Font<'a> {
     TrueType(TrueTypeFont<'a>),
     // CID fonts cannot be used directly but only as children of Type0 fonts
 }
+
+pub type FontDictionary<'a> = BTreeMap<&'a Name, Font<'a>>;

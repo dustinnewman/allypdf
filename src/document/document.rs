@@ -10,8 +10,9 @@ use crate::{
     font::{
         encoding::Encoding,
         font::{
-            Font, FontDescriptor, FontDescriptorFlags, FontProgramKind, FontStretch, FontWeight,
-            TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
+            Font, FontDescriptor, FontDescriptorFlags, FontDictionary, FontProgramKind,
+            FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind,
+            Type3Font,
         },
     },
     inner,
@@ -232,10 +233,6 @@ impl PDFDocument {
         )
     }
 
-    fn encoding(&self, dict: &Dictionary) -> Option<u32> {
-        None
-    }
-
     fn composite_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
         None
     }
@@ -339,14 +336,21 @@ impl PDFDocument {
         {
             let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
             dst_widths[(first_char as usize)..(last_char as usize + 1)]
-                .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
+                .clone_from_slice(&src_widths);
             Some(dst_widths)
         } else {
             None
         };
-        let encoding = self
-            .follow_till_dict(dict.get(ENCODING))
-            .and_then(|dict| Encoding::try_from(dict).ok());
+        let encoding = match dict.get(ENCODING) {
+            Some(Object { kind: ObjectKind::Dictionary(dict), .. }) => Encoding::try_from(dict).ok(),
+            Some(Object { kind: ObjectKind::Name(name), .. }) => Encoding::try_from(name).ok(),
+            Some(Object { kind: ObjectKind::IndirectReference(r#ref), .. }) => match self.get(r#ref) {
+                Some(Object { kind: ObjectKind::Dictionary(dict), .. }) => Encoding::try_from(dict).ok(),
+                Some(Object { kind: ObjectKind::Name(name), .. }) => Encoding::try_from(name).ok(),
+                _ => None
+            },
+            _ => None
+        };
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -379,11 +383,11 @@ impl PDFDocument {
         let first_char = *inner!(dict.get(FIRST_CHAR)?, ObjectKind::Integer)? as u32;
         let last_char = *inner!(dict.get(LAST_CHAR)?, ObjectKind::Integer)? as u32;
         let src_widths: Vec<f64> = self.object_array_to_array::<f64>(dict.get(WIDTHS)?)?;
+        let src_widths: &[f64] = &src_widths[0..((last_char - first_char) as usize)];
         let font_descriptor =
             self.font_descriptor(self.follow_till_dict(dict.get(FONT_DESCRIPTOR))?)?;
         let mut widths = [font_descriptor.missing_width; 256];
-        widths[(first_char as usize)..(last_char as usize + 1)]
-            .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
+        widths[(first_char as usize)..(last_char as usize + 1)].clone_from_slice(&src_widths);
         let encoding = match dict.get(ENCODING)? {
             Object {
                 kind: ObjectKind::IndirectReference(r#ref),
@@ -430,13 +434,13 @@ impl PDFDocument {
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
         let font_descriptor = self
             .follow_till_dict(dict.get(FONT_DESCRIPTOR))
-            .and_then(|dict| self.font_descriptor(dict));
+            .and_then(|fd| self.font_descriptor(fd));
         let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
             (first_char, last_char, src_widths)
         {
             let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
             dst_widths[(first_char as usize)..(last_char as usize + 1)]
-                .clone_from_slice(&src_widths[(first_char as usize)..(last_char as usize + 1)]);
+                .clone_from_slice(&src_widths);
             Some(dst_widths)
         } else {
             None
@@ -459,7 +463,7 @@ impl PDFDocument {
         ))
     }
 
-    fn font_dictionary<'a>(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
+    fn font<'a>(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
         let name = inner!(dict.get(SUB_TYPE)?, ObjectKind::Name)?;
         if name == TYPE_0 {
             Some(Font::Type0(self.composite_font(dict)?))
@@ -478,6 +482,18 @@ impl PDFDocument {
         } else {
             None
         }
+    }
+
+    fn font_dictionary<'a>(&'a self, dict: &'a Dictionary) -> FontDictionary<'a> {
+        let mut font_dictionary = FontDictionary::new();
+        for (name, object) in dict {
+            if let Some(dict) = self.follow_till_dict(Some(object)) {
+                if let Some(font) = self.font(dict) {
+                    font_dictionary.insert(name, font);
+                }
+            }
+        }
+        font_dictionary
     }
 
     fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
@@ -500,7 +516,9 @@ impl PDFDocument {
         let pattern = self.follow_till_dict(dict.get(PATTERN));
         let shading = self.follow_till_dict(dict.get(SHADING));
         let x_object = self.follow_till_dict(dict.get(X_OBJECT));
-        let font = self.follow_till_dict(dict.get(FONT));
+        let font = self
+            .follow_till_dict(dict.get(FONT))
+            .map(|dict| self.font_dictionary(dict));
         let proc_set = dict
             .get(PROC_SET)
             .and_then(|obj| inner!(obj, ObjectKind::Array))
@@ -740,7 +758,7 @@ mod test {
         let doc = PDFDocument::try_from(file).unwrap();
         let pages = doc.pages().unwrap();
         for page in pages {
-            println!("{:#?}", page.resources);
+            println!("{:#?}", page);
         }
         assert!(false);
     }
@@ -885,7 +903,7 @@ mod test {
     }
 
     #[test]
-    fn test_pdf_2_spec() {
+    fn test_pdf_spec() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/pdf.pdf");
         let doc = PDFDocument::try_from(file).unwrap();

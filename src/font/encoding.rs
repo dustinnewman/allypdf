@@ -5,10 +5,12 @@ use std::{
 
 use crate::{
     error::PdfError,
-    parser::parser::{Dictionary, Object, ObjectKind},
+    parser::parser::{Dictionary, Object, ObjectKind, Name},
 };
 
 pub const ENCODING_SIZE: usize = 256;
+
+#[derive(Debug)]
 pub struct Encoding<'a>([Option<&'a [u8]>; ENCODING_SIZE]);
 
 const A_UPPER: &[u8] = b"A";
@@ -694,7 +696,7 @@ const STANDARD_ENCODING: Encoding<'static> = Encoding([
     None,
 ]);
 
-const MAC_ROMAN_ENCODING: Encoding<'static> = Encoding([
+pub const MAC_ROMAN_ENCODING: Encoding<'static> = Encoding([
     None,
     None,
     None,
@@ -955,7 +957,7 @@ const MAC_ROMAN_ENCODING: Encoding<'static> = Encoding([
     Some(CARON),
 ]);
 
-const WIN_ANSI_ENCODING: Encoding<'static> = Encoding([
+pub const WIN_ANSI_ENCODING: Encoding<'static> = Encoding([
     None,
     None,
     None,
@@ -1214,7 +1216,7 @@ const WIN_ANSI_ENCODING: Encoding<'static> = Encoding([
     Some(Y_DIERESIS_LOWER),
 ]);
 
-const MAC_EXPERT_ENCODING: Encoding<'static> = Encoding([
+pub const MAC_EXPERT_ENCODING: Encoding<'static> = Encoding([
     None,
     None,
     None,
@@ -1475,7 +1477,7 @@ const MAC_EXPERT_ENCODING: Encoding<'static> = Encoding([
 
 impl<'a> Default for Encoding<'a> {
     fn default() -> Self {
-        Self([None; ENCODING_SIZE])
+        STANDARD_ENCODING
     }
 }
 
@@ -1493,6 +1495,24 @@ impl<'a> DerefMut for Encoding<'a> {
     }
 }
 
+impl<'a> TryFrom<&'a Name> for Encoding<'a> {
+    type Error = PdfError;
+
+    fn try_from(name: &'a Name) -> Result<Self, Self::Error> {
+        if name == MAC_ROMAN {
+            Ok(MAC_ROMAN_ENCODING)
+        } else if name == WIN_ANSI {
+            Ok(WIN_ANSI_ENCODING)
+        } else if name == MAC_EXPERT {
+            todo!()
+        } else {
+            Err(PdfError::Other {
+                msg: "Could not convert dictionary to encoding.".to_string(),
+            })
+        }
+    }
+}
+
 impl<'a> TryFrom<&'a Dictionary> for Encoding<'a> {
     type Error = PdfError;
 
@@ -1502,17 +1522,7 @@ impl<'a> TryFrom<&'a Dictionary> for Encoding<'a> {
             ..
         }) = dict.get(BASE_ENCODING)
         {
-            if name == MAC_ROMAN {
-                MAC_ROMAN_ENCODING
-            } else if name == WIN_ANSI {
-                WIN_ANSI_ENCODING
-            } else if name == MAC_EXPERT {
-                todo!()
-            } else {
-                return Err(PdfError::Other {
-                    msg: "Could not convert dictionary to encoding.".to_string(),
-                });
-            }
+            Self::try_from(name)?
         } else {
             Self::default()
         };
@@ -1522,7 +1532,7 @@ impl<'a> TryFrom<&'a Dictionary> for Encoding<'a> {
         }) = dict.get(DIFFERENCES)
         {
             let mut array_index = 0;
-            while let Some(object) = differences.iter().next() {
+            for object in differences {
                 match object {
                     Object {
                         kind: ObjectKind::Integer(i),

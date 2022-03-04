@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 
 use crate::{
     error::PdfError,
+    font::font::FontDictionary,
     operators::{
         color::{Color, CMYK, RGB},
         engine::GraphicsState,
@@ -69,7 +70,7 @@ pub struct Resources<'a> {
     pub pattern: Option<&'a Dictionary>,
     pub shading: Option<&'a Dictionary>,
     pub x_object: Option<&'a Dictionary>,
-    pub font: Option<&'a Dictionary>,
+    pub font: Option<FontDictionary<'a>>,
     pub proc_set: Option<Vec<ProcSet>>,
     pub properties: Option<&'a Dictionary>,
 }
@@ -85,7 +86,7 @@ pub struct Page<'a> {
     art_box: Rectangle,
     contents: Option<Vec<&'a Stream>>,
     annotations: Option<Vec<Annotation<'a>>>,
-    pub resources: Resources<'a>,
+    resources: Resources<'a>,
     rotate: u32,
     // Graphics state
     state: GraphicsState,
