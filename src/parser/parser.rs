@@ -420,6 +420,9 @@ impl<'a> Parser<'a> {
     fn pop(&mut self) -> Option<&Token<'a>> {
         // TODO: Fix this
         // let token = self.peek();
+        if self.pos == self.tokens.len() {
+            return None;
+        }
         self.advance();
         Some(&self.tokens[self.pos - 1])
     }
@@ -482,8 +485,7 @@ mod tests {
 
     #[test]
     fn test_indirect_ref() {
-        let text = "17 0 R false
-        %%EOF";
+        let text = "17 0 R false";
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);

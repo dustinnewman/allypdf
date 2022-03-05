@@ -269,20 +269,21 @@ impl PDFDocument {
             .get(MISSING_WIDTH)
             .and_then(|obj| f64::try_from(obj).ok());
         let font_file = if let Some(obj) = dict.get(FONT_FILE) {
-            inner!(obj, ObjectKind::Stream)
+            self.follow_till_stream(Some(obj))
                 .and_then(|stream| Some((FontProgramKind::Type1, stream)))
         } else if let Some(obj) = dict.get(FONT_FILE_2) {
-            inner!(obj, ObjectKind::Stream)
+            self.follow_till_stream(Some(obj))
                 .and_then(|stream| Some((FontProgramKind::TrueType, stream)))
         } else if let Some(obj) = dict.get(FONT_FILE_3) {
-            inner!(obj, ObjectKind::Stream)
+            self.follow_till_stream(Some(obj))
                 .and_then(|stream| Some((FontProgramKind::OpenType, stream)))
         } else {
             None
         };
         let char_set = dict
             .get(CHAR_SET)
-            .and_then(|obj| inner!(obj, ObjectKind::Name));
+            .and_then(|obj| inner!(obj, ObjectKind::String));
+        // TODO: Parse char_set list of names into Vec<Name> using helper functions
         Some(FontDescriptor::new(
             font_name,
             font_family,
@@ -510,6 +511,20 @@ impl PDFDocument {
         }
     }
 
+    fn follow_till_stream<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Stream> {
+        match object {
+            Some(Object {
+                kind: ObjectKind::Stream(stream),
+                ..
+            }) => Some(stream),
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => self.follow_till_stream(self.get(r#ref)),
+            _ => None,
+        }
+    }
+
     fn resources<'a>(&'a self, dict: &'a Dictionary) -> Resources<'a> {
         let ext_g_state = self.follow_till_dict(dict.get(EXT_G_STATE));
         let color_space = self.follow_till_dict(dict.get(COLOR_SPACE));
@@ -607,7 +622,7 @@ impl PDFDocument {
         Some(page)
     }
 
-    fn pages(&self) -> Option<Vec<Page>> {
+    pub(crate) fn pages(&self) -> Option<Vec<Page>> {
         let catalog = self.catalog()?;
         let page_root = match catalog.get(PAGE_ROOT)? {
             Object {
@@ -758,7 +773,7 @@ mod test {
         let doc = PDFDocument::try_from(file).unwrap();
         let pages = doc.pages().unwrap();
         for page in pages {
-            println!("{:#?}", page);
+            println!("{:#?}", page.resources.font);
         }
         assert!(false);
     }

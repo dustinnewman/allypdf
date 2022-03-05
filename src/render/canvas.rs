@@ -46,6 +46,8 @@ impl Canvas {
     pub fn new() -> Self {
         Self { elements: vec![] }
     }
-    fn stroke(&mut self, state: &GraphicsState) {}
-    fn fill(&mut self, state: &GraphicsState) {}
+    pub fn stroke(&mut self, state: &GraphicsState) {}
+    pub fn fill(&mut self, state: &GraphicsState) {}
+    pub fn draw_rectangle(&mut self, state: &GraphicsState) {
+    }
 }

@@ -86,12 +86,12 @@ pub struct Page<'a> {
     art_box: Rectangle,
     contents: Option<Vec<&'a Stream>>,
     annotations: Option<Vec<Annotation<'a>>>,
-    resources: Resources<'a>,
+    pub resources: Resources<'a>,
     rotate: u32,
     // Graphics state
-    state: GraphicsState,
+    state: GraphicsState<'a>,
     // Graphics state stack
-    stack: Vec<GraphicsState>,
+    stack: Vec<GraphicsState<'a>>,
     // Rendering device
     canvas: Canvas,
 }
@@ -151,7 +151,8 @@ impl<'a> Page<'a> {
                 let mut lexer = Lexer::new(content);
                 let tokens = lexer.lex();
                 let mut parser = Parser::new(&tokens);
-                objects.extend(parser.parse());
+                let content_objects = parser.parse();
+                objects.extend(content_objects);
             }
         }
         let mut operator_parser = OperatorParser::new(&objects);
@@ -327,7 +328,16 @@ impl<'a> Page<'a> {
     fn show_text(&mut self, bytes: &[u8]) {
         for character_code in bytes {}
     }
-    fn show_text_adjusted(&mut self, vec: Vec<StringOrNumber>) {}
+    fn show_text_adjusted(&mut self, vec: Vec<StringOrNumber>) {
+        for element in vec {
+            match element {
+                StringOrNumber::String(string) => self.show_text(string),
+                StringOrNumber::Number(number) => {
+                    todo!();
+                },
+            }
+        }
+    }
     fn move_next_line_show_text(&mut self, bytes: &[u8]) {
         // PDF 9.4.3 Table 107 Equivalent to T* Tj
         // Move next line
@@ -425,6 +435,7 @@ impl<'a> Page<'a> {
     }
     fn append_rectangle(&mut self, x: f64, y: f64, width: f64, height: f64) {
         self.state.path.re(x, y, width, height);
+        self.canvas.draw_rectangle(&self.state);
     }
     fn close_subpath(&mut self) {
         self.state.path.close();
@@ -493,4 +504,23 @@ impl<'a> Page<'a> {
     }
     // Shading operators
     fn sh_fill(&mut self, name: &Name) {}
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::PathBuf;
+
+    use crate::document::document::PDFDocument;
+
+    use super::*;
+
+    #[test]
+    fn test_page_process_calculus_contents() {
+        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        file.push("test_data/process_calculus.pdf");
+        let doc = PDFDocument::try_from(file).unwrap();
+        let mut pages = doc.pages().unwrap();
+        pages[0].parse_contents();
+        assert!(false);
+    }
 }

@@ -1,4 +1,4 @@
-use crate::parser::parser::Name;
+use crate::{parser::parser::Name, font::font::Font};
 
 use super::{
     color::Color,
@@ -10,7 +10,7 @@ use super::{
 
 // PDF 9.3.1
 #[derive(Debug, Clone)]
-pub struct TextState {
+pub struct TextState<'a> {
     // Character spacing
     pub char_spacing: f64,
     // Word spacing
@@ -20,7 +20,7 @@ pub struct TextState {
     // Leading
     pub leading: f64,
     // Font
-    // TODO
+    pub font: &'a Font<'a>,
     // Font size
     pub font_size: f64,
     // Text rendering mode
@@ -31,7 +31,7 @@ pub struct TextState {
     pub knockout: bool,
 }
 
-impl Default for TextState {
+impl<'a> Default for TextState<'a> {
     fn default() -> Self {
         Self {
             char_spacing: 0.,
@@ -43,13 +43,14 @@ impl Default for TextState {
             render_mode: TextRendering::Fill,
             rise: 0.,
             knockout: false,
+            ..Default::default()
         }
     }
 }
 
 // PDF 8.4.1
 #[derive(Debug, Clone)]
-pub struct GraphicsState {
+pub struct GraphicsState<'a> {
     // Current transformation matrix
     pub ctm: Matrix,
     // Fill color
@@ -61,7 +62,7 @@ pub struct GraphicsState {
     // Current text line matrix
     pub line_matrix: Matrix,
     // Text state
-    pub text_state: TextState,
+    pub text_state: TextState<'a>,
     // Current coordinates
     pub current_point: Point,
     // Line coordinates
@@ -114,7 +115,7 @@ pub struct GraphicsState {
     pub smoothness: f64,
 }
 
-impl Default for GraphicsState {
+impl<'a> Default for GraphicsState<'a> {
     // PDF 8.4.1 Table 51
     fn default() -> Self {
         Self {
