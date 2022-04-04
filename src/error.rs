@@ -11,6 +11,7 @@ pub enum PdfError {
     NoStartXref,
     // Beginning of File
     BOF,
+    CMapParsingError,
     IO { source: io::Error },
     Other { msg: String },
 }

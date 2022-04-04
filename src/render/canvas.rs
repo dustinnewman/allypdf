@@ -48,6 +48,6 @@ impl Canvas {
     }
     pub fn stroke(&mut self, state: &GraphicsState) {}
     pub fn fill(&mut self, state: &GraphicsState) {}
-    pub fn draw_rectangle(&mut self, state: &GraphicsState) {
-    }
+    pub fn draw_rectangle(&mut self, state: &GraphicsState) {}
+    pub fn draw_text(&mut self, string: String, state: &GraphicsState) {}
 }

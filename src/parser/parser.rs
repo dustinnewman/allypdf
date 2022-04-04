@@ -4,6 +4,7 @@ use super::lexer::{Token, TokenKind};
 use crate::{
     error::PdfError,
     filter::{decode, Filter},
+    font::cmap::CIDOperator,
     operators::operators::Operator,
     util::{hex_string_to_string, literal_string_to_string, name_to_name},
 };
@@ -75,6 +76,7 @@ pub enum ObjectKind {
     Xref(XrefSection),
     StartXref(u64),
     Operator(Operator),
+    CIDOperator(CIDOperator),
     Null,
 }
 
@@ -156,6 +158,7 @@ impl<'a> Parser<'a> {
             TokenKind::HexString(hex) => ObjectKind::String(hex_string_to_string(hex)?),
             TokenKind::Name(name) => ObjectKind::Name(name_to_name(name)?),
             TokenKind::Operator(op) => ObjectKind::Operator(op),
+            TokenKind::CIDOperator(op) => ObjectKind::CIDOperator(op),
             TokenKind::F => ObjectKind::Operator(Operator::FillPath),
             TokenKind::N => ObjectKind::Operator(Operator::EndPathNoFill),
             TokenKind::Xref => self.xref(),

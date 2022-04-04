@@ -9,7 +9,15 @@ use crate::{
 
 use super::encoding::{Encoding, ENCODING_SIZE};
 
-type CharCode = u32;
+// In simple fonts, character codes are only 8-bit and can thus only address
+// 256 glyphs. In composite fonts, however, we can have multi-byte character
+// codes from 2 to 4 bytes.
+pub type CharCode = u32;
+// "In previous versions of PDF, it was recommended that the maximum value of
+// a CID (character identifier) was limited to 65,535." (PDF Annex C.2)
+// However, we will use u32 to be safe. If a PDF works for CID 65,535, why
+// shouldn't it work for 65,536?
+pub type Cid = u32;
 
 #[derive(Debug)]
 pub struct FontDescriptorFlags(u32);
@@ -136,6 +144,11 @@ impl TryFrom<&Name> for FontWeight {
             }),
         }
     }
+}
+
+pub struct Type1FontProgram<'a> {
+    clear_portion: &'a [u8],
+    program_portion: &'a [u8],
 }
 
 // PDF 9.9.1 Table 124 - Not technically accurate, Type1C, CID Font, and OpenType
@@ -397,10 +410,26 @@ pub struct CIDFont<'a> {
 // PDF 9.6.2.1 Table 109
 #[derive(Debug)]
 pub struct Type0Font<'a> {
-    base_font: Name,
+    base_font: &'a Name,
     encoding: Encoding<'a>,
     descendant_fonts: CIDFont<'a>,
     to_unicode: Option<&'a Stream>,
+}
+
+impl<'a> Type0Font<'a> {
+    pub fn new(
+        base_font: &'a Name,
+        encoding: Encoding<'a>,
+        descendant_fonts: CIDFont<'a>,
+        to_unicode: Option<&'a Stream>,
+    ) -> Self {
+        Self {
+            base_font,
+            encoding,
+            descendant_fonts,
+            to_unicode,
+        }
+    }
 }
 
 // PDF 9.5 Table 108

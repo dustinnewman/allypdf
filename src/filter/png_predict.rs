@@ -1,34 +1,34 @@
 use std::convert::From;
 
-pub enum PNGPredictorAlgorithm {
+pub enum PngPredictorAlgorithm {
     None,
-    TIFF,
-    PNGNone,
-    PNGSub,
-    PNGUp,
-    PNGAverage,
+    Tiff,
+    PngNone,
+    PngSub,
+    PngUp,
+    PngAverage,
     // This is not a typo
-    PNGPaeth,
-    PNGOptimum,
+    PngPaeth,
+    PngOptimum,
 }
 
-impl PNGPredictorAlgorithm {
+impl PngPredictorAlgorithm {
     fn is_none(&self) -> bool {
-        matches!(self, PNGPredictorAlgorithm::None)
+        matches!(self, PngPredictorAlgorithm::None)
     }
 }
 
-impl From<u32> for PNGPredictorAlgorithm {
+impl From<u32> for PngPredictorAlgorithm {
     fn from(value: u32) -> Self {
         match value {
-            2 => PNGPredictorAlgorithm::TIFF,
-            10 => PNGPredictorAlgorithm::PNGNone,
-            11 => PNGPredictorAlgorithm::PNGSub,
-            12 => PNGPredictorAlgorithm::PNGUp,
-            13 => PNGPredictorAlgorithm::PNGAverage,
-            14 => PNGPredictorAlgorithm::PNGPaeth,
-            15 => PNGPredictorAlgorithm::PNGOptimum,
-            _ => PNGPredictorAlgorithm::None,
+            2 => PngPredictorAlgorithm::Tiff,
+            10 => PngPredictorAlgorithm::PngNone,
+            11 => PngPredictorAlgorithm::PngSub,
+            12 => PngPredictorAlgorithm::PngUp,
+            13 => PngPredictorAlgorithm::PngAverage,
+            14 => PngPredictorAlgorithm::PngPaeth,
+            15 => PngPredictorAlgorithm::PngOptimum,
+            _ => PngPredictorAlgorithm::None,
         }
     }
 }
@@ -607,7 +607,7 @@ impl From<u32> for PNGPredictorAlgorithm {
 struct StreamPredictor<'a> {
     data: &'a [u8],
     pos: usize,
-    algorithm: PNGPredictorAlgorithm,
+    algorithm: PngPredictorAlgorithm,
     columns: u32,
     colors: u32,
     bits_per_component: u32,
@@ -621,7 +621,7 @@ impl<'a> StreamPredictor<'a> {
         colors: Option<u32>,
         bits_per_component: Option<u32>,
     ) -> Self {
-        let algorithm = PNGPredictorAlgorithm::from(predictor.unwrap_or(1));
+        let algorithm = PngPredictorAlgorithm::from(predictor.unwrap_or(1));
         let columns = columns.unwrap_or(0);
         let colors = colors.unwrap_or(0);
         let bits_per_component = bits_per_component.unwrap_or(0);

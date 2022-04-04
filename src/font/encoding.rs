@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     error::PdfError,
-    parser::parser::{Dictionary, Object, ObjectKind, Name},
+    parser::parser::{Dictionary, Name, Object, ObjectKind},
 };
 
 pub const ENCODING_SIZE: usize = 256;

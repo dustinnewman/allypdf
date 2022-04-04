@@ -1,4 +1,4 @@
-use crate::error::{PdfError, Result};
+use crate::font::cmap::CIDOperator;
 use crate::operators::operators::Operator;
 use crate::util::{
     byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace, Byte,
@@ -39,6 +39,7 @@ pub enum TokenKind<'a> {
     F,
     N,
     Operator(Operator),
+    CIDOperator(CIDOperator),
     Eof,
 }
 
@@ -98,6 +99,20 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 TokenKind::Operator($op)
             }};
+            ($op:expr, $len:expr) => {{
+                self.seek($len);
+                TokenKind::Operator($op)
+            }};
+        }
+        macro_rules! cid {
+            ($op:expr) => {{
+                self.advance();
+                TokenKind::CIDOperator($op)
+            }};
+            ($op:expr, $len:expr) => {{
+                self.seek($len);
+                TokenKind::CIDOperator($op)
+            }};
         }
 
         let curr = self.peek()?;
@@ -114,8 +129,8 @@ impl<'a> Lexer<'a> {
                 }
                 _ => self.hex_string()?,
             },
-            RTHAN => match self.peek() {
-                Some(RTHAN) => {
+            RTHAN => match self.peek()? {
+                RTHAN => {
                     self.advance();
                     TokenKind::DoubleRThan
                 }
@@ -123,6 +138,10 @@ impl<'a> Lexer<'a> {
             },
             b'b' => match self.peek() {
                 Some(b'*') => op!(Operator::CloseFillStrokePathEvenOdd),
+                Some(b'e') => match self.pop_slice(self.pos, 4)? {
+                    b"egin" => self.begin()?,
+                    _ => return None,
+                },
                 _ => TokenKind::Operator(Operator::CloseFillStrokePath),
             },
             b'B' => match self.peek() {
@@ -130,22 +149,14 @@ impl<'a> Lexer<'a> {
                 Some(b'I') => op!(Operator::BeginInlineImageObject),
                 Some(b'T') => op!(Operator::BeginText),
                 Some(b'X') => op!(Operator::BeginCompat),
-                Some(b'M') => {
-                    self.advance();
-                    match self.pop()? {
-                        b'C' => TokenKind::Operator(Operator::BeginMarkedContentSequence),
-                        _ => return None,
-                    }
-                }
-                Some(b'D') => {
-                    self.advance();
-                    match self.pop()? {
-                        b'C' => {
-                            TokenKind::Operator(Operator::BeginMarkedContentSequencePropertyList)
-                        }
-                        _ => return None,
-                    }
-                }
+                Some(b'M') => match self.peek_next()? {
+                    b'C' => op!(Operator::BeginMarkedContentSequence, 2),
+                    _ => return None,
+                },
+                Some(b'D') => match self.peek_next()? {
+                    b'C' => op!(Operator::BeginMarkedContentSequencePropertyList, 2),
+                    _ => return None,
+                },
                 _ => TokenKind::Operator(Operator::FillStrokePath),
             },
             b'c' => match self.peek() {
@@ -160,6 +171,18 @@ impl<'a> Lexer<'a> {
             b'd' => match self.peek() {
                 Some(b'0') => op!(Operator::SetCharWidth),
                 Some(b'1') => op!(Operator::SetCacheDevice),
+                Some(b'i') => match self.pop_slice(self.pos, 3)? {
+                    b"ict" => TokenKind::CIDOperator(CIDOperator::Dict),
+                    _ => return None,
+                },
+                Some(b'e') => match self.pop_slice(self.pos, 2)? {
+                    b"ef" => TokenKind::CIDOperator(CIDOperator::Def),
+                    _ => return None,
+                },
+                Some(b'u') => match self.pop_slice(self.pos, 2)? {
+                    b"up" => TokenKind::CIDOperator(CIDOperator::Dup),
+                    _ => return None,
+                },
                 _ => TokenKind::Operator(Operator::SetDash),
             },
             b'D' => match self.peek()? {
@@ -167,24 +190,28 @@ impl<'a> Lexer<'a> {
                 b'P' => op!(Operator::DefineMarkedContentPointPropertyList),
                 _ => return None,
             },
-            b'e' => self.endobj()?,
+            b'e' => match self.pop_slice(self.pos, 2)? {
+                b"nd" => self.end()?,
+                _ => return None,
+            },
             b'E' => match self.peek()? {
                 b'I' => op!(Operator::EndInlineImage),
                 b'T' => op!(Operator::EndText),
                 b'X' => op!(Operator::EndCompat),
-                b'M' => {
-                    self.advance();
-                    match self.pop()? {
-                        b'C' => TokenKind::Operator(Operator::EndMarkedContentSequence),
-                        _ => return None,
-                    }
-                }
+                b'M' => match self.peek_next()? {
+                    b'C' => op!(Operator::EndMarkedContentSequence, 2),
+                    _ => return None,
+                },
                 _ => return None,
             },
             b'f' => match self.peek() {
                 Some(b'*') => op!(Operator::FillPathEvenOdd),
-                Some(b'a') => match (self.pop()?, self.pop()?, self.pop()?, self.pop()?) {
-                    (b'a', b'l', b's', b'e') => TokenKind::Boolean(false),
+                Some(b'a') => match self.pop_slice(self.pos, 4)? {
+                    b"alse" => TokenKind::Boolean(false),
+                    _ => return None,
+                },
+                Some(b'i') => match self.peek_slice(self.pos, 11)? {
+                    b"indresource" => cid!(CIDOperator::FindResource, 12),
                     _ => return None,
                 },
                 _ => TokenKind::F,
@@ -211,15 +238,18 @@ impl<'a> Lexer<'a> {
                 Some(b'P') => op!(Operator::DefineMarkedContentPoint),
                 _ => TokenKind::Operator(Operator::SetMiterLimit),
             },
-            b'n' => match self.peek() {
-                Some(b'u') => match (self.pop()?, self.pop()?, self.pop()?) {
-                    (b'u', b'l', b'l') => TokenKind::Null,
-                    _ => return None,
-                },
+            b'n' => match self.peek_slice(self.pos, 3) {
+                Some(b"ull") => {
+                    self.seek(3);
+                    TokenKind::Null
+                }
                 _ => TokenKind::N,
             },
-            b'o' => match (self.pop(), self.pop()) {
-                (Some(b'b'), Some(b'j')) => TokenKind::Obj,
+            b'o' => match self.peek_slice(self.pos, 2)? {
+                b"bj" => {
+                    self.seek(2);
+                    TokenKind::Obj
+                }
                 _ => return None,
             },
             b'q' => TokenKind::Operator(Operator::GSave),
@@ -235,13 +265,10 @@ impl<'a> Lexer<'a> {
                 _ => TokenKind::Reference,
             },
             b's' => match self.peek() {
-                Some(b'c') => {
-                    self.advance();
-                    match self.peek() {
-                        Some(b'n') => op!(Operator::SetColorSpecialNonstroke),
-                        _ => TokenKind::Operator(Operator::SetColorNonstroke),
-                    }
-                }
+                Some(b'c') => match self.peek_next() {
+                    Some(b'n') => op!(Operator::SetColorSpecialNonstroke, 2),
+                    _ => op!(Operator::SetColorNonstroke),
+                },
                 Some(b't') => {
                     self.advance();
                     match self.pop()? {
@@ -254,18 +281,18 @@ impl<'a> Lexer<'a> {
                 _ => TokenKind::Operator(Operator::CloseStrokePath),
             },
             b'S' => match self.peek() {
-                Some(b'C') => {
-                    self.advance();
-                    match self.peek() {
-                        Some(b'N') => op!(Operator::SetColorSpecialStroke),
-                        _ => TokenKind::Operator(Operator::SetColorStroke),
-                    }
-                }
+                Some(b'C') => match self.peek_next() {
+                    Some(b'N') => op!(Operator::SetColorSpecialStroke, 2),
+                    _ => op!(Operator::SetColorStroke),
+                },
                 _ => TokenKind::Operator(Operator::StrokePath),
             },
-            b't' => match (self.pop(), self.pop(), self.pop()) {
-                (Some(b'r'), Some(b'u'), Some(b'e')) => TokenKind::Boolean(true),
-                (Some(b'r'), Some(b'a'), Some(b'i')) => self.trailer()?,
+            b't' => match self.pop_slice(self.pos, 3)? {
+                b"rue" => TokenKind::Boolean(true),
+                b"rai" => match self.pop_slice(self.pos, 3)? {
+                    b"ler" => TokenKind::Trailer,
+                    _ => return None,
+                },
                 _ => return None,
             },
             b'T' => match self.peek()? {
@@ -284,14 +311,19 @@ impl<'a> Lexer<'a> {
                 b'z' => op!(Operator::SetHorizontalTextScaling),
                 _ => return None,
             },
+            b'u' => match self.peek_slice(self.pos, 6)? {
+                b"secmap" => cid!(CIDOperator::UseCMap, 6),
+                b"sefont" => cid!(CIDOperator::UseFont, 6),
+                _ => return None,
+            },
             b'v' => TokenKind::Operator(Operator::AppendCurveInitialReplicated),
             b'w' => TokenKind::Operator(Operator::SetLineWidth),
             b'W' => match self.peek() {
                 Some(b'*') => op!(Operator::SetClippingPathEvenOdd),
                 _ => TokenKind::Operator(Operator::SetClippingPath),
             },
-            b'x' => match (self.pop(), self.pop(), self.pop()) {
-                (Some(b'r'), Some(b'e'), Some(b'f')) => TokenKind::Xref,
+            b'x' => match self.pop_slice(self.pos, 3)? {
+                b"ref" => TokenKind::Xref,
                 _ => return None,
             },
             b'y' => TokenKind::Operator(Operator::AppendCurveFinalReplicated),
@@ -333,21 +365,62 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn trailer(&mut self) -> Option<TokenKind<'a>> {
-        let string = "ler".as_bytes();
-        let token = match self.slice(self.pos, string.len()) {
-            Some(x) if x == string => {
-                self.seek(string.len());
-                TokenKind::Trailer
-            }
-            _ => return None,
+    fn begin(&mut self) -> Option<TokenKind<'a>> {
+        macro_rules! cid {
+            ($op:path, $len:expr) => {{
+                self.seek($len);
+                TokenKind::CIDOperator($op)
+            }};
+        }
+        let kind = match self.peek() {
+            Some(b'b') => match self.peek_slice(self.pos, 6)? {
+                b"bfchar" => cid!(CIDOperator::BeginBfChar, 6),
+                b"bfrang" => match self.nth(6)? {
+                    b'e' => cid!(CIDOperator::BeginBfRange, 7),
+                    _ => return None,
+                },
+                _ => TokenKind::CIDOperator(CIDOperator::Begin),
+            },
+            Some(b'n') => match self.peek_slice(self.pos, 10)? {
+                b"notdefchar" => cid!(CIDOperator::BeginNotdefChar, 10),
+                b"notdefrang" => match self.nth(10)? {
+                    b'e' => cid!(CIDOperator::BeginNotdefRange, 11),
+                    _ => return None,
+                },
+                _ => TokenKind::CIDOperator(CIDOperator::Begin),
+            },
+            Some(b'r') => match self.peek_slice(self.pos, 14)? {
+                b"rearrangedfont" => cid!(CIDOperator::BeginRearrangedFont, 14),
+                _ => TokenKind::CIDOperator(CIDOperator::Begin),
+            },
+            Some(b'u') => match self.peek_slice(self.pos, 9)? {
+                b"usematrix" => cid!(CIDOperator::BeginUseMatrix, 9),
+                _ => TokenKind::CIDOperator(CIDOperator::Begin),
+            },
+            Some(b'c') => match self.peek_slice(self.pos, 4)? {
+                b"cmap" => cid!(CIDOperator::BeginCMap, 4),
+                b"cidc" => match self.peek_slice(self.pos + 4, 3)? {
+                    b"har" => cid!(CIDOperator::BeginCIDChar, 7),
+                    _ => return None,
+                },
+                b"cidr" => match self.peek_slice(self.pos + 4, 4)? {
+                    b"ange" => cid!(CIDOperator::BeginCIDRange, 8),
+                    _ => return None,
+                },
+                b"code" => match self.peek_slice(self.pos + 4, 10)? {
+                    b"spacerange" => cid!(CIDOperator::BeginCodeSpaceRange, 14),
+                    _ => return None,
+                },
+                _ => TokenKind::CIDOperator(CIDOperator::Begin),
+            },
+            _ => TokenKind::CIDOperator(CIDOperator::Begin),
         };
-        Some(token)
+        Some(kind)
     }
 
     fn startxref(&mut self) -> Option<TokenKind<'a>> {
         let string = "rtxref".as_bytes();
-        let token = match self.slice(self.pos, string.len()) {
+        let token = match self.peek_slice(self.pos, string.len()) {
             Some(x) if x == string => {
                 self.seek(string.len());
                 TokenKind::StartXref
@@ -357,22 +430,67 @@ impl<'a> Lexer<'a> {
         Some(token)
     }
 
-    fn endobj(&mut self) -> Option<TokenKind<'a>> {
-        let string = "ndobj".as_bytes();
-        let token = match self.slice(self.pos, string.len()) {
-            Some(x) if x == string => {
-                self.seek(string.len());
-                TokenKind::Endobj
-            }
-            _ => return None,
+    fn end(&mut self) -> Option<TokenKind<'a>> {
+        macro_rules! cid {
+            ($op:path, $len:expr) => {{
+                self.seek($len);
+                TokenKind::CIDOperator($op)
+            }};
+        }
+        let kind = match self.peek() {
+            Some(b'b') => match self.peek_slice(self.pos, 6)? {
+                b"bfchar" => cid!(CIDOperator::EndBfChar, 6),
+                b"brrang" => match self.nth(6)? {
+                    b'e' => cid!(CIDOperator::EndBfRange, 7),
+                    _ => return None,
+                },
+                _ => TokenKind::CIDOperator(CIDOperator::End),
+            },
+            Some(b'c') => match self.peek_slice(self.pos, 4)? {
+                b"cidc" => match self.peek_slice(self.pos + 4, 3)? {
+                    b"har" => cid!(CIDOperator::EndCIDChar, 7),
+                    _ => return None,
+                },
+                b"cidr" => match self.peek_slice(self.pos + 4, 4)? {
+                    b"ange" => cid!(CIDOperator::EndCIDRange, 8),
+                    _ => return None,
+                },
+                b"cmap" => cid!(CIDOperator::EndCMap, 4),
+                b"code" => match self.peek_slice(self.pos + 4, 5)? {
+                    b"space" => cid!(CIDOperator::EndCodeSpaceRange, 9),
+                    _ => return None,
+                },
+                _ => TokenKind::CIDOperator(CIDOperator::End),
+            },
+            Some(b'n') => match self.peek_slice(self.pos, 10)? {
+                b"notdefchar" => cid!(CIDOperator::EndNotdefChar, 10),
+                b"notdefrang" => match self.nth(11)? {
+                    b'e' => cid!(CIDOperator::EndNotdefRange, 11),
+                    _ => return None,
+                },
+                _ => TokenKind::CIDOperator(CIDOperator::End),
+            },
+            Some(b'o') => match self.pop_slice(self.pos, 3)? {
+                b"obj" => TokenKind::Endobj,
+                _ => TokenKind::CIDOperator(CIDOperator::End),
+            },
+            Some(b'r') => match self.peek_slice(self.pos, 14)? {
+                b"rearrangedfont" => cid!(CIDOperator::EndRearrangedFont, 14),
+                _ => TokenKind::CIDOperator(CIDOperator::End),
+            },
+            Some(b'u') => match self.peek_slice(self.pos, 9)? {
+                b"usematrix" => cid!(CIDOperator::EndUseMatrix, 9),
+                _ => TokenKind::CIDOperator(CIDOperator::End),
+            },
+            _ => TokenKind::CIDOperator(CIDOperator::End),
         };
-        Some(token)
+        Some(kind)
     }
 
     fn stream(&mut self) -> Option<TokenKind<'a>> {
         let stream_string = "eam".as_bytes();
         let endstream_string = "endstream".as_bytes();
-        match self.slice(self.pos, stream_string.len()) {
+        match self.peek_slice(self.pos, stream_string.len()) {
             Some(x) if x == stream_string => {
                 // PDF32000_2008 7.3.8.1 paragraph 5
                 self.get_next_char_while(|c| c != LINE_FEED);
@@ -381,7 +499,7 @@ impl<'a> Lexer<'a> {
                 let start = self.pos;
                 loop {
                     self.skip_whitespace();
-                    match self.slice(self.pos, endstream_string.len()) {
+                    match self.peek_slice(self.pos, endstream_string.len()) {
                         Some(y) if y == endstream_string => {
                             let end = self.pos;
                             self.seek(endstream_string.len());
@@ -446,7 +564,7 @@ impl<'a> Lexer<'a> {
 
     fn eof(&mut self) -> Option<TokenKind<'a>> {
         let string = "EOF".as_bytes();
-        let token = match self.slice(self.pos, string.len()) {
+        let token = match self.peek_slice(self.pos, string.len()) {
             Some(x) if x == string => {
                 self.seek(string.len());
                 TokenKind::Eof
@@ -554,11 +672,20 @@ impl<'a> Lexer<'a> {
         self.pos = self.len - 1
     }
 
-    fn slice(&self, start: usize, length: usize) -> Option<&'a [Byte]> {
+    fn peek_slice(&self, start: usize, length: usize) -> Option<&'a [Byte]> {
         if start + length > self.len {
             None
         } else {
             Some(&self.buf[start..start + length])
+        }
+    }
+
+    fn pop_slice(&mut self, start: usize, length: usize) -> Option<&'a [Byte]> {
+        if let Some(slice) = self.peek_slice(start, length) {
+            self.seek(length);
+            Some(slice)
+        } else {
+            None
         }
     }
 
@@ -588,13 +715,6 @@ impl<'a> Lexer<'a> {
                 return;
             }
         }
-    }
-
-    fn back_until(&mut self, predicate: impl Fn(Byte) -> bool) -> Result<usize> {
-        self.buf[..self.pos]
-            .iter()
-            .rposition(|&b| predicate(b))
-            .ok_or(PdfError::BOF)
     }
 
     fn skip_whitespace(&mut self) {
@@ -707,6 +827,132 @@ mod tests {
     }
 
     #[test]
+    fn test_lexer_cmap_begin() {
+        let text = "begin12beginbegincmapendcmapendend";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let kinds = vec![
+            TokenKind::CIDOperator(CIDOperator::Begin),
+            TokenKind::Integer(12),
+            TokenKind::CIDOperator(CIDOperator::Begin),
+            TokenKind::CIDOperator(CIDOperator::BeginCMap),
+            TokenKind::CIDOperator(CIDOperator::EndCMap),
+            TokenKind::CIDOperator(CIDOperator::End),
+            TokenKind::CIDOperator(CIDOperator::End),
+        ];
+        assert_eq!(lexer.lex(), kinds);
+    }
+
+    #[test]
+    fn test_lexer_cmap() {
+        let text = "%!PS-Adobe-3.0 Resource-CMap
+        /CIDInit /ProcSet findresource begin
+        12 dict begin
+        begincmap
+        /CIDSystemInfo 3 dict dup begin
+        /Registry (Adobe) def
+        /Ordering (Japan1) def
+        /Supplement 0 def
+        end def
+        /Ext-RKSJ-H usecmap
+        /CMapName /Ext-RKSJ-V def
+        /CMapVersion 1 def
+        /CMapType 0 def
+        /UIDOffset 800 def
+        /XUID [1 10 25316] def
+        /WMode 1 def
+        1 begincidrange
+        <8141> <8142> 7887
+        endcidrange
+        5 begincidchar
+        <8143> 8286
+        <8144> 8274
+        <814a> 8272
+        <8387> 7936
+        <838e> 7937
+        endcidchar
+        endcmap
+        end
+        end
+        %%EOF
+        ";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let kinds = vec![
+            TokenKind::Name(b"CIDInit"),
+            TokenKind::Name(b"ProcSet"),
+            TokenKind::CIDOperator(CIDOperator::FindResource),
+            TokenKind::CIDOperator(CIDOperator::Begin),
+            TokenKind::Integer(12),
+            TokenKind::CIDOperator(CIDOperator::Dict),
+            TokenKind::CIDOperator(CIDOperator::Begin),
+            TokenKind::CIDOperator(CIDOperator::BeginCMap),
+            TokenKind::Name(b"CIDSystemInfo"),
+            TokenKind::Integer(3),
+            TokenKind::CIDOperator(CIDOperator::Dict),
+            TokenKind::CIDOperator(CIDOperator::Dup),
+            TokenKind::CIDOperator(CIDOperator::Begin),
+            TokenKind::Name(b"Registry"),
+            TokenKind::LiteralString(b"Adobe"),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"Ordering"),
+            TokenKind::LiteralString(b"Japan1"),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"Supplement"),
+            TokenKind::Integer(0),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::CIDOperator(CIDOperator::End),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"Ext-RKSJ-H"),
+            TokenKind::CIDOperator(CIDOperator::UseCMap),
+            TokenKind::Name(b"CMapName"),
+            TokenKind::Name(b"Ext-RKSJ-V"),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"CMapVersion"),
+            TokenKind::Integer(1),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"CMapType"),
+            TokenKind::Integer(0),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"UIDOffset"),
+            TokenKind::Integer(800),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"XUID"),
+            TokenKind::LBracket,
+            TokenKind::Integer(1),
+            TokenKind::Integer(10),
+            TokenKind::Integer(25316),
+            TokenKind::RBracket,
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Name(b"WMode"),
+            TokenKind::Integer(1),
+            TokenKind::CIDOperator(CIDOperator::Def),
+            TokenKind::Integer(1),
+            TokenKind::CIDOperator(CIDOperator::BeginCIDRange),
+            TokenKind::HexString(b"8141"),
+            TokenKind::HexString(b"8142"),
+            TokenKind::Integer(7887),
+            TokenKind::CIDOperator(CIDOperator::EndCIDRange),
+            TokenKind::Integer(5),
+            TokenKind::CIDOperator(CIDOperator::BeginCIDChar),
+            TokenKind::HexString(b"8143"),
+            TokenKind::Integer(8286),
+            TokenKind::HexString(b"8144"),
+            TokenKind::Integer(8274),
+            TokenKind::HexString(b"814a"),
+            TokenKind::Integer(8272),
+            TokenKind::HexString(b"8387"),
+            TokenKind::Integer(7936),
+            TokenKind::HexString(b"838e"),
+            TokenKind::Integer(7937),
+            TokenKind::CIDOperator(CIDOperator::EndCIDChar),
+            TokenKind::CIDOperator(CIDOperator::EndCMap),
+            TokenKind::CIDOperator(CIDOperator::End),
+            TokenKind::CIDOperator(CIDOperator::End),
+            TokenKind::Eof,
+        ];
+        assert_eq!(lexer.lex(), kinds);
+    }
+
+    #[test]
     fn test_begin_show_text_ops() {
         let text = "BT
         /F0 12 Tf
@@ -717,13 +963,13 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![
             TokenKind::Operator(Operator::BeginText),
-            TokenKind::Name(&"F0".as_bytes()),
+            TokenKind::Name(b"F0"),
             TokenKind::Integer(12),
             TokenKind::Operator(Operator::SelectFont),
             TokenKind::Integer(100),
             TokenKind::Integer(700),
             TokenKind::Operator(Operator::MoveTextPosition),
-            TokenKind::LiteralString(&"Hello, World".as_bytes()),
+            TokenKind::LiteralString(b"Hello, World"),
             TokenKind::Operator(Operator::ShowText),
             TokenKind::Operator(Operator::EndText),
             TokenKind::Eof,
@@ -738,14 +984,14 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![
             TokenKind::LBracket,
-            TokenKind::LiteralString(&"Le".as_bytes()),
+            TokenKind::LiteralString(b"Le"),
             TokenKind::Integer(15),
-            TokenKind::LiteralString(&"x".as_bytes()),
+            TokenKind::LiteralString(b"x"),
             TokenKind::Integer(-250),
-            TokenKind::LiteralString(&"Fridman".as_bytes()),
+            TokenKind::LiteralString(b"Fridman"),
             TokenKind::RBracket,
             TokenKind::Operator(Operator::ShowTextAdjusted),
-            TokenKind::Name(&"F13".as_bytes()),
+            TokenKind::Name(b"F13"),
             TokenKind::Real(6.9738),
             TokenKind::Operator(Operator::SelectFont),
             TokenKind::Eof,
@@ -782,8 +1028,8 @@ mod tests {
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![
             TokenKind::DoubleLThan,
-            TokenKind::Name("Producer".as_bytes()),
-            TokenKind::LiteralString(&"GPL Ghostscript 8.71".as_bytes()),
+            TokenKind::Name(b"Producer"),
+            TokenKind::LiteralString(b"GPL Ghostscript 8.71"),
             TokenKind::DoubleRThan,
             TokenKind::Eof,
         ];

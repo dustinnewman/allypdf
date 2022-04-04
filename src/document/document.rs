@@ -10,7 +10,7 @@ use crate::{
     font::{
         encoding::Encoding,
         font::{
-            Font, FontDescriptor, FontDescriptorFlags, FontDictionary, FontProgramKind,
+            CIDFont, Font, FontDescriptor, FontDescriptorFlags, FontDictionary, FontProgramKind,
             FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind,
             Type3Font,
         },
@@ -81,6 +81,7 @@ const FONT_MATRIX: &[u8] = b"FontMatrix";
 const TRUE_TYPE: &[u8] = b"TrueType";
 const CID_FONT_TYPE_0: &[u8] = b"CIDFontType0";
 const CID_FONT_TYPE_2: &[u8] = b"CIDFontType2";
+const DESCENDANT_FONTS: &[u8] = b"DescendantFonts";
 const BASE_FONT: &[u8] = b"BaseFont";
 const FIRST_CHAR: &[u8] = b"FirstChar";
 const LAST_CHAR: &[u8] = b"LastChar";
@@ -116,6 +117,34 @@ impl PDFDocument {
 
     fn catalog(&self) -> Option<&Dictionary> {
         inner!(self.get(&self.trailer.root)?, ObjectKind::Dictionary)
+    }
+
+    fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
+        match object {
+            Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) => Some(dict),
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => self.follow_till_dict(self.get(r#ref)),
+            _ => None,
+        }
+    }
+
+    fn follow_till_stream<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Stream> {
+        match object {
+            Some(Object {
+                kind: ObjectKind::Stream(stream),
+                ..
+            }) => Some(stream),
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => self.follow_till_stream(self.get(r#ref)),
+            _ => None,
+        }
     }
 
     fn page_refs(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
@@ -233,8 +262,64 @@ impl PDFDocument {
         )
     }
 
+    fn cid_font<'a>(&'a self, dict: &'a Dictionary) -> Option<CIDFont<'a>> {
+        let font_descriptor = self
+            .follow_till_dict(dict.get(FONT_DESCRIPTOR))
+            .and_then(|dict| self.font_descriptor(dict))?;
+        return None;
+        // let cid_font = CIDFont {
+        //     subtype: todo!(),
+        //     base_font: todo!(),
+        //     cid_system_info: todo!(),
+        //     font_descriptor,
+        //     default_width: todo!(),
+        //     widths: todo!(),
+        //     vertical_default_width: todo!(),
+        //     vertical_widths: todo!(),
+        //     cid_to_gid_map: todo!(),
+        // };
+        // Some(cid_font)
+    }
+
     fn composite_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
-        None
+        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
+        let descendant_fonts = self.cid_font(
+            self.follow_till_dict(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
+        )?;
+        let encoding = match dict.get(ENCODING)? {
+            Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            } => Encoding::try_from(dict).ok()?,
+            Object {
+                kind: ObjectKind::Name(name),
+                ..
+            } => Encoding::try_from(name).ok()?,
+            Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            } => match self.get(r#ref)? {
+                Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                } => Encoding::try_from(dict).ok()?,
+                Object {
+                    kind: ObjectKind::Name(name),
+                    ..
+                } => Encoding::try_from(name).ok()?,
+                _ => return None,
+            },
+            _ => return None,
+        };
+        let to_unicode = dict
+            .get(TO_UNICODE)
+            .and_then(|obj| inner!(obj, ObjectKind::Stream));
+        Some(Type0Font::new(
+            base_font,
+            encoding,
+            descendant_fonts,
+            to_unicode,
+        ))
     }
 
     fn font_descriptor<'a>(&'a self, dict: &'a Dictionary) -> Option<FontDescriptor<'a>> {
@@ -270,13 +355,13 @@ impl PDFDocument {
             .and_then(|obj| f64::try_from(obj).ok());
         let font_file = if let Some(obj) = dict.get(FONT_FILE) {
             self.follow_till_stream(Some(obj))
-                .and_then(|stream| Some((FontProgramKind::Type1, stream)))
+                .map(|stream| (FontProgramKind::Type1, stream))
         } else if let Some(obj) = dict.get(FONT_FILE_2) {
             self.follow_till_stream(Some(obj))
-                .and_then(|stream| Some((FontProgramKind::TrueType, stream)))
+                .map(|stream| (FontProgramKind::TrueType, stream))
         } else if let Some(obj) = dict.get(FONT_FILE_3) {
             self.follow_till_stream(Some(obj))
-                .and_then(|stream| Some((FontProgramKind::OpenType, stream)))
+                .map(|stream| (FontProgramKind::OpenType, stream))
         } else {
             None
         };
@@ -343,14 +428,29 @@ impl PDFDocument {
             None
         };
         let encoding = match dict.get(ENCODING) {
-            Some(Object { kind: ObjectKind::Dictionary(dict), .. }) => Encoding::try_from(dict).ok(),
-            Some(Object { kind: ObjectKind::Name(name), .. }) => Encoding::try_from(name).ok(),
-            Some(Object { kind: ObjectKind::IndirectReference(r#ref), .. }) => match self.get(r#ref) {
-                Some(Object { kind: ObjectKind::Dictionary(dict), .. }) => Encoding::try_from(dict).ok(),
-                Some(Object { kind: ObjectKind::Name(name), .. }) => Encoding::try_from(name).ok(),
-                _ => None
+            Some(Object {
+                kind: ObjectKind::Dictionary(dict),
+                ..
+            }) => Encoding::try_from(dict).ok(),
+            Some(Object {
+                kind: ObjectKind::Name(name),
+                ..
+            }) => Encoding::try_from(name).ok(),
+            Some(Object {
+                kind: ObjectKind::IndirectReference(r#ref),
+                ..
+            }) => match self.get(r#ref) {
+                Some(Object {
+                    kind: ObjectKind::Dictionary(dict),
+                    ..
+                }) => Encoding::try_from(dict).ok(),
+                Some(Object {
+                    kind: ObjectKind::Name(name),
+                    ..
+                }) => Encoding::try_from(name).ok(),
+                _ => None,
             },
-            _ => None
+            _ => None,
         };
         let to_unicode = dict
             .get(TO_UNICODE)
@@ -388,7 +488,7 @@ impl PDFDocument {
         let font_descriptor =
             self.font_descriptor(self.follow_till_dict(dict.get(FONT_DESCRIPTOR))?)?;
         let mut widths = [font_descriptor.missing_width; 256];
-        widths[(first_char as usize)..(last_char as usize + 1)].clone_from_slice(&src_widths);
+        widths[(first_char as usize)..(last_char as usize + 1)].clone_from_slice(src_widths);
         let encoding = match dict.get(ENCODING)? {
             Object {
                 kind: ObjectKind::IndirectReference(r#ref),
@@ -495,34 +595,6 @@ impl PDFDocument {
             }
         }
         font_dictionary
-    }
-
-    fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
-        match object {
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => Some(dict),
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => self.follow_till_dict(self.get(r#ref)),
-            _ => None,
-        }
-    }
-
-    fn follow_till_stream<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Stream> {
-        match object {
-            Some(Object {
-                kind: ObjectKind::Stream(stream),
-                ..
-            }) => Some(stream),
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => self.follow_till_stream(self.get(r#ref)),
-            _ => None,
-        }
     }
 
     fn resources<'a>(&'a self, dict: &'a Dictionary) -> Resources<'a> {
@@ -734,21 +806,6 @@ mod test {
     }
 
     #[test]
-    fn test_document_hello_contents() {
-        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/hello.pdf");
-        let doc = PDFDocument::try_from(file).unwrap();
-        let contents = doc
-            .get(&IndirectReference {
-                object_number: 5,
-                generation_number: 0,
-            })
-            .unwrap();
-        println!("{:?}", contents);
-        assert!(false);
-    }
-
-    #[test]
     fn test_document_curtiss_page_refs() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/curtiss.pdf");
@@ -767,32 +824,19 @@ mod test {
     }
 
     #[test]
-    fn test_document_process_calculus_pages() {
+    fn test_document_test() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/process_calculus.pdf");
-        let doc = PDFDocument::try_from(file).unwrap();
-        let pages = doc.pages().unwrap();
-        for page in pages {
-            println!("{:#?}", page.resources.font);
-        }
-        assert!(false);
-    }
-
-    #[test]
-    fn test_document_crystal_orientation_contents() {
-        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/process_calculus.pdf");
+        file.push("test_data/fraud_proofs.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
         let contents = doc
             .get(&IndirectReference {
-                object_number: 768,
+                object_number: 276,
                 generation_number: 0,
             })
             .unwrap();
         let contents = inner!(contents, ObjectKind::Stream).unwrap();
         let contents = &contents.content;
-        let contents = std::str::from_utf8(contents).unwrap();
-        println!("{:#?}", contents);
+        println!("{:?}", std::str::from_utf8(&contents).unwrap());
         assert!(false);
     }
 
@@ -906,23 +950,5 @@ mod test {
         let length_object = get!(doc, length);
         let expected_length_object = integer!(51);
         assert_eq!(length_object, &expected_length_object);
-    }
-
-    #[test]
-    fn test_mostly_postscript_contents() {
-        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/heinz.pdf");
-        let doc = PDFDocument::try_from(file).unwrap();
-        println!("{:?}", doc);
-        assert!(false);
-    }
-
-    #[test]
-    fn test_pdf_spec() {
-        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/pdf.pdf");
-        let doc = PDFDocument::try_from(file).unwrap();
-        println!("{:?}", doc);
-        assert!(false);
     }
 }

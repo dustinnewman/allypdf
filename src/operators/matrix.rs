@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 #[derive(Debug, Clone)]
 pub struct Matrix([f64; 6]);
 const IDENTITY_MATRIX: [f64; 6] = [1., 0., 0., 1., 0., 0.];
@@ -33,5 +35,13 @@ impl Matrix {
 impl Default for Matrix {
     fn default() -> Self {
         Matrix(IDENTITY_MATRIX)
+    }
+}
+
+impl Deref for Matrix {
+    type Target = [f64; 6];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
