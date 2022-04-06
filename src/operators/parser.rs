@@ -540,7 +540,7 @@ impl<'a> OperatorParser<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests{
     use crate::{array, dict, integer, name, offset, operator, real, string};
 
     use super::*;

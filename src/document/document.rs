@@ -761,7 +761,7 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 }
 
 #[cfg(test)]
-mod test {
+mod tests{
     use super::*;
     use crate::parser::parser::Stream;
     use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};
@@ -836,7 +836,7 @@ mod test {
             .unwrap();
         let contents = inner!(contents, ObjectKind::Stream).unwrap();
         let contents = &contents.content;
-        println!("{:?}", std::str::from_utf8(&contents).unwrap());
+        println!("{:#?}", std::str::from_utf8(&contents).unwrap());
         assert!(false);
     }
 

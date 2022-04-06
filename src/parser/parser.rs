@@ -459,7 +459,7 @@ mod tests {
     use crate::parser::lexer::Lexer;
     use crate::{
         array, boolean, dict, indirect_object, indirect_reference, inner, integer, name, offset,
-        real, stream, xref, xref_section,
+        real, stream, xref, xref_section, string
     };
     use std::fs;
     use std::path::PathBuf;
@@ -673,7 +673,6 @@ mod tests {
         %%EOF";
         let mut lexer = Lexer::new(text);
         let tokens = lexer.lex();
-        println!("{:?}", tokens);
         let mut parser = Parser::new(&tokens);
         let dict = dict!(
             b"Type" => name!("ExtGState"),
@@ -693,6 +692,26 @@ mod tests {
             object: Box::new(dict),
         });
         let expected = vec![kind];
+        assert_eq!(parser.parse(), expected);
+    }
+
+    #[test]
+    fn test_parser_cmap_dictionary() {
+        let text = b"/CIDSystemInfo\n<< /Registry (Adobe)\n   /Ordering (UCS)\n   /Supplement 0\n>>
+        def\n/CMapName";
+        let mut lexer = Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let dict = dict!(
+            b"Registry" => string!("Adobe"),
+            b"Ordering" => string!("UCS"),
+            b"Supplement" => integer!(0)
+        );
+        let def_op = Object {
+            kind: ObjectKind::CIDOperator(CIDOperator::Def),
+            offset: 0
+        };
+        let expected = vec![name!("CIDSystemInfo"), dict, def_op, name!("CMapName")];
         assert_eq!(parser.parse(), expected);
     }
 
@@ -800,18 +819,6 @@ mod tests {
             })),
             offset!(ObjectKind::StartXref(491)),
         ];
-        assert_eq!(parser.parse(), expected);
-    }
-
-    #[test]
-    fn test_parser_postscript_file() {
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("test_data/heinz.pdf");
-        let file = fs::read(d).unwrap();
-        let mut lexer = Lexer::new(&file);
-        let tokens = lexer.lex();
-        let mut parser = Parser::new(&tokens);
-        let expected: Vec<ObjectKind> = vec![];
         assert_eq!(parser.parse(), expected);
     }
 }

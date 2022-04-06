@@ -141,20 +141,5 @@ impl<'a> Page<'a> {
 }
 
 #[cfg(test)]
-mod test {
-    use std::path::PathBuf;
-
-    use crate::document::document::PDFDocument;
-
-    use super::*;
-
-    #[test]
-    fn test_page_process_calculus_contents() {
-        let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/process_calculus.pdf");
-        let doc = PDFDocument::try_from(file).unwrap();
-        let mut pages = doc.pages().unwrap();
-        pages[0].process_operations();
-        assert!(false);
-    }
+mod tests{
 }

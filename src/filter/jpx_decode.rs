@@ -16,7 +16,7 @@ pub fn jpx_decode(data: &[u8]) -> Option<Vec<u8>> {
     )
 }
 
-mod test {
+mod tests{
     #[cfg(test)]
     fn test_jpx_1() {}
 }

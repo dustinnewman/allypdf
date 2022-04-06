@@ -27,7 +27,7 @@ pub fn ascii_hex_decode(content: &[u8]) -> Option<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests{
     use super::*;
 
     #[test]
