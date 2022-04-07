@@ -761,7 +761,7 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
     use crate::parser::parser::Stream;
     use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};

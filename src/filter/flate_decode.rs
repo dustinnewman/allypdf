@@ -16,7 +16,7 @@ pub fn flate_decode(
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]

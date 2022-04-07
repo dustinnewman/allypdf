@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, convert::TryFrom};
+use std::{collections::BTreeMap, convert::TryFrom, ops::RangeInclusive};
 
 use crate::{
     error::PdfError,
@@ -70,6 +70,8 @@ impl TryFrom<i64> for CMapWritingMode {
 
 pub type CMap = BTreeMap<CharCode, Cid>;
 
+pub type Codespace = BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>;
+
 // "It is equivalent to the concept of an encoding in simple fonts. Whereas a
 // simple font allows a maximum of 256 glyphs to be encoded and accessible at
 // one time, a CMap can describe a mapping from multiple-byte codes to
@@ -84,6 +86,7 @@ pub struct CMapFile<'a> {
     // different CIDs for a given character code." (PDF 9.7.5.1)
     pub writing_mode: CMapWritingMode,
     pub cmap: CMap,
+    pub codespace: Codespace,
 }
 
 impl<'a> CMapFile<'a> {
@@ -92,12 +95,14 @@ impl<'a> CMapFile<'a> {
         cid_system_info: BTreeMap<&'a Name, &'a Object>,
         writing_mode: CMapWritingMode,
         cmap: CMap,
+        codespace: Codespace,
     ) -> Self {
         Self {
             name,
             cid_system_info,
             writing_mode,
             cmap,
+            codespace,
         }
     }
 }

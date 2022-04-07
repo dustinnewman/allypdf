@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
+use std::ops::RangeInclusive;
 
+use crate::parser::parser::ObjectKind;
 use crate::parser::parser::{Name, Object};
 use crate::util::slice_to_numeric;
-use crate::{parser::parser::ObjectKind};
 
-use super::cmap::{CIDOperator, CMap, CMapFile, CMapWritingMode};
+use super::cmap::{CIDOperator, CMap, CMapFile, CMapWritingMode, Codespace};
 
 const WMODE: &[u8] = b"WMode";
 const CID_SYSTEM_INFO: &[u8] = b"CIDSystemInfo";
@@ -18,6 +19,7 @@ pub struct CMapFileParser<'a> {
     name: Option<&'a Name>,
     cid_system_info: BTreeMap<&'a Name, &'a Object>,
     writing_mode: CMapWritingMode,
+    codespace: Codespace,
 }
 
 impl<'a> CMapFileParser<'a> {
@@ -29,6 +31,7 @@ impl<'a> CMapFileParser<'a> {
             cid_system_info: BTreeMap::new(),
             writing_mode: CMapWritingMode::default(),
             cmap: CMap::new(),
+            codespace: Codespace::new(),
         }
     }
 
@@ -45,13 +48,12 @@ impl<'a> CMapFileParser<'a> {
             self.cid_system_info,
             self.writing_mode,
             self.cmap,
+            self.codespace,
         );
         Some(cmap_file)
     }
 
     fn code_space(&mut self) -> Option<()> {
-        let mut lower_range = vec![];
-        let mut upper_range = vec![];
         while let Some(first) = self.pop() {
             let first = match &first.kind {
                 ObjectKind::String(string) => string,
@@ -61,14 +63,16 @@ impl<'a> CMapFileParser<'a> {
                 ObjectKind::String(string) => string,
                 _ => break,
             };
-            for bytes in first.chunks_exact(2) {
-                let lower = slice_to_numeric(bytes, 16)?;
-                lower_range.push(lower);
+            let len = first.len() as u8 / 2;
+            let mut ranges = vec![];
+            let chunks = first.chunks_exact(2).zip(second.chunks_exact(2));
+            for (lower, upper) in chunks {
+                let lower = slice_to_numeric(lower, 16)?;
+                let upper = slice_to_numeric(upper, 16)?;
+                let range = RangeInclusive::new(lower, upper);
+                ranges.push(range);
             }
-            for bytes in second.chunks_exact(2) {
-                let upper = slice_to_numeric(bytes, 16)?;
-                upper_range.push(upper);
-            }
+            self.codespace.entry(len).or_default().push(ranges);
         }
         None
     }
@@ -77,14 +81,14 @@ impl<'a> CMapFileParser<'a> {
         if name == WMODE {
             match self.pop()?.kind {
                 ObjectKind::Integer(i) => self.writing_mode = CMapWritingMode::try_from(i).ok()?,
-                _ => return None
+                _ => return None,
             }
         } else if name == CID_SYSTEM_INFO {
             self.cid_system_info_dict();
         } else if name == CMAP_NAME {
             match &self.pop()?.kind {
                 ObjectKind::Name(name) => self.name = Some(name),
-                _ => return None
+                _ => return None,
             };
         }
         Some(())
@@ -104,7 +108,7 @@ impl<'a> CMapFileParser<'a> {
                         self.cid_system_info.insert(key, value);
                     }
                     break;
-                },
+                }
                 _ => continue,
             }
         }
@@ -144,7 +148,13 @@ impl<'a> CMapFileParser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{offset, dict, string, integer, name, parser::parser::{Object, ObjectKind}, font::{cmap::{CIDOperator}, cid_parser::CMapFileParser}};
+    use crate::{
+        dict,
+        font::{cid_parser::CMapFileParser, cmap::CIDOperator},
+        integer, name, offset,
+        parser::parser::{Object, ObjectKind},
+        string,
+    };
 
     #[test]
     fn test_cid_parser_pdf_dictionary() {
@@ -155,15 +165,89 @@ mod tests {
         );
         let def_op = Object {
             kind: ObjectKind::CIDOperator(CIDOperator::Def),
-            offset: 0
+            offset: 0,
         };
-        let objects = vec![name!("CIDSystemInfo"), dict, def_op, name!("CMapName"), name!("Adobe-Identity-UCS")];
+        let objects = vec![
+            name!("CIDSystemInfo"),
+            dict,
+            def_op,
+            name!("CMapName"),
+            name!("Adobe-Identity-UCS"),
+        ];
         let parser = CMapFileParser::new(&objects);
         let cmap_file = parser.parse().unwrap();
-        assert_eq!(cmap_file.cid_system_info.get(&b"Registry".to_vec()).unwrap(), &&string!("Adobe"));
-        assert_eq!(cmap_file.cid_system_info.get(&b"Ordering".to_vec()).unwrap(), &&string!("UCS"));
-        assert_eq!(cmap_file.cid_system_info.get(&b"Supplement".to_vec()).unwrap(), &&integer!(0));
+        assert_eq!(
+            cmap_file
+                .cid_system_info
+                .get(&b"Registry".to_vec())
+                .unwrap(),
+            &&string!("Adobe")
+        );
+        assert_eq!(
+            cmap_file
+                .cid_system_info
+                .get(&b"Ordering".to_vec())
+                .unwrap(),
+            &&string!("UCS")
+        );
+        assert_eq!(
+            cmap_file
+                .cid_system_info
+                .get(&b"Supplement".to_vec())
+                .unwrap(),
+            &&integer!(0)
+        );
         assert_eq!(cmap_file.cid_system_info.len(), 3);
         assert_eq!(cmap_file.name, b"Adobe-Identity-UCS");
+    }
+
+    #[test]
+    fn test_cid_parser_codespace() {
+        let objects = vec![
+            name!("CMapName"),
+            name!("Adobe-Identity-UCS"),
+            integer!(4),
+            Object {
+                kind: ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange),
+                offset: 0,
+            },
+            string!("00"),
+            string!("80"),
+            string!("8140"),
+            string!("9ffc"),
+            string!("a0"),
+            string!("de"),
+            string!("e040"),
+            string!("fbec"),
+            Object {
+                kind: ObjectKind::CIDOperator(CIDOperator::EndCodeSpaceRange),
+                offset: 0,
+            },
+        ];
+        let parser = CMapFileParser::new(&objects);
+        let cmap_file = parser.parse().unwrap();
+        let expected = Codespace::from([
+            (
+                1,
+                vec![
+                    vec![RangeInclusive::new(0, 0x80)],
+                    vec![RangeInclusive::new(0xa0, 0xde)],
+                ],
+            ),
+            (
+                2,
+                vec![
+                    vec![
+                        RangeInclusive::new(0x81, 0x9f),
+                        RangeInclusive::new(0x40, 0xfc),
+                    ],
+                    vec![
+                        RangeInclusive::new(0xe0, 0xfb),
+                        RangeInclusive::new(0x40, 0xec),
+                    ],
+                ],
+            ),
+        ]);
+        assert_eq!(cmap_file.codespace, expected);
     }
 }

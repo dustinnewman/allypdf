@@ -32,7 +32,7 @@ pub fn lwz_decode(mut data: &[u32]) -> Option<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]

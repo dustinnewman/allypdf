@@ -459,7 +459,7 @@ mod tests {
     use crate::parser::lexer::Lexer;
     use crate::{
         array, boolean, dict, indirect_object, indirect_reference, inner, integer, name, offset,
-        real, stream, xref, xref_section, string
+        real, stream, string, xref, xref_section,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -709,7 +709,7 @@ mod tests {
         );
         let def_op = Object {
             kind: ObjectKind::CIDOperator(CIDOperator::Def),
-            offset: 0
+            offset: 0,
         };
         let expected = vec![name!("CIDSystemInfo"), dict, def_op, name!("CMapName")];
         assert_eq!(parser.parse(), expected);

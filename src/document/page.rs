@@ -141,5 +141,4 @@ impl<'a> Page<'a> {
 }
 
 #[cfg(test)]
-mod tests{
-}
+mod tests {}
