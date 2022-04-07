@@ -82,6 +82,16 @@ impl Codespace {
         Self(BTreeMap::new())
     }
 
+    // Take a list of bytes and see if the codespace contains these bytes.
+    // For the code space to contain a list of bytes, then each byte must
+    // be contained within its corresponding range. For example, for a one
+    // byte value, we only need to check if there is any range which contains
+    // this value. For two or more bytes, however, we must check if there is
+    // any range containing these bytes in each dimension. A two-byte value
+    // must have its first byte contained within the first range of the list
+    // AND its second byte contained within the second range of the list.
+    // There are lists of such lists, so we must iterate all of them (until we
+    // find a match)
     pub fn contains(&self, bytes: &[u8]) -> bool {
         let len = bytes.len() as u8;
         if let Some(ranges) = self.0.get(&len) {
@@ -177,6 +187,7 @@ mod tests {
         );
         assert!(codespace.contains(&[0x79]));
         assert!(codespace.contains(&[0x86, 0xA9]));
+        assert!(!codespace.contains(&[0x80, 0x10]));
         assert!(!codespace.contains(&[0x82, 0x10]));
     }
 }
