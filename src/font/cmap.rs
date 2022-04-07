@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, convert::TryFrom, ops::RangeInclusive};
+use std::{
+    collections::BTreeMap,
+    convert::TryFrom,
+    ops::{Deref, DerefMut, RangeInclusive},
+};
 
 use crate::{
     error::PdfError,
@@ -70,7 +74,44 @@ impl TryFrom<i64> for CMapWritingMode {
 
 pub type CMap = BTreeMap<CharCode, Cid>;
 
-pub type Codespace = BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>;
+#[derive(Debug, PartialEq)]
+pub struct Codespace(BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>);
+
+impl Codespace {
+    pub fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    pub fn contains(&self, bytes: &[u8]) -> bool {
+        let len = bytes.len() as u8;
+        if let Some(ranges) = self.0.get(&len) {
+            for range in ranges {
+                if range
+                    .iter()
+                    .zip(bytes)
+                    .all(|(dimension, byte)| dimension.contains(byte))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+impl Deref for Codespace {
+    type Target = BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Codespace {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 // "It is equivalent to the concept of an encoding in simple fonts. Whereas a
 // simple font allows a maximum of 256 glyphs to be encoded and accessible at
@@ -104,5 +145,38 @@ impl<'a> CMapFile<'a> {
             cmap,
             codespace,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cmap_codespace_contains() {
+        let mut codespace = Codespace::new();
+        codespace.insert(
+            1,
+            vec![
+                vec![RangeInclusive::new(0x00, 0x80)],
+                vec![RangeInclusive::new(0xA0, 0xDF)],
+            ],
+        );
+        codespace.insert(
+            2,
+            vec![
+                vec![
+                    RangeInclusive::new(0x81, 0x9F),
+                    RangeInclusive::new(0x40, 0xFC),
+                ],
+                vec![
+                    RangeInclusive::new(0xE0, 0xFB),
+                    RangeInclusive::new(0x40, 0xEC),
+                ],
+            ],
+        );
+        assert!(codespace.contains(&[0x79]));
+        assert!(codespace.contains(&[0x86, 0xA9]));
+        assert!(!codespace.contains(&[0x82, 0x10]));
     }
 }

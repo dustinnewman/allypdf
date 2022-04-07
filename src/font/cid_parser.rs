@@ -226,28 +226,27 @@ mod tests {
         ];
         let parser = CMapFileParser::new(&objects);
         let cmap_file = parser.parse().unwrap();
-        let expected = Codespace::from([
-            (
-                1,
+        let mut expected = Codespace::new();
+        expected.insert(
+            1,
+            vec![
+                vec![RangeInclusive::new(0, 0x80)],
+                vec![RangeInclusive::new(0xa0, 0xde)],
+            ],
+        );
+        expected.insert(
+            2,
+            vec![
                 vec![
-                    vec![RangeInclusive::new(0, 0x80)],
-                    vec![RangeInclusive::new(0xa0, 0xde)],
+                    RangeInclusive::new(0x81, 0x9f),
+                    RangeInclusive::new(0x40, 0xfc),
                 ],
-            ),
-            (
-                2,
                 vec![
-                    vec![
-                        RangeInclusive::new(0x81, 0x9f),
-                        RangeInclusive::new(0x40, 0xfc),
-                    ],
-                    vec![
-                        RangeInclusive::new(0xe0, 0xfb),
-                        RangeInclusive::new(0x40, 0xec),
-                    ],
+                    RangeInclusive::new(0xe0, 0xfb),
+                    RangeInclusive::new(0x40, 0xec),
                 ],
-            ),
-        ]);
+            ],
+        );
         assert_eq!(cmap_file.codespace, expected);
     }
 }
