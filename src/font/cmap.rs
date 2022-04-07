@@ -43,6 +43,14 @@ pub enum CIDOperator {
     EndUseMatrix,
 }
 
+pub trait CharCodeToCid {
+    fn get_cid(&self, char_code: CharCode) -> Option<Cid>;
+}
+
+pub trait CharCodeToGlyphName {
+    fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]>;
+}
+
 #[derive(Debug)]
 pub enum CMapWritingMode {
     Horizontal,
@@ -73,6 +81,12 @@ impl TryFrom<i64> for CMapWritingMode {
 }
 
 pub type CMap = BTreeMap<CharCode, Cid>;
+
+impl CharCodeToCid for CMap {
+    fn get_cid(&self, char_code: CharCode) -> Option<Cid> {
+        self.get(&char_code).and_then(|&cid| Some(cid))
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Codespace(BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>);
