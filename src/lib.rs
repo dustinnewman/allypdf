@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod cmaps;
 mod document;
 mod error;
 mod filter;

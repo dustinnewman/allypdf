@@ -8,7 +8,11 @@ use crate::{
     parser::parser::{Dictionary, Name, Object, ObjectKind},
 };
 
-use super::{base_encodings::{STANDARD_ENCODING, MAC_ROMAN_ENCODING, WIN_ANSI_ENCODING}, font::{CharCode, Cid}, cmap::CharCodeToGlyphName};
+use super::{
+    base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING},
+    cmap::CharCodeToGlyphName,
+    font::{CharCode, Cid},
+};
 
 pub const ENCODING_SIZE: usize = 256;
 const BASE_ENCODING: &[u8] = b"BaseEncoding";
@@ -34,7 +38,8 @@ impl<'a> Encoding<'a> {
 
 impl CharCodeToGlyphName for Encoding<'_> {
     fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]> {
-        self.get(char_code as usize).and_then(|entry| entry.and_then(|name| Some(name)))
+        self.get(char_code as usize)
+            .and_then(|entry| entry.and_then(|name| Some(name)))
     }
 }
 

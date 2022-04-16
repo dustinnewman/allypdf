@@ -6,11 +6,13 @@ use crate::parser::parser::ObjectKind;
 use crate::parser::parser::{Name, Object};
 use crate::util::slice_to_numeric;
 
-use super::cmap::{CIDOperator, CMap, CMapFile, CMapWritingMode, Codespace};
+use super::cmap::{CIDOperator, CMap, CMapFile, CMapWritingMode, Codespace, CodespaceRange, MAX_CODE_SPACE_LENGTH};
 
 const WMODE: &[u8] = b"WMode";
 const CID_SYSTEM_INFO: &[u8] = b"CIDSystemInfo";
 const CMAP_NAME: &[u8] = b"CMapName";
+
+const DEFAULT_RANGE: RangeInclusive<u8> = RangeInclusive::new(0u8, 0u8);
 
 pub struct CMapFileParser<'a> {
     objects: &'a [Object],
@@ -63,16 +65,14 @@ impl<'a> CMapFileParser<'a> {
                 ObjectKind::String(string) => string,
                 _ => break,
             };
-            let len = first.len() as u8 / 2;
-            let mut ranges = vec![];
+            let mut range = [DEFAULT_RANGE; MAX_CODE_SPACE_LENGTH];
             let chunks = first.chunks_exact(2).zip(second.chunks_exact(2));
-            for (lower, upper) in chunks {
+            for (i, (lower, upper)) in chunks.rev().enumerate() {
                 let lower = slice_to_numeric(lower, 16)?;
                 let upper = slice_to_numeric(upper, 16)?;
-                let range = RangeInclusive::new(lower, upper);
-                ranges.push(range);
+                range[MAX_CODE_SPACE_LENGTH - 1 - i] = RangeInclusive::new(lower, upper);
             }
-            self.codespace.entry(len).or_default().push(ranges);
+            self.codespace.push(range);
         }
         None
     }
@@ -226,27 +226,33 @@ mod tests {
         ];
         let parser = CMapFileParser::new(&objects);
         let cmap_file = parser.parse().unwrap();
-        let mut expected = Codespace::new();
-        expected.insert(
-            1,
-            vec![
-                vec![RangeInclusive::new(0, 0x80)],
-                vec![RangeInclusive::new(0xa0, 0xde)],
+        let ranges = vec![
+            [
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x80),
             ],
-        );
-        expected.insert(
-            2,
-            vec![
-                vec![
-                    RangeInclusive::new(0x81, 0x9f),
-                    RangeInclusive::new(0x40, 0xfc),
-                ],
-                vec![
-                    RangeInclusive::new(0xe0, 0xfb),
-                    RangeInclusive::new(0x40, 0xec),
-                ],
+            [
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x81, 0x9f),
+                RangeInclusive::new(0x40, 0xfc),
             ],
-        );
+            [
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0xa0, 0xde),
+            ],
+            [
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0x00, 0x00),
+                RangeInclusive::new(0xe0, 0xfb),
+                RangeInclusive::new(0x40, 0xec),
+            ],
+        ];
+        let expected = Codespace::from(ranges);
         assert_eq!(cmap_file.codespace, expected);
     }
 }

@@ -11,6 +11,8 @@ use crate::{
 
 use super::font::{CharCode, Cid};
 
+pub const MAX_CODE_SPACE_LENGTH: usize = 4;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CIDOperator {
     FindResource,
@@ -80,6 +82,19 @@ impl TryFrom<i64> for CMapWritingMode {
     }
 }
 
+#[derive(Debug)]
+pub struct CidRange {
+    start: CharCode,
+    end: CharCode,
+    cid: Cid,
+}
+
+impl CidRange {
+    pub const fn new(start: CharCode, end: CharCode, cid: Cid) -> Self {
+        Self { start, end, cid }
+    }
+}
+
 pub type CMap = BTreeMap<CharCode, Cid>;
 
 impl CharCodeToCid for CMap {
@@ -88,43 +103,43 @@ impl CharCodeToCid for CMap {
     }
 }
 
+// "The code length shall not be greater than 4." - PDF 9.7.6.2
+// For efficiency, we use this 4 as a universal size instead of supporting a
+// hash map implementation. For code lengths less than 4, we just left pad
+// with zeros.
+pub type CodespaceRange = [RangeInclusive<u8>; MAX_CODE_SPACE_LENGTH];
+
 #[derive(Debug, PartialEq)]
-pub struct Codespace(BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>);
+pub struct Codespace(Vec<CodespaceRange>);
 
 impl Codespace {
     pub fn new() -> Self {
-        Self(BTreeMap::new())
+        Self(vec![])
+    }
+
+    pub fn from(ranges: Vec<CodespaceRange>) -> Self {
+        Self(ranges)
     }
 
     // Take a list of bytes and see if the codespace contains these bytes.
     // For the code space to contain a list of bytes, then each byte must
-    // be contained within its corresponding range. For example, for a one
-    // byte value, we only need to check if there is any range which contains
-    // this value. For two or more bytes, however, we must check if there is
-    // any range containing these bytes in each dimension. A two-byte value
-    // must have its first byte contained within the first range of the list
-    // AND its second byte contained within the second range of the list.
-    // There are lists of such lists, so we must iterate all of them (until we
-    // find a match)
-    pub fn contains(&self, bytes: &[u8]) -> bool {
-        let len = bytes.len() as u8;
-        if let Some(ranges) = self.0.get(&len) {
-            for range in ranges {
-                if range
-                    .iter()
-                    .zip(bytes)
-                    .all(|(dimension, byte)| dimension.contains(byte))
-                {
-                    return true;
-                }
+    // be contained within its corresponding range.
+    pub fn contains(&self, bytes: &[u8; MAX_CODE_SPACE_LENGTH]) -> bool {
+        for range in &self.0 {
+            if range
+                .iter()
+                .zip(bytes)
+                .all(|(dim, byte)| dim.contains(byte))
+            {
+                return true;
             }
         }
-        return false;
+        false
     }
 }
 
 impl Deref for Codespace {
-    type Target = BTreeMap<u8, Vec<Vec<RangeInclusive<u8>>>>;
+    type Target = Vec<CodespaceRange>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -178,30 +193,35 @@ mod tests {
 
     #[test]
     fn test_cmap_codespace_contains() {
-        let mut codespace = Codespace::new();
-        codespace.insert(
-            1,
-            vec![
-                vec![RangeInclusive::new(0x00, 0x80)],
-                vec![RangeInclusive::new(0xA0, 0xDF)],
-            ],
-        );
-        codespace.insert(
-            2,
-            vec![
-                vec![
-                    RangeInclusive::new(0x81, 0x9F),
-                    RangeInclusive::new(0x40, 0xFC),
-                ],
-                vec![
-                    RangeInclusive::new(0xE0, 0xFB),
-                    RangeInclusive::new(0x40, 0xEC),
-                ],
-            ],
-        );
-        assert!(codespace.contains(&[0x79]));
-        assert!(codespace.contains(&[0x86, 0xA9]));
-        assert!(!codespace.contains(&[0x80, 0x10]));
-        assert!(!codespace.contains(&[0x82, 0x10]));
+        let first_range = [
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x80),
+        ];
+        let second_range = [
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0xA0, 0xDF),
+        ];
+        let third_range = [
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x81, 0x9f),
+            RangeInclusive::new(0x40, 0xfc),
+        ];
+        let fourth_range = [
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0x00, 0x00),
+            RangeInclusive::new(0xe0, 0xfb),
+            RangeInclusive::new(0x40, 0xec),
+        ];
+        let ranges = vec![first_range, second_range, third_range, fourth_range];
+        let codespace = Codespace::from(ranges);
+        assert!(codespace.contains(&[0, 0, 0, 0x79]));
+        assert!(codespace.contains(&[0, 0, 0x86, 0xA9]));
+        assert!(!codespace.contains(&[0, 0, 0x80, 0x10]));
+        assert!(!codespace.contains(&[0, 0, 0x82, 0x10]));
     }
 }
