@@ -1,11 +1,13 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
+use super::cmap::GlyphWidth;
 use super::encoding::{Encoding, ENCODING_SIZE};
 use crate::document::page::Resources;
 use crate::error::PdfError;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
-use crate::parser::parser::{Dictionary, Name, Stream};
+use crate::parser::parser::{Dictionary, Name, Stream, Object, ObjectKind};
 
+const IDENTITY: &[u8] = b"Identity";
 // In simple fonts, character codes are only 8-bit and can thus only address
 // 256 glyphs. In composite fonts, however, we can have multi-byte character
 // codes from 2 to 4 bytes.
@@ -385,7 +387,7 @@ impl TryFrom<&[u8]> for CIDFontSubtypeKind {
         match string {
             b"CIDFontType0" => Ok(Self::CIDFontType0),
             b"CIDFontType2" => Ok(Self::CIDFontType2),
-            _ => Err(PdfError::InvalidCIDFontSubtypeKind)
+            _ => Err(PdfError::InvalidCIDFontSubtypeKind),
         }
     }
 }
@@ -398,6 +400,24 @@ pub struct CidSystemInfo<'a> {
     pub supplement: u32,
 }
 
+#[derive(Debug)]
+pub enum CIDToGIDMap<'a> {
+    Identity,
+    Stream(&'a Stream)
+}
+
+impl<'a> TryFrom<&'a Object> for CIDToGIDMap<'a> {
+    type Error = PdfError;
+
+    fn try_from(object: &'a Object) -> Result<Self, Self::Error> {
+        match &object.kind {
+            ObjectKind::Name(name) if name == IDENTITY => Ok(CIDToGIDMap::Identity),
+            ObjectKind::Stream(stream) => Ok(CIDToGIDMap::Stream(stream)),
+            _ => Err(PdfError::InvalidCIDToGIDMap)
+        }
+    }
+}
+
 // PDF 9.7.4.1 Table 115
 #[derive(Debug)]
 pub struct CIDFont<'a> {
@@ -406,10 +426,10 @@ pub struct CIDFont<'a> {
     pub cid_system_info: CidSystemInfo<'a>,
     pub font_descriptor: FontDescriptor<'a>,
     pub default_width: f64,
-    pub widths: Vec<f64>,
+    pub widths: Vec<GlyphWidth>,
     pub vertical_default_width: (f64, f64),
-    pub vertical_widths: Option<Vec<f64>>,
-    pub cid_to_gid_map: Option<&'a Stream>,
+    pub vertical_widths: Option<Vec<GlyphWidth>>,
+    pub cid_to_gid_map: CIDToGIDMap<'a>,
 }
 
 // PDF 9.6.2.1 Table 109

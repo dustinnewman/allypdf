@@ -67,9 +67,7 @@ impl TryFrom<&Name> for Filter {
             DCT_DECODE => Filter::DCTDecode,
             JPX_DECODE => Filter::JPXDecode,
             CRYPT_DECODE => Filter::Crypt,
-            _ => {
-                return Err(PdfError::InvalidFilterName)
-            }
+            _ => return Err(PdfError::InvalidFilterName),
         };
         Ok(filter)
     }

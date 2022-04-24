@@ -18,6 +18,7 @@ pub enum PdfError {
     InvalidFontStretch,
     InvalidDefaultEncodingName,
     InvalidCIDFontSubtypeKind,
+    InvalidCIDToGIDMap,
     RectangleParsingError,
     ParseF64Error,
     IO { source: io::Error },

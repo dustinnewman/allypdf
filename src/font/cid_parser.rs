@@ -2,8 +2,8 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use super::cmap::{
-    CIDOperator, CMap, CMapFile, CMapWritingMode, CidRange, Codespace,
-    DEFAULT_CODE_SPACE_RANGE, MAX_CODE_SPACE_LENGTH,
+    CIDOperator, CMap, CMapFile, CMapWritingMode, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
+    MAX_CODE_SPACE_LENGTH,
 };
 use super::font::CidSystemInfo;
 use crate::parser::parser::ObjectKind;

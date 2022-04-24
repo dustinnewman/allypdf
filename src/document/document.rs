@@ -8,11 +8,12 @@ use std::{
 use super::annotation::{Annotation, AnnotationFlags};
 use super::page::{Page, ProcSet, Resources};
 use crate::error::{PdfError, Result};
+use crate::font::cmap::object_array_to_glyph_widths;
 use crate::font::encoding::Encoding;
 use crate::font::font::{
-    CIDFont, CidSystemInfo, Font, FontDescriptor, FontDescriptorFlags, FontDictionary,
-    FontProgramKind, FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind,
-    Type3Font, CIDFontSubtypeKind,
+    CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDescriptor, FontDescriptorFlags,
+    FontDictionary, FontProgramKind, FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font,
+    Type1SubtypeKind, Type3Font, CIDToGIDMap,
 };
 use crate::inner;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
@@ -93,6 +94,9 @@ const ORDERING: &[u8] = b"Ordering";
 const SUPPLEMENT: &[u8] = b"Supplement";
 const DEFAULT_WIDTH: &[u8] = b"DW";
 const DEFAULT_VERTICAL_WIDTH: &[u8] = b"DW2";
+const GLYPH_WIDTHS: &[u8] = b"W";
+const VERTICAL_GLYPH_WIDTHS: &[u8] = b"W2";
+const CID_TO_GID_MAP: &[u8] = b"CIDToGIDMap";
 
 pub type Version = (u8, u8);
 pub type ObjectMap = BTreeMap<IndirectReference, Object>;
@@ -285,36 +289,40 @@ impl PDFDocument {
             supplement,
         };
         let default_width = match dict.get(DEFAULT_WIDTH) {
-            Some(Object { kind: ObjectKind::Integer(i), .. }) => *i as f64,
-            Some(Object { kind: ObjectKind::Real(r), .. }) => *r,
-            _ => 1000.00
+            Some(Object {
+                kind: ObjectKind::Integer(i),
+                ..
+            }) => *i as f64,
+            Some(Object {
+                kind: ObjectKind::Real(r),
+                ..
+            }) => *r,
+            _ => 1000.00,
         };
-        let vertical_default_width: (f64, f64) = dict.get(DEFAULT_VERTICAL_WIDTH)
+        let vertical_default_width: (f64, f64) = dict
+            .get(DEFAULT_VERTICAL_WIDTH)
             .and_then(|array| self.object_array_to_array(array))
             .map_or((880.00, -1000.00), |array| (array[0], array[1]));
+        let widths = dict
+            .get(GLYPH_WIDTHS)
+            .and_then(|x| inner!(x, ObjectKind::Array))
+            .map_or(vec![], object_array_to_glyph_widths);
+        let vertical_widths = dict
+            .get(VERTICAL_GLYPH_WIDTHS)
+            .and_then(|x| inner!(x, ObjectKind::Array))
+            .and_then(|x| Some(object_array_to_glyph_widths(x)));
+        let cid_to_gid_map = dict.get(CID_TO_GID_MAP)?.try_into().ok()?;
         let cid_font = CIDFont {
             subtype,
             base_font,
             cid_system_info,
             font_descriptor,
             default_width,
-            // Idea for this, just implement the TryFrom trait for nested arrays of objects? That way you dont need special handling
-            // as long as the impl implements obj.try_into() (see above) it should work???
-            widths: todo!(),
+            widths,
             vertical_default_width,
-            vertical_widths: todo!(),
-            cid_to_gid_map: todo!(),
+            vertical_widths,
+            cid_to_gid_map,
         };
-        // <</Type /Font
-        // /FontDescriptor 11 0 R
-        // /BaseFont /AAAAAA+ArialMT
-        // /Subtype /CIDFontType2
-        // /CIDToGIDMap /Identity
-        // /CIDSystemInfo <</Registry (Adobe)
-        // /Ordering (Identity)
-        // /Supplement 0>>
-        // /W [0 [750 0 0 277.83203] 36 [666.99219] 43 [722.16797] 68 72 556.15234 76 79 222.16797 81 82 556.15234 85 [333.00781]]
-        // /DW 0>>
         Some(cid_font)
     }
 
