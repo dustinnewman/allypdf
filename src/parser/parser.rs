@@ -98,9 +98,7 @@ impl TryFrom<&Object> for f64 {
                 kind: ObjectKind::Real(r),
                 ..
             } => Ok(*r),
-            _ => Err(PdfError::Other {
-                msg: "Could not convert object to f64".to_string(),
-            }),
+            _ => Err(PdfError::ParseF64Error),
         }
     }
 }

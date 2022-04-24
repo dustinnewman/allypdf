@@ -36,9 +36,7 @@ impl TryFrom<&Object> for Rectangle {
     type Error = PdfError;
 
     fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        let error = Err(PdfError::Other {
-            msg: "Could not convert object to rectangle".to_string(),
-        });
+        let error = Err(PdfError::RectangleParsingError);
         match &object.kind {
             ObjectKind::Array(array) => {
                 let lower_left_x = match array.get(0) {

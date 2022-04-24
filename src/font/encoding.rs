@@ -69,9 +69,7 @@ impl<'a> TryFrom<&'a Name> for Encoding<'a> {
         } else if name == MAC_EXPERT {
             todo!()
         } else {
-            Err(PdfError::Other {
-                msg: "Could not convert dictionary to encoding.".to_string(),
-            })
+            Err(PdfError::InvalidDefaultEncodingName)
         }
     }
 }

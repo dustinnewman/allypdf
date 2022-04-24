@@ -2,9 +2,10 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use super::cmap::{
-    CIDOperator, CMap, CMapFile, CMapWritingMode, CidRange, CidSystemInfo, Codespace,
+    CIDOperator, CMap, CMapFile, CMapWritingMode, CidRange, Codespace,
     DEFAULT_CODE_SPACE_RANGE, MAX_CODE_SPACE_LENGTH,
 };
+use super::font::CidSystemInfo;
 use crate::parser::parser::ObjectKind;
 use crate::parser::parser::{Name, Object};
 use crate::util::reduce_slice_to_numeric;

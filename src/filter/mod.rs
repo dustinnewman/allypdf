@@ -68,9 +68,7 @@ impl TryFrom<&Name> for Filter {
             JPX_DECODE => Filter::JPXDecode,
             CRYPT_DECODE => Filter::Crypt,
             _ => {
-                return Err(PdfError::Other {
-                    msg: "Name to filter conversion failed.".to_string(),
-                })
+                return Err(PdfError::InvalidFilterName)
             }
         };
         Ok(filter)

@@ -27,9 +27,6 @@ impl TryFrom<&Object> for ProcSet {
     type Error = PdfError;
 
     fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        let error = PdfError::Other {
-            msg: "Could not convert name to ProcSet".to_string(),
-        };
         match object {
             Object {
                 kind: ObjectKind::Name(name),
@@ -40,9 +37,9 @@ impl TryFrom<&Object> for ProcSet {
                 IMAGE_B => Ok(Self::ImageBlack),
                 IMAGE_C => Ok(Self::ImageColor),
                 IMAGE_I => Ok(Self::ImageIndexed),
-                _ => Err(error),
+                _ => Err(PdfError::InvalidProcSet),
             },
-            _ => Err(error),
+            _ => Err(PdfError::InvalidProcSet),
         }
     }
 }

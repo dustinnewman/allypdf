@@ -102,9 +102,7 @@ impl TryFrom<&Name> for FontStretch {
             x if x == b"Expanded" => Ok(Self::Expanded),
             x if x == b"ExtraExpanded" => Ok(Self::ExtraExpanded),
             x if x == b"UltraExpanded" => Ok(Self::UltraExpanded),
-            _ => Err(PdfError::Other {
-                msg: "Unrecognized font stretch string.".to_string(),
-            }),
+            _ => Err(PdfError::InvalidFontStretch),
         }
     }
 }
@@ -136,9 +134,7 @@ impl TryFrom<&Name> for FontWeight {
             x if x == b"Bold" => Ok(Self::Bold),
             x if x == b"ExtraBold" => Ok(Self::ExtraBold),
             x if x == b"Black" => Ok(Self::Black),
-            _ => Err(PdfError::Other {
-                msg: "Unrecognized font weight string.".to_string(),
-            }),
+            _ => Err(PdfError::InvalidFontWeight),
         }
     }
 }
@@ -382,26 +378,38 @@ pub enum CIDFontSubtypeKind {
     CIDFontType2,
 }
 
+impl TryFrom<&[u8]> for CIDFontSubtypeKind {
+    type Error = PdfError;
+
+    fn try_from(string: &[u8]) -> Result<Self, Self::Error> {
+        match string {
+            b"CIDFontType0" => Ok(Self::CIDFontType0),
+            b"CIDFontType2" => Ok(Self::CIDFontType2),
+            _ => Err(PdfError::InvalidCIDFontSubtypeKind)
+        }
+    }
+}
+
 // PDF 9.7.3 Table 114
 #[derive(Debug)]
-pub struct CIDSystemInfo {
-    registry: Vec<u8>,
-    ordering: Vec<u8>,
-    supplement: u32,
+pub struct CidSystemInfo<'a> {
+    pub registry: &'a [u8],
+    pub ordering: &'a [u8],
+    pub supplement: u32,
 }
 
 // PDF 9.7.4.1 Table 115
 #[derive(Debug)]
 pub struct CIDFont<'a> {
-    subtype: CIDFontSubtypeKind,
-    base_font: Name,
-    cid_system_info: &'a Dictionary,
-    font_descriptor: FontDescriptor<'a>,
-    default_width: f64,
-    widths: Vec<f64>,
-    vertical_default_width: Option<(f64, f64)>,
-    vertical_widths: Option<Vec<f64>>,
-    cid_to_gid_map: Option<&'a Stream>,
+    pub subtype: CIDFontSubtypeKind,
+    pub base_font: &'a Name,
+    pub cid_system_info: CidSystemInfo<'a>,
+    pub font_descriptor: FontDescriptor<'a>,
+    pub default_width: f64,
+    pub widths: Vec<f64>,
+    pub vertical_default_width: Option<(f64, f64)>,
+    pub vertical_widths: Option<Vec<f64>>,
+    pub cid_to_gid_map: Option<&'a Stream>,
 }
 
 // PDF 9.6.2.1 Table 109

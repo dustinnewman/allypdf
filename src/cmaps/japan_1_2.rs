@@ -1,9 +1,10 @@
 use std::{borrow::Cow, ops::RangeInclusive};
 
 use crate::font::cmap::{
-    CMapFile, CMapWritingMode, CidRange, CidSystemInfo, Codespace, CodespaceRange,
+    CMapFile, CMapWritingMode, CidRange, Codespace, CodespaceRange,
     DEFAULT_CODE_SPACE_RANGE,
 };
+use crate::font::font::CidSystemInfo;
 
 const CODE_SPACE: [CodespaceRange; 1] = [[
     DEFAULT_CODE_SPACE_RANGE,

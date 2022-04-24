@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, convert::TryFrom, ops::RangeInclusive};
 
-use super::font::{CharCode, Cid};
+use super::font::{CharCode, Cid, CidSystemInfo};
 use crate::{error::PdfError, parser::parser::Name};
 
 pub const MAX_CODE_SPACE_LENGTH: usize = 4;
@@ -134,13 +134,6 @@ impl<'a> Codespace<'a> {
         }
         false
     }
-}
-
-#[derive(Debug)]
-pub struct CidSystemInfo<'a> {
-    pub registry: &'a [u8],
-    pub ordering: &'a [u8],
-    pub supplement: u32,
 }
 
 // "It is equivalent to the concept of an encoding in simple fonts. Whereas a

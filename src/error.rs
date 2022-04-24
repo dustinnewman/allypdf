@@ -12,6 +12,14 @@ pub enum PdfError {
     // Beginning of File
     BOF,
     CMapParsingError,
+    InvalidFilterName,
+    InvalidProcSet,
+    InvalidFontWeight,
+    InvalidFontStretch,
+    InvalidDefaultEncodingName,
+    InvalidCIDFontSubtypeKind,
+    RectangleParsingError,
+    ParseF64Error,
     IO { source: io::Error },
     Other { msg: String },
 }

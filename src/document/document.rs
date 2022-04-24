@@ -11,7 +11,7 @@ use crate::error::{PdfError, Result};
 use crate::font::encoding::Encoding;
 use crate::font::font::{
     CIDFont, Font, FontDescriptor, FontDescriptorFlags, FontDictionary, FontProgramKind,
-    FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
+    FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font, CidSystemInfo,
 };
 use crate::inner;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
@@ -86,6 +86,10 @@ const RECTANGLE: &[u8] = b"Rect";
 const CATALOG: &[u8] = b"Catalog";
 const ANNOTS_FLAGS: &[u8] = b"F";
 const ROTATE: &[u8] = b"Rotate";
+const CID_SYSTEM_INFO: &[u8] = b"CIDSystemInfo";
+const REGISTRY: &[u8] = b"Registry";
+const ORDERING: &[u8] = b"Ordering";
+const SUPPLEMENT: &[u8] = b"Supplement";
 
 pub type Version = (u8, u8);
 pub type ObjectMap = BTreeMap<IndirectReference, Object>;
@@ -256,19 +260,47 @@ impl PDFDocument {
         let font_descriptor = self
             .follow_till_dict(dict.get(FONT_DESCRIPTOR))
             .and_then(|dict| self.font_descriptor(dict))?;
-        return None;
-        // let cid_font = CIDFont {
-        //     subtype: todo!(),
-        //     base_font: todo!(),
-        //     cid_system_info: todo!(),
-        //     font_descriptor,
-        //     default_width: todo!(),
-        //     widths: todo!(),
-        //     vertical_default_width: todo!(),
-        //     vertical_widths: todo!(),
-        //     cid_to_gid_map: todo!(),
-        // };
-        // Some(cid_font)
+        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
+        let cid_system_info = self.follow_till_dict(dict.get(CID_SYSTEM_INFO))?;
+        let registry = match &cid_system_info.get(REGISTRY)?.kind {
+            ObjectKind::String(s) => s,
+            _ => return None
+        };
+        let ordering = match &cid_system_info.get(ORDERING)?.kind {
+            ObjectKind::String(s) => s,
+            _ => return None
+        };
+        let supplement = match &cid_system_info.get(SUPPLEMENT)?.kind {
+            ObjectKind::Integer(i) => *i as u32,
+            _ => return None
+        };
+        let cid_system_info = CidSystemInfo {
+            registry,
+            ordering,
+            supplement
+        };
+        let cid_font = CIDFont {
+            subtype: todo!(),
+            base_font,
+            cid_system_info,
+            font_descriptor,
+            default_width: todo!(),
+            widths: todo!(),
+            vertical_default_width: todo!(),
+            vertical_widths: todo!(),
+            cid_to_gid_map: todo!(),
+        };
+// <</Type /Font
+// /FontDescriptor 11 0 R
+// /BaseFont /AAAAAA+ArialMT
+// /Subtype /CIDFontType2
+// /CIDToGIDMap /Identity
+// /CIDSystemInfo <</Registry (Adobe)
+// /Ordering (Identity)
+// /Supplement 0>>
+// /W [0 [750 0 0 277.83203] 36 [666.99219] 43 [722.16797] 68 72 556.15234 76 79 222.16797 81 82 556.15234 85 [333.00781]]
+// /DW 0>>
+        Some(cid_font)
     }
 
     fn composite_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
