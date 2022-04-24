@@ -407,7 +407,7 @@ pub struct CIDFont<'a> {
     pub font_descriptor: FontDescriptor<'a>,
     pub default_width: f64,
     pub widths: Vec<f64>,
-    pub vertical_default_width: Option<(f64, f64)>,
+    pub vertical_default_width: (f64, f64),
     pub vertical_widths: Option<Vec<f64>>,
     pub cid_to_gid_map: Option<&'a Stream>,
 }
