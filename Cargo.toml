@@ -1,5 +1,5 @@
 [package]
-name = "pdfbox-rs"
+name = "allypdf"
 version = "0.1.0"
 authors = ["Dustin Newman <dustinnewman98@gmail.com>"]
 edition = "2018"

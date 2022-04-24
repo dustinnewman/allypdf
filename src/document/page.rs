@@ -1,17 +1,12 @@
 use std::convert::TryFrom;
 
-use crate::{
-    error::PdfError,
-    font::font::FontDictionary,
-    operators::{engine::GraphicsEngine, parser::OperatorParser, rect::Rectangle},
-    parser::{
-        lexer::Lexer,
-        parser::{Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream},
-    },
-    render::canvas::Canvas,
-};
-
 use super::annotation::Annotation;
+use crate::error::PdfError;
+use crate::font::font::FontDictionary;
+use crate::operators::{engine::GraphicsEngine, parser::OperatorParser, rect::Rectangle};
+use crate::parser::lexer::Lexer;
+use crate::parser::parser::{Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream};
+use crate::render::canvas::Canvas;
 
 const PDF: &[u8] = b"PDF";
 const TEXT: &[u8] = b"Text";

@@ -389,14 +389,6 @@ impl<'a> Lexer<'a> {
                 },
                 _ => TokenKind::CIDOperator(CIDOperator::Begin),
             },
-            Some(b'r') => match self.peek_slice(self.pos, 14)? {
-                b"rearrangedfont" => cid!(CIDOperator::BeginRearrangedFont, 14),
-                _ => TokenKind::CIDOperator(CIDOperator::Begin),
-            },
-            Some(b'u') => match self.peek_slice(self.pos, 9)? {
-                b"usematrix" => cid!(CIDOperator::BeginUseMatrix, 9),
-                _ => TokenKind::CIDOperator(CIDOperator::Begin),
-            },
             Some(b'c') => match self.peek_slice(self.pos, 4)? {
                 b"cmap" => cid!(CIDOperator::BeginCMap, 4),
                 b"cidc" => match self.peek_slice(self.pos + 4, 3)? {
@@ -472,14 +464,6 @@ impl<'a> Lexer<'a> {
             },
             Some(b'o') => match self.pop_slice(self.pos, 3)? {
                 b"obj" => TokenKind::Endobj,
-                _ => TokenKind::CIDOperator(CIDOperator::End),
-            },
-            Some(b'r') => match self.peek_slice(self.pos, 14)? {
-                b"rearrangedfont" => cid!(CIDOperator::EndRearrangedFont, 14),
-                _ => TokenKind::CIDOperator(CIDOperator::End),
-            },
-            Some(b'u') => match self.peek_slice(self.pos, 9)? {
-                b"usematrix" => cid!(CIDOperator::EndUseMatrix, 9),
                 _ => TokenKind::CIDOperator(CIDOperator::End),
             },
             _ => TokenKind::CIDOperator(CIDOperator::End),

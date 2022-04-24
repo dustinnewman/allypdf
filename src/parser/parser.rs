@@ -1,13 +1,11 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
 use super::lexer::{Token, TokenKind};
-use crate::{
-    error::PdfError,
-    filter::{decode, Filter},
-    font::cmap::CIDOperator,
-    operators::operators::Operator,
-    util::{hex_string_to_string, literal_string_to_string, name_to_name},
-};
+use crate::error::PdfError;
+use crate::filter::{decode, Filter};
+use crate::font::cmap::CIDOperator;
+use crate::operators::operators::Operator;
+use crate::util::{hex_string_to_string, literal_string_to_string, name_to_name};
 
 const FILTER: &[u8] = b"Filter";
 const SIZE: &[u8] = b"Size";

@@ -253,18 +253,26 @@ pub fn byte_to_numeric(byte: Byte, radix: u8) -> Option<u8> {
     }
 }
 
-pub fn slice_to_numeric(slice: &[Byte], radix: u8) -> Option<u8> {
-    let mut result = 0;
+pub fn slice_to_numeric(slice: &[Byte], radix: u8) -> Option<u32> {
+    let mut result: u32 = 0;
     for byte in slice {
         match byte_to_numeric(*byte, radix) {
             Some(x) => {
-                result *= radix;
-                result += x;
+                result *= radix as u32;
+                result += x as u32;
             }
             None => return None,
         }
     }
     Some(result)
+}
+
+pub fn reduce_slice_to_numeric(slice: &[u8]) -> u32 {
+    let mut result: u32 = 0;
+    for &x in slice {
+        result = result * 256 + x as u32;
+    }
+    result
 }
 
 pub fn literal_string_to_string(literal: &[u8]) -> Option<Vec<u8>> {
@@ -294,7 +302,7 @@ pub fn literal_string_to_string(literal: &[u8]) -> Option<Vec<u8>> {
                     }
                     let slice = &literal[original_pos + 1..original_pos + 1 + octal_len];
                     let code = slice_to_numeric(slice, 8)?;
-                    vec.push(code);
+                    vec.push(code as u8);
                     original_pos += octal_len - 1;
                 }
                 _ => (),
@@ -316,13 +324,13 @@ pub fn hex_string_to_string(hex_string: &[u8]) -> Option<Vec<u8>> {
         let first = hex_string[hex_pos];
         let second = hex_string[hex_pos + 1];
         let slice = [first, second];
-        let code = slice_to_numeric(&slice, 16)?;
+        let code = slice_to_numeric(&slice, 16)? as u8;
         vec.push(code);
         hex_pos += 2;
     }
     if hex_pos < hex_len {
         let first = hex_string[hex_len - 1];
-        let code = slice_to_numeric(&[first, b'0'], 16)?;
+        let code = slice_to_numeric(&[first, b'0'], 16)? as u8;
         vec.push(code);
     }
     Some(vec)
@@ -338,7 +346,7 @@ pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
             let first = name[original_pos + 1];
             let second = name[original_pos + 2];
             let hex = [first, second];
-            let code = slice_to_numeric(&hex, 16)?;
+            let code = slice_to_numeric(&hex, 16)? as u8;
             vec.push(code);
             original_pos += 3;
         } else {

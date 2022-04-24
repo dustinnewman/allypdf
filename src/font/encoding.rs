@@ -3,16 +3,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{
-    error::PdfError,
-    parser::parser::{Dictionary, Name, Object, ObjectKind},
-};
-
-use super::{
-    base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING},
-    cmap::CharCodeToGlyphName,
-    font::{CharCode, Cid},
-};
+use super::base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING};
+use super::cmap::CharCodeToGlyphName;
+use super::font::CharCode;
+use crate::error::PdfError;
+use crate::parser::parser::{Dictionary, Name, Object, ObjectKind};
 
 pub const ENCODING_SIZE: usize = 256;
 const BASE_ENCODING: &[u8] = b"BaseEncoding";

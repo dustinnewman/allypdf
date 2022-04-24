@@ -1,9 +1,7 @@
 use std::convert::TryFrom;
 
-use crate::{
-    error::PdfError,
-    parser::parser::{Object, ObjectKind},
-};
+use crate::error::PdfError;
+use crate::parser::parser::{Object, ObjectKind};
 
 // Default page size is letter: 8.5" x 11" = 612pt x 792pt
 const LETTER_PAGE: Rectangle = Rectangle {

@@ -5,29 +5,19 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{
-    error::{PdfError, Result},
-    font::{
-        encoding::Encoding,
-        font::{
-            CIDFont, Font, FontDescriptor, FontDescriptorFlags, FontDictionary, FontProgramKind,
-            FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind,
-            Type3Font,
-        },
-    },
-    inner,
-    operators::{matrix::Matrix, rect::Rectangle},
-    parser::{
-        lexer::Lexer,
-        parser::{
-            Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream, Trailer, XrefSection,
-        },
-    },
+use super::annotation::{Annotation, AnnotationFlags};
+use super::page::{Page, ProcSet, Resources};
+use crate::error::{PdfError, Result};
+use crate::font::encoding::Encoding;
+use crate::font::font::{
+    CIDFont, Font, FontDescriptor, FontDescriptorFlags, FontDictionary, FontProgramKind,
+    FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
 };
-
-use super::{
-    annotation::{Annotation, AnnotationFlags},
-    page::{Page, ProcSet, Resources},
+use crate::inner;
+use crate::operators::{matrix::Matrix, rect::Rectangle};
+use crate::parser::lexer::Lexer;
+use crate::parser::parser::{
+    Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream, Trailer, XrefSection,
 };
 
 const TYPE: &[u8] = b"Type";

@@ -1,20 +1,15 @@
-use crate::{
-    document::page::Resources,
-    font::font::Font,
-    parser::parser::{Dictionary, Name},
-    render::canvas::Canvas,
+use super::color::{Color, CMYK, RGB};
+use super::matrix::Matrix;
+use super::operations::{
+    DashPattern, LineCap, LineJoin, Operation, Percent, RenderingIntent, StringOrNumber,
+    TextRendering, UnitInterval, UnscaledTextSpaceUnit,
 };
-
-use super::{
-    color::{Color, CMYK, RGB},
-    matrix::Matrix,
-    operations::{
-        DashPattern, LineCap, LineJoin, Operation, Percent, RenderingIntent, StringOrNumber,
-        TextRendering, UnitInterval, UnscaledTextSpaceUnit,
-    },
-    path::{Path, PathMode, Point},
-    rect::Rectangle,
-};
+use super::path::{Path, PathMode, Point};
+use super::rect::Rectangle;
+use crate::document::page::Resources;
+use crate::font::font::Font;
+use crate::parser::parser::{Dictionary, Name};
+use crate::render::canvas::Canvas;
 
 // PDF 9.3.1
 #[derive(Debug, Clone)]

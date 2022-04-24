@@ -1,18 +1,12 @@
-use std::{
-    collections::BTreeMap,
-    convert::TryFrom,
-    ops::{Deref, DerefMut, RangeInclusive},
-};
-
-use crate::{
-    error::PdfError,
-    parser::parser::{Name, Object},
-};
+use std::{borrow::Cow, collections::BTreeMap, convert::TryFrom, ops::RangeInclusive};
 
 use super::font::{CharCode, Cid};
+use crate::{error::PdfError, parser::parser::Name};
 
 pub const MAX_CODE_SPACE_LENGTH: usize = 4;
 
+// beginrearrangedfont, endrearrangedfont, beginusematrix, endusematrix are
+// not used in PDF - PDF 9.7.5.4.e
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CIDOperator {
     FindResource,
@@ -39,10 +33,6 @@ pub enum CIDOperator {
     EndNotdefChar,
     BeginNotdefRange,
     EndNotdefRange,
-    BeginRearrangedFont,
-    EndRearrangedFont,
-    BeginUseMatrix,
-    EndUseMatrix,
 }
 
 pub trait CharCodeToCid {
@@ -82,11 +72,11 @@ impl TryFrom<i64> for CMapWritingMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CidRange {
-    start: CharCode,
-    end: CharCode,
-    cid: Cid,
+    pub start: CharCode,
+    pub end: CharCode,
+    pub cid: Cid,
 }
 
 impl CidRange {
@@ -108,24 +98,32 @@ impl CharCodeToCid for CMap {
 // hash map implementation. For code lengths less than 4, we just left pad
 // with zeros.
 pub type CodespaceRange = [RangeInclusive<u8>; MAX_CODE_SPACE_LENGTH];
+pub const DEFAULT_CODE_SPACE_RANGE: RangeInclusive<u8> = RangeInclusive::new(0, 0);
 
 #[derive(Debug, PartialEq)]
-pub struct Codespace(Vec<CodespaceRange>);
+pub struct Codespace<'a> {
+    // We use Cow here because predefined CMaps reference const slices of
+    // codespace ranges whereas user-defined CMaps will need to use vectors
+    // allocated at runtime.
+    pub ranges: Cow<'a, [CodespaceRange]>,
+}
 
-impl Codespace {
+impl<'a> Codespace<'a> {
     pub fn new() -> Self {
-        Self(vec![])
+        Self {
+            ranges: vec![].into(),
+        }
     }
 
-    pub fn from(ranges: Vec<CodespaceRange>) -> Self {
-        Self(ranges)
+    pub const fn from(ranges: Cow<'a, [CodespaceRange]>) -> Self {
+        Self { ranges }
     }
 
     // Take a list of bytes and see if the codespace contains these bytes.
     // For the code space to contain a list of bytes, then each byte must
     // be contained within its corresponding range.
     pub fn contains(&self, bytes: &[u8; MAX_CODE_SPACE_LENGTH]) -> bool {
-        for range in &self.0 {
+        for range in self.ranges.iter() {
             if range
                 .iter()
                 .zip(bytes)
@@ -138,18 +136,11 @@ impl Codespace {
     }
 }
 
-impl Deref for Codespace {
-    type Target = Vec<CodespaceRange>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Codespace {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+#[derive(Debug)]
+pub struct CidSystemInfo<'a> {
+    pub registry: &'a [u8],
+    pub ordering: &'a [u8],
+    pub supplement: u32,
 }
 
 // "It is equivalent to the concept of an encoding in simple fonts. Whereas a
@@ -158,24 +149,31 @@ impl DerefMut for Codespace {
 // thousands of glyphs in a large CID-keyed font." (PDF 9.7.2)
 #[derive(Debug)]
 pub struct CMapFile<'a> {
-    pub name: &'a Name,
-    pub cid_system_info: BTreeMap<&'a Name, &'a Object>,
+    pub name: &'a [u8],
+    pub cid_system_info: CidSystemInfo<'a>,
     // "Writing mode is specified as part of the CMap because, in some cases,
     // different shapes are used when writing horizontally and vertically.
     // In such cases, the horizontal and vertical variants of a CMap specify
     // different CIDs for a given character code." (PDF 9.7.5.1)
     pub writing_mode: CMapWritingMode,
-    pub cmap: CMap,
-    pub codespace: Codespace,
+    // Optional because many CMap files do not reference other CMaps e.g.
+    // predefined ones
+    pub cmap: Option<CMap>,
+    pub codespace: Codespace<'a>,
+    // We use Cow here because for predefined CMaps, we use borrowed slices of
+    // const ranges, but for CMap files specified in the PDF file itself we
+    // use owned vectors allocated at runtime on the heap
+    pub cid_range: Cow<'a, [CidRange]>,
 }
 
 impl<'a> CMapFile<'a> {
     pub fn new(
         name: &'a Name,
-        cid_system_info: BTreeMap<&'a Name, &'a Object>,
+        cid_system_info: CidSystemInfo<'a>,
         writing_mode: CMapWritingMode,
-        cmap: CMap,
-        codespace: Codespace,
+        cmap: Option<CMap>,
+        codespace: Codespace<'a>,
+        cid_range: Cow<'a, [CidRange]>,
     ) -> Self {
         Self {
             name,
@@ -183,6 +181,7 @@ impl<'a> CMapFile<'a> {
             writing_mode,
             cmap,
             codespace,
+            cid_range,
         }
     }
 }
@@ -218,7 +217,7 @@ mod tests {
             RangeInclusive::new(0x40, 0xec),
         ];
         let ranges = vec![first_range, second_range, third_range, fourth_range];
-        let codespace = Codespace::from(ranges);
+        let codespace = Codespace::from(ranges.into());
         assert!(codespace.contains(&[0, 0, 0, 0x79]));
         assert!(codespace.contains(&[0, 0, 0x86, 0xA9]));
         assert!(!codespace.contains(&[0, 0, 0x80, 0x10]));

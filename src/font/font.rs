@@ -1,13 +1,10 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use crate::{
-    document::page::Resources,
-    error::PdfError,
-    operators::{matrix::Matrix, rect::Rectangle},
-    parser::parser::{Dictionary, Name, Stream},
-};
-
 use super::encoding::{Encoding, ENCODING_SIZE};
+use crate::document::page::Resources;
+use crate::error::PdfError;
+use crate::operators::{matrix::Matrix, rect::Rectangle};
+use crate::parser::parser::{Dictionary, Name, Stream};
 
 // In simple fonts, character codes are only 8-bit and can thus only address
 // 256 glyphs. In composite fonts, however, we can have multi-byte character

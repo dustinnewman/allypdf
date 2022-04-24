@@ -1,9 +1,6 @@
+use crate::operators::color::Color;
 use crate::operators::engine::GraphicsState;
-
-use crate::operators::{
-    color::Color,
-    path::{Curve, Point},
-};
+use crate::operators::path::{Curve, Point};
 
 #[derive(Debug)]
 pub struct Text {

@@ -1,6 +1,5 @@
-use crate::parser::parser::{Dictionary, Name};
-
 use super::color::{Color, CMYK, RGB};
+use crate::parser::parser::{Dictionary, Name};
 
 // A real number between 0 and 1 (inclusive)
 pub type UnitInterval = f64;
