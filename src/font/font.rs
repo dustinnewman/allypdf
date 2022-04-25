@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use super::cmap::GlyphWidth;
+use super::cmap::{GlyphWidth, CMap};
 use super::encoding::{Encoding, ENCODING_SIZE};
 use crate::document::page::Resources;
 use crate::error::PdfError;
@@ -8,6 +8,8 @@ use crate::operators::{matrix::Matrix, rect::Rectangle};
 use crate::parser::parser::{Dictionary, Name, Stream, Object, ObjectKind};
 
 const IDENTITY: &[u8] = b"Identity";
+const IDENTITY_H: &[u8] = b"Identity-H";
+const IDENTITY_V: &[u8] = b"Identity-V";
 // In simple fonts, character codes are only 8-bit and can thus only address
 // 256 glyphs. In composite fonts, however, we can have multi-byte character
 // codes from 2 to 4 bytes.
@@ -432,11 +434,30 @@ pub struct CIDFont<'a> {
     pub cid_to_gid_map: CIDToGIDMap<'a>,
 }
 
+#[derive(Debug)]
+pub enum Type0Encoding {
+    IdentityH,
+    IdentityV,
+    CMap(CMap)
+}
+
+impl TryFrom<&[u8]> for Type0Encoding {
+    type Error = PdfError;
+
+    fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
+        match name {
+            IDENTITY_H => Ok(Self::IdentityH),
+            IDENTITY_V => Ok(Self::IdentityV),
+            _ => Err(PdfError::InvalidType0EncodingName)
+        }
+    }
+}
+
 // PDF 9.6.2.1 Table 109
 #[derive(Debug)]
 pub struct Type0Font<'a> {
     base_font: &'a Name,
-    encoding: Encoding<'a>,
+    encoding: Type0Encoding,
     descendant_fonts: CIDFont<'a>,
     to_unicode: Option<&'a Stream>,
 }
@@ -444,7 +465,7 @@ pub struct Type0Font<'a> {
 impl<'a> Type0Font<'a> {
     pub fn new(
         base_font: &'a Name,
-        encoding: Encoding<'a>,
+        encoding: Type0Encoding,
         descendant_fonts: CIDFont<'a>,
         to_unicode: Option<&'a Stream>,
     ) -> Self {

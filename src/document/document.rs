@@ -13,7 +13,7 @@ use crate::font::encoding::Encoding;
 use crate::font::font::{
     CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDescriptor, FontDescriptorFlags,
     FontDictionary, FontProgramKind, FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font,
-    Type1SubtypeKind, Type3Font, CIDToGIDMap,
+    Type1SubtypeKind, Type3Font, CIDToGIDMap, Type0Encoding,
 };
 use crate::inner;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
@@ -271,18 +271,9 @@ impl PDFDocument {
             .and_then(|dict| self.font_descriptor(dict))?;
         let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
         let cid_system_info = self.follow_till_dict(dict.get(CID_SYSTEM_INFO))?;
-        let registry = match &cid_system_info.get(REGISTRY)?.kind {
-            ObjectKind::String(s) => s,
-            _ => return None,
-        };
-        let ordering = match &cid_system_info.get(ORDERING)?.kind {
-            ObjectKind::String(s) => s,
-            _ => return None,
-        };
-        let supplement = match &cid_system_info.get(SUPPLEMENT)?.kind {
-            ObjectKind::Integer(i) => *i as u32,
-            _ => return None,
-        };
+        let registry = inner!(cid_system_info.get(REGISTRY)?, ObjectKind::String)?;
+        let ordering = inner!(cid_system_info.get(ORDERING)?, ObjectKind::String)?;
+        let supplement = *inner!(cid_system_info.get(SUPPLEMENT)?, ObjectKind::Integer)? as u32;
         let cid_system_info = CidSystemInfo {
             registry,
             ordering,
@@ -331,27 +322,18 @@ impl PDFDocument {
         let descendant_fonts = self.cid_font(
             self.follow_till_dict(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
         )?;
-        let encoding = match dict.get(ENCODING)? {
-            Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            } => Encoding::try_from(dict).ok()?,
-            Object {
-                kind: ObjectKind::Name(name),
-                ..
-            } => Encoding::try_from(name).ok()?,
-            Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            } => match self.get(r#ref)? {
-                Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                } => Encoding::try_from(dict).ok()?,
-                Object {
-                    kind: ObjectKind::Name(name),
-                    ..
-                } => Encoding::try_from(name).ok()?,
+        let encoding: Type0Encoding = match &dict.get(ENCODING)?.kind {
+            ObjectKind::Dictionary(dict) => todo!(),
+            ObjectKind::Name(name) => {
+                let name: &[u8] = name.as_ref();
+                name.try_into().ok()?
+            },
+            ObjectKind::IndirectReference(r#ref) => match &self.get(r#ref)?.kind {
+                ObjectKind::Dictionary(dict) => todo!(),
+                ObjectKind::Name(name) => {
+                    let name: &[u8] = name.as_ref();
+                    name.try_into().ok()?
+                },
                 _ => return None,
             },
             _ => return None,
@@ -871,17 +853,10 @@ mod tests {
     #[test]
     fn test_document_test() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/fraud_proofs.pdf");
+        file.push("test_data/docs_multi_font.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
-        let contents = doc
-            .get(&IndirectReference {
-                object_number: 276,
-                generation_number: 0,
-            })
-            .unwrap();
-        let contents = inner!(contents, ObjectKind::Stream).unwrap();
-        let contents = &contents.content;
-        println!("{:#?}", std::str::from_utf8(&contents).unwrap());
+        let pages = doc.pages().unwrap();
+        println!("{:#?}", pages);
         assert!(false);
     }
 
