@@ -11,9 +11,9 @@ use crate::error::{PdfError, Result};
 use crate::font::cmap::object_array_to_glyph_widths;
 use crate::font::encoding::Encoding;
 use crate::font::font::{
-    CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDescriptor, FontDescriptorFlags,
-    FontDictionary, FontProgramKind, FontStretch, FontWeight, TrueTypeFont, Type0Font, Type1Font,
-    Type1SubtypeKind, Type3Font, CIDToGIDMap, Type0Encoding,
+    CIDFont, CIDFontSubtypeKind, CIDToGIDMap, CidSystemInfo, Font, FontDescriptor,
+    FontDescriptorFlags, FontDictionary, FontProgramKind, FontStretch, FontWeight, TrueTypeFont,
+    Type0Encoding, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
 };
 use crate::inner;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
@@ -327,13 +327,13 @@ impl PDFDocument {
             ObjectKind::Name(name) => {
                 let name: &[u8] = name.as_ref();
                 name.try_into().ok()?
-            },
+            }
             ObjectKind::IndirectReference(r#ref) => match &self.get(r#ref)?.kind {
                 ObjectKind::Dictionary(dict) => todo!(),
                 ObjectKind::Name(name) => {
                     let name: &[u8] = name.as_ref();
                     name.try_into().ok()?
-                },
+                }
                 _ => return None,
             },
             _ => return None,

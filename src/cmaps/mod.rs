@@ -1,1 +1,2 @@
-pub mod japan_1_2;
+pub mod japan_1;
+pub mod gb_1;

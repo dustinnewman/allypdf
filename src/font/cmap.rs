@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-use std::{borrow::Cow, collections::BTreeMap, convert::TryFrom, ops::RangeInclusive};
+use std::{borrow::Cow, convert::TryFrom, ops::RangeInclusive};
 
 use super::font::{CharCode, Cid, CidSystemInfo};
 use crate::parser::parser::{Object, ObjectKind};
@@ -157,13 +157,13 @@ impl CidRange {
     pub const fn new(start: CharCode, end: CharCode, cid: Cid) -> Self {
         Self { start, end, cid }
     }
-}
 
-pub type CMap = BTreeMap<CharCode, Cid>;
-
-impl CharCodeToCid for CMap {
-    fn get_cid(&self, char_code: CharCode) -> Option<Cid> {
-        self.get(&char_code).and_then(|&cid| Some(cid))
+    pub fn to_cid(&self, char_code: CharCode) -> Option<Cid> {
+        if self.start <= char_code && char_code <= self.end {
+            Some(self.cid + (char_code - self.start))
+        } else {
+            None
+        }
     }
 }
 
@@ -174,7 +174,7 @@ impl CharCodeToCid for CMap {
 pub type CodespaceRange = [RangeInclusive<u8>; MAX_CODE_SPACE_LENGTH];
 pub const DEFAULT_CODE_SPACE_RANGE: RangeInclusive<u8> = RangeInclusive::new(0, 0);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Codespace<'a> {
     // We use Cow here because predefined CMaps reference const slices of
     // codespace ranges whereas user-defined CMaps will need to use vectors
@@ -196,12 +196,13 @@ impl<'a> Codespace<'a> {
     // Take a list of bytes and see if the codespace contains these bytes.
     // For the code space to contain a list of bytes, then each byte must
     // be contained within its corresponding range.
-    pub fn contains(&self, bytes: &[u8; MAX_CODE_SPACE_LENGTH]) -> bool {
+    pub fn contains(&self, code: u32) -> bool {
+        let bytes = code.to_be_bytes();
         for range in self.ranges.iter() {
             if range
                 .iter()
                 .zip(bytes)
-                .all(|(dim, byte)| dim.contains(byte))
+                .all(|(dim, byte)| dim.contains(&byte))
             {
                 return true;
             }
@@ -215,7 +216,7 @@ impl<'a> Codespace<'a> {
 // one time, a CMap can describe a mapping from multiple-byte codes to
 // thousands of glyphs in a large CID-keyed font." (PDF 9.7.2)
 #[derive(Debug)]
-pub struct CMapFile<'a> {
+pub struct CMap<'a> {
     pub name: &'a [u8],
     pub cid_system_info: CidSystemInfo<'a>,
     // "Writing mode is specified as part of the CMap because, in some cases,
@@ -223,9 +224,6 @@ pub struct CMapFile<'a> {
     // In such cases, the horizontal and vertical variants of a CMap specify
     // different CIDs for a given character code." (PDF 9.7.5.1)
     pub writing_mode: CMapWritingMode,
-    // Optional because many CMap files do not reference other CMaps e.g.
-    // predefined ones
-    pub cmap: Option<CMap>,
     pub codespace: Codespace<'a>,
     // We use Cow here because for predefined CMaps, we use borrowed slices of
     // const ranges, but for CMap files specified in the PDF file itself we
@@ -233,12 +231,23 @@ pub struct CMapFile<'a> {
     pub cid_range: Cow<'a, [CidRange]>,
 }
 
-impl<'a> CMapFile<'a> {
+impl<'a> CharCodeToCid for CMap<'a> {
+    fn get_cid(&self, char_code: CharCode) -> Option<Cid> {
+        // TODO: Handle codespace somehow
+        // We use rev() because "succeeding maps supercede previous maps"
+        // - (CID 5.2 pg 52)
+        self.cid_range
+            .iter()
+            .rev()
+            .find_map(|range| range.to_cid(char_code))
+    }
+}
+
+impl<'a> CMap<'a> {
     pub fn new(
         name: &'a Name,
         cid_system_info: CidSystemInfo<'a>,
         writing_mode: CMapWritingMode,
-        cmap: Option<CMap>,
         codespace: Codespace<'a>,
         cid_range: Cow<'a, [CidRange]>,
     ) -> Self {
@@ -246,7 +255,6 @@ impl<'a> CMapFile<'a> {
             name,
             cid_system_info,
             writing_mode,
-            cmap,
             codespace,
             cid_range,
         }
@@ -285,9 +293,19 @@ mod tests {
         ];
         let ranges = vec![first_range, second_range, third_range, fourth_range];
         let codespace = Codespace::from(ranges.into());
-        assert!(codespace.contains(&[0, 0, 0, 0x79]));
-        assert!(codespace.contains(&[0, 0, 0x86, 0xA9]));
-        assert!(!codespace.contains(&[0, 0, 0x80, 0x10]));
-        assert!(!codespace.contains(&[0, 0, 0x82, 0x10]));
+        assert!(codespace.contains(0x79));
+        assert!(codespace.contains(0x86A9));
+        assert!(!codespace.contains(0x8010));
+        assert!(!codespace.contains(0x8210));
+    }
+
+    #[test]
+    fn test_cmap_cid_range() {
+        let cid_range = CidRange::new(0x20, 0x7e, 1);
+        assert_eq!(cid_range.to_cid(0x20).unwrap(), 1);
+        assert_eq!(cid_range.to_cid(0x21).unwrap(), 2);
+        assert_eq!(cid_range.to_cid(0x22).unwrap(), 3);
+        // SPEC_BREAK? CID says this should be 94, not sure
+        assert_eq!(cid_range.to_cid(0x7e).unwrap(), 95);
     }
 }

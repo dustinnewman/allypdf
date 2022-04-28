@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use super::cmap::{GlyphWidth, CMap};
+use super::cmap::{CMap, GlyphWidth};
 use super::encoding::{Encoding, ENCODING_SIZE};
 use crate::document::page::Resources;
 use crate::error::PdfError;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
-use crate::parser::parser::{Dictionary, Name, Stream, Object, ObjectKind};
+use crate::parser::parser::{Dictionary, Name, Object, ObjectKind, Stream};
 
 const IDENTITY: &[u8] = b"Identity";
 const IDENTITY_H: &[u8] = b"Identity-H";
@@ -405,7 +405,7 @@ pub struct CidSystemInfo<'a> {
 #[derive(Debug)]
 pub enum CIDToGIDMap<'a> {
     Identity,
-    Stream(&'a Stream)
+    Stream(&'a Stream),
 }
 
 impl<'a> TryFrom<&'a Object> for CIDToGIDMap<'a> {
@@ -415,7 +415,7 @@ impl<'a> TryFrom<&'a Object> for CIDToGIDMap<'a> {
         match &object.kind {
             ObjectKind::Name(name) if name == IDENTITY => Ok(CIDToGIDMap::Identity),
             ObjectKind::Stream(stream) => Ok(CIDToGIDMap::Stream(stream)),
-            _ => Err(PdfError::InvalidCIDToGIDMap)
+            _ => Err(PdfError::InvalidCIDToGIDMap),
         }
     }
 }
@@ -435,20 +435,20 @@ pub struct CIDFont<'a> {
 }
 
 #[derive(Debug)]
-pub enum Type0Encoding {
+pub enum Type0Encoding<'a> {
     IdentityH,
     IdentityV,
-    CMap(CMap)
+    CMap(CMap<'a>),
 }
 
-impl TryFrom<&[u8]> for Type0Encoding {
+impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
     type Error = PdfError;
 
     fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
         match name {
             IDENTITY_H => Ok(Self::IdentityH),
             IDENTITY_V => Ok(Self::IdentityV),
-            _ => Err(PdfError::InvalidType0EncodingName)
+            _ => Err(PdfError::InvalidType0EncodingName),
         }
     }
 }
@@ -457,7 +457,7 @@ impl TryFrom<&[u8]> for Type0Encoding {
 #[derive(Debug)]
 pub struct Type0Font<'a> {
     base_font: &'a Name,
-    encoding: Type0Encoding,
+    encoding: Type0Encoding<'a>,
     descendant_fonts: CIDFont<'a>,
     to_unicode: Option<&'a Stream>,
 }
@@ -465,7 +465,7 @@ pub struct Type0Font<'a> {
 impl<'a> Type0Font<'a> {
     pub fn new(
         base_font: &'a Name,
-        encoding: Type0Encoding,
+        encoding: Type0Encoding<'a>,
         descendant_fonts: CIDFont<'a>,
         to_unicode: Option<&'a Stream>,
     ) -> Self {

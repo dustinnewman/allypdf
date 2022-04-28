@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use super::cmap::{
-    CIDOperator, CMap, CMapFile, CMapWritingMode, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
+    CIDOperator, CMap, CMapWritingMode, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
     MAX_CODE_SPACE_LENGTH,
 };
 use super::font::CidSystemInfo;
@@ -20,7 +20,6 @@ const SUPPLEMENT: &[u8] = b"Supplement";
 pub struct CMapFileParser<'a> {
     objects: &'a [Object],
     pos: usize,
-    cmap: Option<CMap>,
     name: Option<&'a Name>,
     registry: Option<&'a Name>,
     ordering: Option<&'a Name>,
@@ -40,13 +39,12 @@ impl<'a> CMapFileParser<'a> {
             ordering: None,
             supplement: None,
             writing_mode: CMapWritingMode::default(),
-            cmap: None,
             codespace: None,
             cid_range: vec![],
         }
     }
 
-    pub fn parse(mut self) -> Option<CMapFile<'a>> {
+    pub fn parse(mut self) -> Option<CMap<'a>> {
         while let Some(object) = self.pop() {
             match &object.kind {
                 ObjectKind::Name(name) => self.name(name),
@@ -55,7 +53,7 @@ impl<'a> CMapFileParser<'a> {
                 _ => continue,
             };
         }
-        let cmap_file = CMapFile::new(
+        let cmap = CMap::new(
             self.name?,
             CidSystemInfo {
                 registry: self.registry?,
@@ -63,11 +61,10 @@ impl<'a> CMapFileParser<'a> {
                 supplement: self.supplement?,
             },
             self.writing_mode,
-            self.cmap,
-            self.codespace?,
+            self.codespace.unwrap_or_default(),
             self.cid_range.into(),
         );
-        Some(cmap_file)
+        Some(cmap)
     }
 
     fn cid_range(&mut self) -> Option<()> {
@@ -164,7 +161,6 @@ impl<'a> CMapFileParser<'a> {
 
     fn cid_system_info_dict(&mut self) {
         while let Some(object) = self.pop() {
-            println!("{:?}", object);
             if let ObjectKind::Name(name) = &object.kind {
                 let next = self.pop();
                 self.match_cid_system_info_pair(name, next);
@@ -261,11 +257,11 @@ mod tests {
             name!("Adobe-Identity-UCS"),
         ];
         let parser = CMapFileParser::new(&objects);
-        let cmap_file = parser.parse().unwrap();
-        assert_eq!(cmap_file.cid_system_info.registry, b"Adobe");
-        assert_eq!(cmap_file.cid_system_info.ordering, b"UCS");
-        assert_eq!(cmap_file.cid_system_info.supplement, 0);
-        assert_eq!(cmap_file.name, b"Adobe-Identity-UCS");
+        let cmap = parser.parse().unwrap();
+        assert_eq!(cmap.cid_system_info.registry, b"Adobe");
+        assert_eq!(cmap.cid_system_info.ordering, b"UCS");
+        assert_eq!(cmap.cid_system_info.supplement, 0);
+        assert_eq!(cmap.name, b"Adobe-Identity-UCS");
     }
 
     #[test]
@@ -322,7 +318,7 @@ mod tests {
             },
         ];
         let parser = CMapFileParser::new(&objects);
-        let cmap_file = parser.parse().unwrap();
+        let cmap = parser.parse().unwrap();
         let ranges = vec![
             [
                 RangeInclusive::new(0x00, 0x00),
@@ -350,20 +346,24 @@ mod tests {
             ],
         ];
         let expected = Codespace::from(ranges.into());
-        assert_eq!(cmap_file.codespace, expected);
+        assert_eq!(cmap.codespace, expected);
+        assert!(cmap.codespace.contains(0x79));
+        assert!(cmap.codespace.contains(0x86A9));
+        assert!(!cmap.codespace.contains(0x8010));
+        assert!(!cmap.codespace.contains(0x8210));
     }
 
-    // #[test]
-    // fn test_cid_parser_japan_cmap() {
-    //     let text = read_to_string("JAPAN.txt").unwrap();
-    //     let text = text.as_bytes();
-    //     let mut lexer = Lexer::new(text);
-    //     let tokens = lexer.lex();
-    //     let mut parser = Parser::new(&tokens);
-    //     let objects = parser.parse();
-    //     let cmap_parser = CMapFileParser::new(&objects);
-    //     let cmap_file = cmap_parser.parse().unwrap();
-    //     println!("{:?}", cmap_file);
-    //     assert!(false);
-    // }
+    #[test]
+    fn test_cid_parser_japan_cmap() {
+        let text = std::fs::read_to_string("JAPAN.txt").unwrap();
+        let text = text.as_bytes();
+        let mut lexer = crate::parser::lexer::Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = crate::parser::parser::Parser::new(&tokens);
+        let objects = parser.parse();
+        let cmap_parser = CMapFileParser::new(&objects);
+        let cmap = cmap_parser.parse().unwrap();
+        println!("{:?}", cmap);
+        assert!(false);
+    }
 }
