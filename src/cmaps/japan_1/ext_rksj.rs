@@ -11,7 +11,7 @@ const CODE_SPACE: [CodespaceRange; 4] = [
     [0..=0, 0..=0, 224..=252, 64..=252],
 ];
 
-const CID_RANGE_H: [CidRange; 635] = [
+const CID_RANGE_H: [CidRange; 665] = [
     CidRange {
         start: 32,
         end: 126,
@@ -24,33 +24,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 33152,
-        end: 33196,
+        end: 33160,
         cid: 696,
     },
     CidRange {
-        start: 33208,
-        end: 33215,
-        cid: 741,
+        start: 33161,
+        end: 33161,
+        cid: 7478,
     },
     CidRange {
-        start: 33224,
-        end: 33230,
-        cid: 749,
-    },
-    CidRange {
-        start: 33242,
-        end: 33256,
-        cid: 756,
-    },
-    CidRange {
-        start: 33264,
-        end: 33271,
-        cid: 771,
-    },
-    CidRange {
-        start: 33276,
-        end: 33276,
-        cid: 779,
+        start: 33162,
+        end: 33196,
+        cid: 706,
     },
     CidRange {
         start: 33359,
@@ -71,11 +56,6 @@ const CID_RANGE_H: [CidRange; 635] = [
         start: 33439,
         end: 33521,
         cid: 842,
-    },
-    CidRange {
-        start: 33522,
-        end: 33524,
-        cid: 7958,
     },
     CidRange {
         start: 33600,
@@ -113,164 +93,104 @@ const CID_RANGE_H: [CidRange; 635] = [
         cid: 1107,
     },
     CidRange {
-        start: 33951,
-        end: 33951,
+        start: 34112,
+        end: 34174,
+        cid: 232,
+    },
+    CidRange {
+        start: 34176,
+        end: 34176,
+        cid: 390,
+    },
+    CidRange {
+        start: 34177,
+        end: 34206,
+        cid: 296,
+    },
+    CidRange {
+        start: 34207,
+        end: 34269,
+        cid: 327,
+    },
+    CidRange {
+        start: 34270,
+        end: 34300,
+        cid: 391,
+    },
+    CidRange {
+        start: 34368,
+        end: 34430,
+        cid: 422,
+    },
+    CidRange {
+        start: 34432,
+        end: 34449,
+        cid: 485,
+    },
+    CidRange {
+        start: 34450,
+        end: 34450,
+        cid: 295,
+    },
+    CidRange {
+        start: 34451,
+        end: 34462,
+        cid: 503,
+    },
+    CidRange {
+        start: 34466,
+        end: 34541,
         cid: 7479,
     },
     CidRange {
-        start: 33952,
-        end: 33952,
-        cid: 7481,
+        start: 34624,
+        end: 34653,
+        cid: 7555,
     },
     CidRange {
-        start: 33953,
-        end: 33953,
-        cid: 7491,
+        start: 34655,
+        end: 34677,
+        cid: 7585,
     },
     CidRange {
-        start: 33954,
-        end: 33954,
-        cid: 7495,
+        start: 34686,
+        end: 34686,
+        cid: 8323,
     },
     CidRange {
-        start: 33955,
-        end: 33955,
-        cid: 7503,
+        start: 34688,
+        end: 34703,
+        cid: 7608,
     },
     CidRange {
-        start: 33956,
-        end: 33956,
-        cid: 7499,
+        start: 34704,
+        end: 34704,
+        cid: 762,
     },
     CidRange {
-        start: 33957,
-        end: 33957,
-        cid: 7507,
+        start: 34705,
+        end: 34705,
+        cid: 761,
     },
     CidRange {
-        start: 33958,
-        end: 33958,
-        cid: 7523,
+        start: 34706,
+        end: 34706,
+        cid: 769,
     },
     CidRange {
-        start: 33959,
-        end: 33959,
-        cid: 7515,
+        start: 34707,
+        end: 34713,
+        cid: 7624,
     },
     CidRange {
-        start: 33960,
-        end: 33960,
-        cid: 7531,
+        start: 34714,
+        end: 34714,
+        cid: 768,
     },
     CidRange {
-        start: 33961,
-        end: 33961,
-        cid: 7539,
-    },
-    CidRange {
-        start: 33962,
-        end: 33962,
-        cid: 7480,
-    },
-    CidRange {
-        start: 33963,
-        end: 33963,
-        cid: 7482,
-    },
-    CidRange {
-        start: 33964,
-        end: 33964,
-        cid: 7494,
-    },
-    CidRange {
-        start: 33965,
-        end: 33965,
-        cid: 7498,
-    },
-    CidRange {
-        start: 33966,
-        end: 33966,
-        cid: 7506,
-    },
-    CidRange {
-        start: 33967,
-        end: 33967,
-        cid: 7502,
-    },
-    CidRange {
-        start: 33968,
-        end: 33968,
-        cid: 7514,
-    },
-    CidRange {
-        start: 33969,
-        end: 33969,
-        cid: 7530,
-    },
-    CidRange {
-        start: 33970,
-        end: 33970,
-        cid: 7522,
-    },
-    CidRange {
-        start: 33971,
-        end: 33971,
-        cid: 7538,
-    },
-    CidRange {
-        start: 33972,
-        end: 33972,
-        cid: 7554,
-    },
-    CidRange {
-        start: 33973,
-        end: 33973,
-        cid: 7511,
-    },
-    CidRange {
-        start: 33974,
-        end: 33974,
-        cid: 7526,
-    },
-    CidRange {
-        start: 33975,
-        end: 33975,
-        cid: 7519,
-    },
-    CidRange {
-        start: 33976,
-        end: 33976,
-        cid: 7534,
-    },
-    CidRange {
-        start: 33977,
-        end: 33977,
-        cid: 7542,
-    },
-    CidRange {
-        start: 33978,
-        end: 33978,
-        cid: 7508,
-    },
-    CidRange {
-        start: 33979,
-        end: 33979,
-        cid: 7527,
-    },
-    CidRange {
-        start: 33980,
-        end: 33980,
-        cid: 7516,
-    },
-    CidRange {
-        start: 33981,
-        end: 33981,
-        cid: 7535,
-    },
-    CidRange {
-        start: 33982,
-        end: 33982,
-        cid: 7545,
+        start: 34715,
+        end: 34716,
+        cid: 7631,
     },
     CidRange {
         start: 34975,
@@ -284,18 +204,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 34977,
-        end: 34991,
+        end: 34992,
         cid: 1127,
     },
     CidRange {
-        start: 34992,
-        end: 34992,
-        cid: 7961,
+        start: 34993,
+        end: 34993,
+        cid: 7330,
     },
     CidRange {
-        start: 34993,
+        start: 34994,
         end: 35000,
-        cid: 1143,
+        cid: 1144,
     },
     CidRange {
         start: 35001,
@@ -314,18 +234,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35053,
-        end: 35054,
-        cid: 1203,
-    },
-    CidRange {
-        start: 35055,
-        end: 35055,
-        cid: 7962,
-    },
-    CidRange {
-        start: 35056,
         end: 35056,
-        cid: 1206,
+        cid: 1203,
     },
     CidRange {
         start: 35057,
@@ -359,18 +269,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35146,
-        end: 35153,
-        cid: 1229,
-    },
-    CidRange {
-        start: 35154,
-        end: 35154,
-        cid: 7963,
-    },
-    CidRange {
-        start: 35155,
         end: 35155,
-        cid: 1238,
+        cid: 1229,
     },
     CidRange {
         start: 35156,
@@ -385,17 +285,17 @@ const CID_RANGE_H: [CidRange; 635] = [
     CidRange {
         start: 35160,
         end: 35160,
-        cid: 7964,
+        cid: 7640,
     },
     CidRange {
         start: 35161,
-        end: 35163,
+        end: 35162,
         cid: 1244,
     },
     CidRange {
-        start: 35164,
+        start: 35163,
         end: 35164,
-        cid: 7642,
+        cid: 7641,
     },
     CidRange {
         start: 35165,
@@ -435,7 +335,7 @@ const CID_RANGE_H: [CidRange; 635] = [
     CidRange {
         start: 35239,
         end: 35239,
-        cid: 1321,
+        cid: 7369,
     },
     CidRange {
         start: 35240,
@@ -454,18 +354,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35295,
-        end: 35300,
-        cid: 1377,
-    },
-    CidRange {
-        start: 35301,
-        end: 35301,
-        cid: 7965,
-    },
-    CidRange {
-        start: 35302,
         end: 35319,
-        cid: 1384,
+        cid: 1377,
     },
     CidRange {
         start: 35320,
@@ -474,8 +364,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35321,
-        end: 35324,
+        end: 35322,
         cid: 1403,
+    },
+    CidRange {
+        start: 35323,
+        end: 35323,
+        cid: 7649,
+    },
+    CidRange {
+        start: 35324,
+        end: 35324,
+        cid: 1406,
     },
     CidRange {
         start: 35392,
@@ -489,13 +389,43 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35394,
-        end: 35454,
+        end: 35424,
         cid: 1409,
     },
     CidRange {
+        start: 35425,
+        end: 35425,
+        cid: 6497,
+    },
+    CidRange {
+        start: 35426,
+        end: 35431,
+        cid: 1441,
+    },
+    CidRange {
+        start: 35432,
+        end: 35432,
+        cid: 5023,
+    },
+    CidRange {
+        start: 35433,
+        end: 35454,
+        cid: 1448,
+    },
+    CidRange {
         start: 35456,
-        end: 35466,
+        end: 35460,
         cid: 1470,
+    },
+    CidRange {
+        start: 35461,
+        end: 35461,
+        cid: 7651,
+    },
+    CidRange {
+        start: 35462,
+        end: 35466,
+        cid: 1476,
     },
     CidRange {
         start: 35467,
@@ -514,8 +444,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35476,
-        end: 35481,
+        end: 35477,
         cid: 1490,
+    },
+    CidRange {
+        start: 35478,
+        end: 35478,
+        cid: 5937,
+    },
+    CidRange {
+        start: 35479,
+        end: 35481,
+        cid: 1493,
     },
     CidRange {
         start: 35482,
@@ -534,8 +474,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35521,
+        end: 35521,
+        cid: 5490,
+    },
+    CidRange {
+        start: 35522,
         end: 35530,
-        cid: 1535,
+        cid: 1536,
     },
     CidRange {
         start: 35531,
@@ -544,8 +489,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35532,
-        end: 35554,
+        end: 35535,
         cid: 1546,
+    },
+    CidRange {
+        start: 35536,
+        end: 35536,
+        cid: 6688,
+    },
+    CidRange {
+        start: 35537,
+        end: 35554,
+        cid: 1551,
     },
     CidRange {
         start: 35555,
@@ -584,28 +539,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35712,
-        end: 35713,
-        cid: 1658,
-    },
-    CidRange {
-        start: 35714,
-        end: 35714,
-        cid: 7966,
-    },
-    CidRange {
-        start: 35715,
-        end: 35719,
-        cid: 1661,
-    },
-    CidRange {
-        start: 35720,
-        end: 35720,
-        cid: 7967,
-    },
-    CidRange {
-        start: 35721,
         end: 35743,
-        cid: 1667,
+        cid: 1658,
     },
     CidRange {
         start: 35744,
@@ -624,18 +559,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35753,
-        end: 35775,
+        end: 35779,
         cid: 1699,
     },
     CidRange {
-        start: 35776,
-        end: 35776,
-        cid: 7968,
+        start: 35780,
+        end: 35780,
+        cid: 7474,
     },
     CidRange {
-        start: 35777,
+        start: 35781,
         end: 35788,
-        cid: 1723,
+        cid: 1727,
     },
     CidRange {
         start: 35789,
@@ -689,8 +624,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35904,
-        end: 35925,
+        end: 35906,
         cid: 1783,
+    },
+    CidRange {
+        start: 35907,
+        end: 35907,
+        cid: 7667,
+    },
+    CidRange {
+        start: 35908,
+        end: 35925,
+        cid: 1787,
     },
     CidRange {
         start: 35926,
@@ -699,8 +644,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35927,
-        end: 35952,
+        end: 35939,
         cid: 1806,
+    },
+    CidRange {
+        start: 35940,
+        end: 35940,
+        cid: 7669,
+    },
+    CidRange {
+        start: 35941,
+        end: 35948,
+        cid: 1820,
+    },
+    CidRange {
+        start: 35949,
+        end: 35949,
+        cid: 7670,
+    },
+    CidRange {
+        start: 35950,
+        end: 35952,
+        cid: 1829,
     },
     CidRange {
         start: 35953,
@@ -709,13 +674,43 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35954,
-        end: 35966,
+        end: 35955,
         cid: 1833,
     },
     CidRange {
+        start: 35956,
+        end: 35956,
+        cid: 7672,
+    },
+    CidRange {
+        start: 35957,
+        end: 35961,
+        cid: 1836,
+    },
+    CidRange {
+        start: 35962,
+        end: 35962,
+        cid: 7181,
+    },
+    CidRange {
+        start: 35963,
+        end: 35966,
+        cid: 1842,
+    },
+    CidRange {
         start: 35968,
-        end: 35984,
+        end: 35971,
         cid: 1846,
+    },
+    CidRange {
+        start: 35972,
+        end: 35972,
+        cid: 7673,
+    },
+    CidRange {
+        start: 35973,
+        end: 35984,
+        cid: 1851,
     },
     CidRange {
         start: 35985,
@@ -724,13 +719,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 35986,
-        end: 35996,
+        end: 35992,
         cid: 1864,
     },
     CidRange {
-        start: 35997,
+        start: 35993,
+        end: 35993,
+        cid: 7675,
+    },
+    CidRange {
+        start: 35994,
         end: 35997,
-        cid: 7969,
+        cid: 1872,
     },
     CidRange {
         start: 35998,
@@ -774,8 +774,38 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 36171,
-        end: 36222,
+        end: 36181,
         cid: 1982,
+    },
+    CidRange {
+        start: 36182,
+        end: 36182,
+        cid: 7680,
+    },
+    CidRange {
+        start: 36183,
+        end: 36192,
+        cid: 1994,
+    },
+    CidRange {
+        start: 36193,
+        end: 36193,
+        cid: 7681,
+    },
+    CidRange {
+        start: 36194,
+        end: 36218,
+        cid: 2005,
+    },
+    CidRange {
+        start: 36219,
+        end: 36219,
+        cid: 5853,
+    },
+    CidRange {
+        start: 36220,
+        end: 36222,
+        cid: 2031,
     },
     CidRange {
         start: 36224,
@@ -884,23 +914,23 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 36441,
-        end: 36447,
+        end: 36478,
         cid: 2184,
     },
     CidRange {
-        start: 36448,
-        end: 36448,
-        cid: 7970,
-    },
-    CidRange {
-        start: 36449,
-        end: 36478,
-        cid: 2192,
-    },
-    CidRange {
         start: 36480,
-        end: 36549,
+        end: 36533,
         cid: 2222,
+    },
+    CidRange {
+        start: 36534,
+        end: 36534,
+        cid: 7692,
+    },
+    CidRange {
+        start: 36535,
+        end: 36549,
+        cid: 2277,
     },
     CidRange {
         start: 36550,
@@ -909,8 +939,23 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 36551,
+        end: 36551,
+        cid: 6441,
+    },
+    CidRange {
+        start: 36552,
+        end: 36564,
+        cid: 2294,
+    },
+    CidRange {
+        start: 36565,
+        end: 36565,
+        cid: 7694,
+    },
+    CidRange {
+        start: 36566,
         end: 36570,
-        cid: 2293,
+        cid: 2308,
     },
     CidRange {
         start: 36571,
@@ -954,13 +999,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 36748,
-        end: 36748,
+        end: 36749,
         cid: 7699,
     },
     CidRange {
-        start: 36749,
+        start: 36750,
         end: 36753,
-        cid: 2423,
+        cid: 2424,
     },
     CidRange {
         start: 36754,
@@ -989,8 +1034,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 36786,
-        end: 36818,
+        end: 36796,
         cid: 2460,
+    },
+    CidRange {
+        start: 36797,
+        end: 36797,
+        cid: 7705,
+    },
+    CidRange {
+        start: 36798,
+        end: 36818,
+        cid: 2472,
     },
     CidRange {
         start: 36819,
@@ -1040,7 +1095,7 @@ const CID_RANGE_H: [CidRange; 635] = [
     CidRange {
         start: 36984,
         end: 36984,
-        cid: 7971,
+        cid: 7710,
     },
     CidRange {
         start: 36985,
@@ -1054,8 +1109,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 36993,
-        end: 37023,
+        end: 37000,
         cid: 2599,
+    },
+    CidRange {
+        start: 37001,
+        end: 37001,
+        cid: 7712,
+    },
+    CidRange {
+        start: 37002,
+        end: 37023,
+        cid: 2608,
     },
     CidRange {
         start: 37024,
@@ -1064,8 +1129,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37025,
-        end: 37091,
+        end: 37055,
         cid: 2631,
+    },
+    CidRange {
+        start: 37056,
+        end: 37056,
+        cid: 7714,
+    },
+    CidRange {
+        start: 37057,
+        end: 37091,
+        cid: 2663,
     },
     CidRange {
         start: 37092,
@@ -1079,38 +1154,23 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37103,
-        end: 37103,
+        end: 37104,
         cid: 7716,
     },
     CidRange {
-        start: 37104,
+        start: 37105,
         end: 37110,
-        cid: 2710,
+        cid: 2711,
     },
     CidRange {
         start: 37111,
-        end: 37111,
+        end: 37112,
         cid: 7718,
     },
     CidRange {
-        start: 37112,
-        end: 37112,
-        cid: 7972,
-    },
-    CidRange {
         start: 37113,
-        end: 37113,
-        cid: 2719,
-    },
-    CidRange {
-        start: 37114,
-        end: 37115,
-        cid: 7973,
-    },
-    CidRange {
-        start: 37116,
         end: 37116,
-        cid: 2722,
+        cid: 2719,
     },
     CidRange {
         start: 37184,
@@ -1124,8 +1184,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37191,
+        end: 37191,
+        cid: 6766,
+    },
+    CidRange {
+        start: 37192,
         end: 37207,
-        cid: 2730,
+        cid: 2731,
     },
     CidRange {
         start: 37208,
@@ -1174,18 +1239,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37258,
-        end: 37300,
-        cid: 2796,
-    },
-    CidRange {
-        start: 37301,
-        end: 37301,
-        cid: 7975,
-    },
-    CidRange {
-        start: 37302,
         end: 37306,
-        cid: 2840,
+        cid: 2796,
     },
     CidRange {
         start: 37307,
@@ -1234,8 +1289,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37358,
-        end: 37370,
+        end: 37362,
         cid: 2896,
+    },
+    CidRange {
+        start: 37363,
+        end: 37364,
+        cid: 7731,
+    },
+    CidRange {
+        start: 37365,
+        end: 37370,
+        cid: 2903,
     },
     CidRange {
         start: 37371,
@@ -1264,13 +1329,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37448,
-        end: 37448,
+        end: 37449,
         cid: 7735,
     },
     CidRange {
-        start: 37449,
+        start: 37450,
         end: 37451,
-        cid: 2920,
+        cid: 2921,
     },
     CidRange {
         start: 37452,
@@ -1354,8 +1419,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37577,
-        end: 37580,
+        end: 37578,
         cid: 3047,
+    },
+    CidRange {
+        start: 37579,
+        end: 37579,
+        cid: 7746,
+    },
+    CidRange {
+        start: 37580,
+        end: 37580,
+        cid: 3050,
     },
     CidRange {
         start: 37581,
@@ -1364,8 +1439,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37582,
-        end: 37628,
+        end: 37592,
         cid: 3052,
+    },
+    CidRange {
+        start: 37593,
+        end: 37593,
+        cid: 4533,
+    },
+    CidRange {
+        start: 37594,
+        end: 37628,
+        cid: 3064,
     },
     CidRange {
         start: 37696,
@@ -1444,18 +1529,23 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37744,
-        end: 37744,
-        cid: 7976,
-    },
-    CidRange {
-        start: 37745,
         end: 37745,
-        cid: 7756,
+        cid: 7755,
     },
     CidRange {
         start: 37746,
-        end: 37758,
+        end: 37749,
         cid: 3149,
+    },
+    CidRange {
+        start: 37750,
+        end: 37750,
+        cid: 5855,
+    },
+    CidRange {
+        start: 37751,
+        end: 37758,
+        cid: 3154,
     },
     CidRange {
         start: 37760,
@@ -1469,8 +1559,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37765,
-        end: 37783,
+        end: 37773,
         cid: 3167,
+    },
+    CidRange {
+        start: 37774,
+        end: 37774,
+        cid: 5200,
+    },
+    CidRange {
+        start: 37775,
+        end: 37778,
+        cid: 3177,
+    },
+    CidRange {
+        start: 37779,
+        end: 37779,
+        cid: 5430,
+    },
+    CidRange {
+        start: 37780,
+        end: 37783,
+        cid: 3182,
     },
     CidRange {
         start: 37784,
@@ -1479,8 +1589,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37785,
-        end: 37823,
+        end: 37819,
         cid: 3187,
+    },
+    CidRange {
+        start: 37820,
+        end: 37820,
+        cid: 7759,
+    },
+    CidRange {
+        start: 37821,
+        end: 37823,
+        cid: 3223,
     },
     CidRange {
         start: 37824,
@@ -1494,23 +1614,33 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37842,
-        end: 37842,
+        end: 37843,
         cid: 7761,
     },
     CidRange {
-        start: 37843,
+        start: 37844,
         end: 37848,
-        cid: 3245,
+        cid: 3246,
     },
     CidRange {
         start: 37849,
-        end: 37849,
+        end: 37850,
         cid: 7763,
     },
     CidRange {
-        start: 37850,
+        start: 37851,
+        end: 37854,
+        cid: 3253,
+    },
+    CidRange {
+        start: 37855,
+        end: 37855,
+        cid: 7765,
+    },
+    CidRange {
+        start: 37856,
         end: 37859,
-        cid: 3252,
+        cid: 3258,
     },
     CidRange {
         start: 37860,
@@ -1535,7 +1665,7 @@ const CID_RANGE_H: [CidRange; 635] = [
     CidRange {
         start: 37876,
         end: 37876,
-        cid: 7872,
+        cid: 6893,
     },
     CidRange {
         start: 37877,
@@ -1554,13 +1684,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 37961,
-        end: 37961,
-        cid: 7977,
-    },
-    CidRange {
-        start: 37962,
         end: 37975,
-        cid: 3297,
+        cid: 3296,
     },
     CidRange {
         start: 37976,
@@ -1595,7 +1720,7 @@ const CID_RANGE_H: [CidRange; 635] = [
     CidRange {
         start: 38024,
         end: 38024,
-        cid: 3358,
+        cid: 6537,
     },
     CidRange {
         start: 38025,
@@ -1644,18 +1769,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38063,
-        end: 38077,
-        cid: 3397,
-    },
-    CidRange {
-        start: 38078,
-        end: 38078,
-        cid: 7978,
-    },
-    CidRange {
-        start: 38079,
         end: 38097,
-        cid: 3413,
+        cid: 3397,
     },
     CidRange {
         start: 38098,
@@ -1664,8 +1779,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38099,
-        end: 38130,
+        end: 38111,
         cid: 3433,
+    },
+    CidRange {
+        start: 38112,
+        end: 38112,
+        cid: 7779,
+    },
+    CidRange {
+        start: 38113,
+        end: 38130,
+        cid: 3447,
     },
     CidRange {
         start: 38131,
@@ -1699,8 +1824,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38223,
+        end: 38223,
+        cid: 5179,
+    },
+    CidRange {
+        start: 38224,
         end: 38224,
-        cid: 3490,
+        cid: 3491,
     },
     CidRange {
         start: 38225,
@@ -1739,8 +1869,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38254,
-        end: 38270,
+        end: 38255,
         cid: 3521,
+    },
+    CidRange {
+        start: 38256,
+        end: 38256,
+        cid: 7788,
+    },
+    CidRange {
+        start: 38257,
+        end: 38270,
+        cid: 3524,
     },
     CidRange {
         start: 38272,
@@ -1764,18 +1904,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38348,
-        end: 38352,
-        cid: 3614,
-    },
-    CidRange {
-        start: 38353,
-        end: 38353,
-        cid: 7979,
-    },
-    CidRange {
-        start: 38354,
         end: 38359,
-        cid: 3620,
+        cid: 3614,
     },
     CidRange {
         start: 38360,
@@ -1799,8 +1929,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38464,
-        end: 38471,
+        end: 38464,
         cid: 3663,
+    },
+    CidRange {
+        start: 38465,
+        end: 38465,
+        cid: 7793,
+    },
+    CidRange {
+        start: 38466,
+        end: 38471,
+        cid: 3665,
     },
     CidRange {
         start: 38472,
@@ -1824,8 +1964,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38528,
-        end: 38543,
+        end: 38537,
         cid: 3726,
+    },
+    CidRange {
+        start: 38538,
+        end: 38538,
+        cid: 7475,
+    },
+    CidRange {
+        start: 38539,
+        end: 38543,
+        cid: 3737,
     },
     CidRange {
         start: 38544,
@@ -1834,18 +1984,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38545,
-        end: 38551,
+        end: 38552,
         cid: 3743,
     },
     CidRange {
-        start: 38552,
-        end: 38552,
-        cid: 7980,
+        start: 38553,
+        end: 38553,
+        cid: 4143,
     },
     CidRange {
-        start: 38553,
+        start: 38554,
         end: 38602,
-        cid: 3751,
+        cid: 3752,
     },
     CidRange {
         start: 38603,
@@ -1884,8 +2034,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38625,
-        end: 38647,
+        end: 38646,
         cid: 3823,
+    },
+    CidRange {
+        start: 38647,
+        end: 38647,
+        cid: 6453,
     },
     CidRange {
         start: 38648,
@@ -1904,8 +2059,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38651,
-        end: 38652,
+        end: 38651,
         cid: 3849,
+    },
+    CidRange {
+        start: 38652,
+        end: 38652,
+        cid: 7803,
     },
     CidRange {
         start: 38720,
@@ -1939,8 +2099,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38772,
-        end: 38782,
+        end: 38776,
         cid: 3903,
+    },
+    CidRange {
+        start: 38777,
+        end: 38777,
+        cid: 7476,
+    },
+    CidRange {
+        start: 38778,
+        end: 38782,
+        cid: 3909,
     },
     CidRange {
         start: 38784,
@@ -1954,8 +2124,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38794,
-        end: 38903,
+        end: 38856,
         cid: 3924,
+    },
+    CidRange {
+        start: 38857,
+        end: 38857,
+        cid: 7808,
+    },
+    CidRange {
+        start: 38858,
+        end: 38903,
+        cid: 3988,
     },
     CidRange {
         start: 38904,
@@ -1964,13 +2144,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38906,
-        end: 38906,
-        cid: 7981,
-    },
-    CidRange {
-        start: 38907,
         end: 38908,
-        cid: 4037,
+        cid: 4036,
     },
     CidRange {
         start: 38976,
@@ -1989,8 +2164,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 38993,
-        end: 38999,
+        end: 38996,
         cid: 4056,
+    },
+    CidRange {
+        start: 38997,
+        end: 38997,
+        cid: 6007,
+    },
+    CidRange {
+        start: 38998,
+        end: 38999,
+        cid: 4061,
     },
     CidRange {
         start: 39000,
@@ -2004,23 +2189,23 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39071,
-        end: 39164,
+        end: 39123,
         cid: 4090,
     },
     CidRange {
+        start: 39124,
+        end: 39124,
+        cid: 3751,
+    },
+    CidRange {
+        start: 39125,
+        end: 39164,
+        cid: 4144,
+    },
+    CidRange {
         start: 39232,
-        end: 39232,
-        cid: 4184,
-    },
-    CidRange {
-        start: 39233,
-        end: 39233,
-        cid: 7982,
-    },
-    CidRange {
-        start: 39234,
         end: 39259,
-        cid: 4186,
+        cid: 4184,
     },
     CidRange {
         start: 39260,
@@ -2029,8 +2214,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39261,
-        end: 39275,
+        end: 39269,
         cid: 4213,
+    },
+    CidRange {
+        start: 39270,
+        end: 39270,
+        cid: 7815,
+    },
+    CidRange {
+        start: 39271,
+        end: 39273,
+        cid: 4223,
+    },
+    CidRange {
+        start: 39274,
+        end: 39274,
+        cid: 7816,
+    },
+    CidRange {
+        start: 39275,
+        end: 39275,
+        cid: 4227,
     },
     CidRange {
         start: 39276,
@@ -2044,18 +2249,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39296,
-        end: 39349,
-        cid: 4247,
-    },
-    CidRange {
-        start: 39350,
-        end: 39350,
-        cid: 7983,
-    },
-    CidRange {
-        start: 39351,
         end: 39420,
-        cid: 4302,
+        cid: 4247,
     },
     CidRange {
         start: 39488,
@@ -2079,18 +2274,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39514,
-        end: 39526,
+        end: 39534,
         cid: 4398,
     },
     CidRange {
-        start: 39527,
-        end: 39527,
-        cid: 7984,
+        start: 39535,
+        end: 39535,
+        cid: 7820,
     },
     CidRange {
-        start: 39528,
+        start: 39536,
         end: 39548,
-        cid: 4412,
+        cid: 4420,
     },
     CidRange {
         start: 39549,
@@ -2114,13 +2309,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39564,
-        end: 39564,
-        cid: 7985,
-    },
-    CidRange {
-        start: 39565,
         end: 39617,
-        cid: 4448,
+        cid: 4447,
     },
     CidRange {
         start: 39618,
@@ -2129,23 +2319,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39619,
-        end: 39619,
-        cid: 7986,
+        end: 39649,
+        cid: 4502,
     },
     CidRange {
-        start: 39620,
-        end: 39657,
-        cid: 4503,
+        start: 39650,
+        end: 39650,
+        cid: 3063,
     },
     CidRange {
-        start: 39658,
-        end: 39658,
-        cid: 7987,
-    },
-    CidRange {
-        start: 39659,
+        start: 39651,
         end: 39676,
-        cid: 4542,
+        cid: 4534,
     },
     CidRange {
         start: 39744,
@@ -2174,18 +2359,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39812,
-        end: 39831,
-        cid: 4627,
-    },
-    CidRange {
-        start: 39832,
-        end: 39832,
-        cid: 7988,
-    },
-    CidRange {
-        start: 39833,
         end: 39839,
-        cid: 4648,
+        cid: 4627,
     },
     CidRange {
         start: 39840,
@@ -2194,13 +2369,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 39841,
-        end: 39930,
+        end: 39919,
         cid: 4656,
     },
     CidRange {
-        start: 39931,
+        start: 39920,
+        end: 39920,
+        cid: 7827,
+    },
+    CidRange {
+        start: 39921,
         end: 39932,
-        cid: 7989,
+        cid: 4736,
     },
     CidRange {
         start: 40000,
@@ -2224,18 +2404,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40256,
-        end: 40262,
-        cid: 4936,
-    },
-    CidRange {
-        start: 40263,
-        end: 40263,
-        cid: 7991,
-    },
-    CidRange {
-        start: 40264,
         end: 40318,
-        cid: 4944,
+        cid: 4936,
     },
     CidRange {
         start: 40320,
@@ -2254,8 +2424,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40333,
-        end: 40374,
+        end: 40343,
         cid: 5012,
+    },
+    CidRange {
+        start: 40344,
+        end: 40344,
+        cid: 1447,
+    },
+    CidRange {
+        start: 40345,
+        end: 40374,
+        cid: 5024,
     },
     CidRange {
         start: 40375,
@@ -2264,18 +2444,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40376,
-        end: 40439,
+        end: 40394,
         cid: 5055,
     },
     CidRange {
-        start: 40440,
-        end: 40440,
-        cid: 7992,
+        start: 40395,
+        end: 40395,
+        cid: 7832,
     },
     CidRange {
-        start: 40441,
+        start: 40396,
         end: 40444,
-        cid: 5120,
+        cid: 5075,
     },
     CidRange {
         start: 40512,
@@ -2289,8 +2469,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40549,
-        end: 40574,
+        end: 40552,
         cid: 5161,
+    },
+    CidRange {
+        start: 40553,
+        end: 40553,
+        cid: 7834,
+    },
+    CidRange {
+        start: 40554,
+        end: 40566,
+        cid: 5166,
+    },
+    CidRange {
+        start: 40567,
+        end: 40567,
+        cid: 3490,
+    },
+    CidRange {
+        start: 40568,
+        end: 40574,
+        cid: 5180,
     },
     CidRange {
         start: 40576,
@@ -2304,8 +2504,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40588,
-        end: 40700,
+        end: 40588,
         cid: 5199,
+    },
+    CidRange {
+        start: 40589,
+        end: 40589,
+        cid: 3176,
+    },
+    CidRange {
+        start: 40590,
+        end: 40595,
+        cid: 5201,
+    },
+    CidRange {
+        start: 40596,
+        end: 40596,
+        cid: 7836,
+    },
+    CidRange {
+        start: 40597,
+        end: 40700,
+        cid: 5208,
     },
     CidRange {
         start: 40768,
@@ -2314,18 +2534,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40832,
-        end: 40832,
+        end: 40886,
         cid: 5375,
     },
     CidRange {
-        start: 40833,
-        end: 40833,
-        cid: 7993,
+        start: 40887,
+        end: 40887,
+        cid: 3181,
     },
     CidRange {
-        start: 40834,
+        start: 40888,
         end: 40909,
-        cid: 5377,
+        cid: 5431,
     },
     CidRange {
         start: 40910,
@@ -2334,28 +2554,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 40911,
-        end: 40915,
+        end: 40946,
         cid: 5454,
     },
     CidRange {
-        start: 40916,
-        end: 40916,
-        cid: 7994,
-    },
-    CidRange {
-        start: 40917,
+        start: 40947,
         end: 40947,
-        cid: 5460,
+        cid: 1535,
     },
     CidRange {
         start: 40948,
-        end: 40948,
-        cid: 7995,
-    },
-    CidRange {
-        start: 40949,
         end: 40956,
-        cid: 5492,
+        cid: 5491,
     },
     CidRange {
         start: 160,
@@ -2399,8 +2609,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 57566,
-        end: 57596,
+        end: 57587,
         cid: 5657,
+    },
+    CidRange {
+        start: 57588,
+        end: 57588,
+        cid: 7477,
+    },
+    CidRange {
+        start: 57589,
+        end: 57596,
+        cid: 5680,
     },
     CidRange {
         start: 57664,
@@ -2414,13 +2634,53 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 57675,
-        end: 57726,
+        end: 57678,
         cid: 5699,
     },
     CidRange {
+        start: 57679,
+        end: 57680,
+        cid: 7842,
+    },
+    CidRange {
+        start: 57681,
+        end: 57726,
+        cid: 5705,
+    },
+    CidRange {
         start: 57728,
-        end: 57836,
+        end: 57768,
         cid: 5751,
+    },
+    CidRange {
+        start: 57769,
+        end: 57769,
+        cid: 7844,
+    },
+    CidRange {
+        start: 57770,
+        end: 57829,
+        cid: 5793,
+    },
+    CidRange {
+        start: 57830,
+        end: 57830,
+        cid: 2030,
+    },
+    CidRange {
+        start: 57831,
+        end: 57831,
+        cid: 5854,
+    },
+    CidRange {
+        start: 57832,
+        end: 57832,
+        cid: 3153,
+    },
+    CidRange {
+        start: 57833,
+        end: 57836,
+        cid: 5856,
     },
     CidRange {
         start: 57837,
@@ -2454,18 +2714,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 57972,
-        end: 57975,
+        end: 57980,
         cid: 5928,
     },
     CidRange {
-        start: 57976,
-        end: 57976,
-        cid: 7996,
+        start: 57981,
+        end: 57981,
+        cid: 1492,
     },
     CidRange {
-        start: 57977,
+        start: 57982,
         end: 57982,
-        cid: 5933,
+        cid: 5938,
     },
     CidRange {
         start: 57984,
@@ -2479,18 +2739,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 58040,
-        end: 58045,
+        end: 58051,
         cid: 5995,
     },
     CidRange {
-        start: 58046,
-        end: 58046,
-        cid: 7997,
+        start: 58052,
+        end: 58052,
+        cid: 4060,
     },
     CidRange {
-        start: 58047,
+        start: 58053,
         end: 58081,
-        cid: 6002,
+        cid: 6008,
     },
     CidRange {
         start: 58082,
@@ -2549,18 +2809,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 58240,
-        end: 58310,
+        end: 58307,
         cid: 6127,
     },
     CidRange {
-        start: 58311,
-        end: 58311,
-        cid: 7998,
+        start: 58308,
+        end: 58308,
+        cid: 7854,
     },
     CidRange {
-        start: 58312,
+        start: 58309,
         end: 58364,
-        cid: 6199,
+        cid: 6196,
     },
     CidRange {
         start: 58432,
@@ -2599,8 +2859,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 58515,
-        end: 58552,
+        end: 58545,
         cid: 6334,
+    },
+    CidRange {
+        start: 58546,
+        end: 58546,
+        cid: 7858,
+    },
+    CidRange {
+        start: 58547,
+        end: 58552,
+        cid: 6366,
     },
     CidRange {
         start: 58553,
@@ -2609,43 +2879,93 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 58554,
-        end: 58570,
+        end: 58609,
         cid: 6373,
     },
     CidRange {
-        start: 58571,
-        end: 58571,
-        cid: 7999,
+        start: 58610,
+        end: 58610,
+        cid: 7860,
     },
     CidRange {
-        start: 58572,
+        start: 58611,
         end: 58620,
-        cid: 6391,
+        cid: 6430,
     },
     CidRange {
         start: 58688,
-        end: 58750,
+        end: 58688,
         cid: 6440,
     },
     CidRange {
+        start: 58689,
+        end: 58689,
+        cid: 2293,
+    },
+    CidRange {
+        start: 58690,
+        end: 58700,
+        cid: 6442,
+    },
+    CidRange {
+        start: 58701,
+        end: 58701,
+        cid: 3845,
+    },
+    CidRange {
+        start: 58702,
+        end: 58714,
+        cid: 6454,
+    },
+    CidRange {
+        start: 58715,
+        end: 58715,
+        cid: 7861,
+    },
+    CidRange {
+        start: 58716,
+        end: 58744,
+        cid: 6468,
+    },
+    CidRange {
+        start: 58745,
+        end: 58745,
+        cid: 1440,
+    },
+    CidRange {
+        start: 58746,
+        end: 58750,
+        cid: 6498,
+    },
+    CidRange {
         start: 58752,
-        end: 58781,
+        end: 58785,
         cid: 6503,
     },
     CidRange {
-        start: 58782,
-        end: 58782,
-        cid: 8000,
+        start: 58786,
+        end: 58786,
+        cid: 3358,
     },
     CidRange {
-        start: 58783,
-        end: 58809,
-        cid: 6534,
+        start: 58787,
+        end: 58788,
+        cid: 6538,
     },
     CidRange {
-        start: 58810,
+        start: 58789,
+        end: 58789,
+        cid: 7862,
+    },
+    CidRange {
+        start: 58790,
+        end: 58810,
+        cid: 6541,
+    },
+    CidRange {
+        start: 58811,
         end: 58811,
-        cid: 8001,
+        cid: 7863,
     },
     CidRange {
         start: 58812,
@@ -2674,8 +2994,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 58962,
-        end: 59006,
+        end: 59003,
         cid: 6646,
+    },
+    CidRange {
+        start: 59004,
+        end: 59004,
+        cid: 1550,
+    },
+    CidRange {
+        start: 59005,
+        end: 59006,
+        cid: 6689,
     },
     CidRange {
         start: 59008,
@@ -2689,8 +3019,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59015,
-        end: 59110,
+        end: 59029,
         cid: 6698,
+    },
+    CidRange {
+        start: 59030,
+        end: 59030,
+        cid: 7867,
+    },
+    CidRange {
+        start: 59031,
+        end: 59082,
+        cid: 6714,
+    },
+    CidRange {
+        start: 59083,
+        end: 59083,
+        cid: 2730,
+    },
+    CidRange {
+        start: 59084,
+        end: 59110,
+        cid: 6767,
     },
     CidRange {
         start: 59111,
@@ -2699,8 +3049,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59112,
-        end: 59132,
+        end: 59121,
         cid: 6795,
+    },
+    CidRange {
+        start: 59122,
+        end: 59122,
+        cid: 7869,
+    },
+    CidRange {
+        start: 59123,
+        end: 59132,
+        cid: 6806,
     },
     CidRange {
         start: 59200,
@@ -2719,8 +3079,28 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59264,
-        end: 59302,
+        end: 59275,
         cid: 6879,
+    },
+    CidRange {
+        start: 59276,
+        end: 59276,
+        cid: 7871,
+    },
+    CidRange {
+        start: 59277,
+        end: 59277,
+        cid: 6892,
+    },
+    CidRange {
+        start: 59278,
+        end: 59278,
+        cid: 7872,
+    },
+    CidRange {
+        start: 59279,
+        end: 59302,
+        cid: 6894,
     },
     CidRange {
         start: 59303,
@@ -2739,8 +3119,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59324,
-        end: 59388,
+        end: 59348,
         cid: 6939,
+    },
+    CidRange {
+        start: 59349,
+        end: 59349,
+        cid: 7875,
+    },
+    CidRange {
+        start: 59350,
+        end: 59388,
+        cid: 6965,
     },
     CidRange {
         start: 59456,
@@ -2749,8 +3139,38 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59520,
-        end: 59598,
+        end: 59524,
         cid: 7067,
+    },
+    CidRange {
+        start: 59525,
+        end: 59525,
+        cid: 7876,
+    },
+    CidRange {
+        start: 59526,
+        end: 59568,
+        cid: 7073,
+    },
+    CidRange {
+        start: 59569,
+        end: 59569,
+        cid: 7877,
+    },
+    CidRange {
+        start: 59570,
+        end: 59586,
+        cid: 7117,
+    },
+    CidRange {
+        start: 59587,
+        end: 59587,
+        cid: 7878,
+    },
+    CidRange {
+        start: 59588,
+        end: 59598,
+        cid: 7135,
     },
     CidRange {
         start: 59599,
@@ -2759,23 +3179,38 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59600,
-        end: 59644,
+        end: 59604,
         cid: 7147,
     },
     CidRange {
+        start: 59605,
+        end: 59605,
+        cid: 7880,
+    },
+    CidRange {
+        start: 59606,
+        end: 59633,
+        cid: 7153,
+    },
+    CidRange {
+        start: 59634,
+        end: 59634,
+        cid: 1841,
+    },
+    CidRange {
+        start: 59635,
+        end: 59635,
+        cid: 7881,
+    },
+    CidRange {
+        start: 59636,
+        end: 59644,
+        cid: 7183,
+    },
+    CidRange {
         start: 59712,
-        end: 59767,
-        cid: 7192,
-    },
-    CidRange {
-        start: 59768,
-        end: 59768,
-        cid: 8003,
-    },
-    CidRange {
-        start: 59769,
         end: 59774,
-        cid: 7249,
+        cid: 7192,
     },
     CidRange {
         start: 59776,
@@ -2799,8 +3234,13 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59835,
-        end: 59851,
+        end: 59850,
         cid: 7314,
+    },
+    CidRange {
+        start: 59851,
+        end: 59851,
+        cid: 1143,
     },
     CidRange {
         start: 59852,
@@ -2809,8 +3249,18 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 59853,
-        end: 59900,
+        end: 59889,
         cid: 7332,
+    },
+    CidRange {
+        start: 59890,
+        end: 59890,
+        cid: 1321,
+    },
+    CidRange {
+        start: 59891,
+        end: 59900,
+        cid: 7370,
     },
     CidRange {
         start: 59968,
@@ -2824,13 +3274,8 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 60017,
-        end: 60017,
-        cid: 8004,
-    },
-    CidRange {
-        start: 60018,
         end: 60030,
-        cid: 7430,
+        cid: 7429,
     },
     CidRange {
         start: 60032,
@@ -2844,352 +3289,57 @@ const CID_RANGE_H: [CidRange; 635] = [
     },
     CidRange {
         start: 60062,
-        end: 60066,
+        end: 60062,
         cid: 7473,
     },
     CidRange {
-        start: 60067,
-        end: 60068,
-        cid: 8284,
-    },
-    CidRange {
-        start: 60480,
-        end: 60482,
-        cid: 8005,
-    },
-    CidRange {
-        start: 60486,
-        end: 60486,
-        cid: 8008,
-    },
-    CidRange {
-        start: 60487,
-        end: 60487,
-        cid: 768,
-    },
-    CidRange {
-        start: 60488,
-        end: 60488,
-        cid: 762,
-    },
-    CidRange {
-        start: 60489,
-        end: 60489,
-        cid: 761,
-    },
-    CidRange {
-        start: 60493,
-        end: 60503,
-        cid: 8009,
-    },
-    CidRange {
-        start: 60507,
-        end: 60509,
-        cid: 7601,
-    },
-    CidRange {
-        start: 60510,
-        end: 60510,
-        cid: 8020,
-    },
-    CidRange {
-        start: 60511,
-        end: 60511,
-        cid: 7607,
-    },
-    CidRange {
-        start: 60512,
-        end: 60514,
-        cid: 8021,
-    },
-    CidRange {
-        start: 60515,
-        end: 60517,
-        cid: 7604,
-    },
-    CidRange {
-        start: 60518,
-        end: 60527,
-        cid: 8024,
-    },
-    CidRange {
-        start: 60528,
-        end: 60528,
-        cid: 771,
-    },
-    CidRange {
-        start: 60529,
-        end: 60529,
-        cid: 8034,
-    },
-    CidRange {
-        start: 60530,
-        end: 60530,
-        cid: 772,
-    },
-    CidRange {
-        start: 60531,
-        end: 60532,
-        cid: 8035,
-    },
-    CidRange {
-        start: 60534,
-        end: 60534,
-        cid: 8037,
-    },
-    CidRange {
-        start: 60536,
-        end: 60536,
-        cid: 7588,
-    },
-    CidRange {
-        start: 60537,
-        end: 60537,
-        cid: 7585,
-    },
-    CidRange {
-        start: 60538,
-        end: 60538,
-        cid: 8038,
-    },
-    CidRange {
-        start: 60539,
-        end: 60539,
-        cid: 7586,
-    },
-    CidRange {
-        start: 60540,
-        end: 60542,
-        cid: 8039,
-    },
-    CidRange {
-        start: 60544,
-        end: 60544,
-        cid: 7590,
-    },
-    CidRange {
-        start: 60545,
-        end: 60545,
-        cid: 8042,
-    },
-    CidRange {
-        start: 60546,
-        end: 60546,
-        cid: 7592,
-    },
-    CidRange {
-        start: 60547,
-        end: 60547,
-        cid: 7596,
-    },
-    CidRange {
-        start: 60548,
-        end: 60548,
-        cid: 8043,
-    },
-    CidRange {
-        start: 60549,
-        end: 60549,
-        cid: 7598,
-    },
-    CidRange {
-        start: 60550,
-        end: 60550,
-        cid: 7595,
-    },
-    CidRange {
-        start: 60551,
-        end: 60552,
-        cid: 8044,
-    },
-    CidRange {
-        start: 60553,
-        end: 60553,
-        cid: 7599,
-    },
-    CidRange {
-        start: 60554,
-        end: 60560,
-        cid: 8046,
-    },
-    CidRange {
-        start: 60564,
-        end: 60569,
-        cid: 8053,
-    },
-    CidRange {
-        start: 60570,
-        end: 60570,
-        cid: 7610,
-    },
-    CidRange {
-        start: 60571,
-        end: 60571,
-        cid: 8059,
-    },
-    CidRange {
-        start: 60574,
-        end: 60574,
-        cid: 8060,
-    },
-    CidRange {
-        start: 60583,
-        end: 60592,
-        cid: 8061,
-    },
-    CidRange {
-        start: 60594,
-        end: 60613,
-        cid: 8071,
-    },
-    CidRange {
-        start: 60615,
-        end: 60634,
-        cid: 7555,
-    },
-    CidRange {
-        start: 60635,
-        end: 60635,
-        cid: 8091,
-    },
-    CidRange {
-        start: 60636,
-        end: 60645,
-        cid: 7575,
-    },
-    CidRange {
-        start: 60649,
-        end: 60668,
-        cid: 8092,
-    },
-    CidRange {
         start: 60736,
-        end: 60761,
-        cid: 8112,
-    },
-    CidRange {
-        start: 60772,
-        end: 60772,
-        cid: 7958,
-    },
-    CidRange {
-        start: 60776,
-        end: 60777,
-        cid: 8138,
-    },
-    CidRange {
-        start: 60778,
-        end: 60778,
-        cid: 7620,
-    },
-    CidRange {
-        start: 60779,
-        end: 60781,
-        cid: 8140,
-    },
-    CidRange {
-        start: 60782,
-        end: 60782,
-        cid: 7619,
-    },
-    CidRange {
-        start: 60783,
-        end: 60787,
-        cid: 8143,
-    },
-    CidRange {
-        start: 60788,
-        end: 60788,
-        cid: 7618,
-    },
-    CidRange {
-        start: 60789,
-        end: 60792,
-        cid: 8148,
-    },
-    CidRange {
-        start: 60796,
         end: 60798,
-        cid: 8152,
+        cid: 8359,
     },
     CidRange {
         start: 60800,
-        end: 60810,
-        cid: 8155,
+        end: 60851,
+        cid: 8422,
     },
     CidRange {
-        start: 60815,
-        end: 60830,
-        cid: 8166,
+        start: 60852,
+        end: 60852,
+        cid: 1993,
     },
     CidRange {
-        start: 61248,
-        end: 61249,
-        cid: 7887,
+        start: 60853,
+        end: 60924,
+        cid: 8474,
     },
     CidRange {
-        start: 61250,
-        end: 61250,
-        cid: 8268,
+        start: 60992,
+        end: 61054,
+        cid: 8546,
     },
     CidRange {
-        start: 61251,
-        end: 61251,
-        cid: 8274,
+        start: 61056,
+        end: 61164,
+        cid: 8609,
     },
     CidRange {
-        start: 61252,
-        end: 61261,
-        cid: 7889,
+        start: 61167,
+        end: 61176,
+        cid: 8092,
     },
     CidRange {
-        start: 61262,
-        end: 61262,
-        cid: 8282,
+        start: 61177,
+        end: 61177,
+        cid: 751,
     },
     CidRange {
-        start: 61263,
-        end: 61263,
-        cid: 8275,
-    },
-    CidRange {
-        start: 61264,
-        end: 61264,
-        cid: 8280,
-    },
-    CidRange {
-        start: 61265,
-        end: 61265,
-        cid: 8277,
-    },
-    CidRange {
-        start: 61266,
-        end: 61283,
-        cid: 7899,
-    },
-    CidRange {
-        start: 61284,
-        end: 61305,
-        cid: 7918,
-    },
-    CidRange {
-        start: 61306,
-        end: 61307,
-        cid: 8264,
-    },
-    CidRange {
-        start: 61325,
-        end: 61328,
-        cid: 736,
-    },
-    CidRange {
-        start: 61329,
-        end: 61332,
-        cid: 8182,
+        start: 61178,
+        end: 61180,
+        cid: 8005,
     },
 ];
 
-const CID_RANGE_V: [CidRange; 57] = [
+const CID_RANGE_V: [CidRange; 39] = [
     CidRange {
         start: 33089,
         end: 33090,
@@ -3206,9 +3356,14 @@ const CID_RANGE_V: [CidRange; 57] = [
         cid: 8274,
     },
     CidRange {
-        start: 33104,
-        end: 33105,
-        cid: 7889,
+        start: 33098,
+        end: 33098,
+        cid: 8272,
+    },
+    CidRange {
+        start: 33099,
+        end: 33099,
+        cid: 8271,
     },
     CidRange {
         start: 33115,
@@ -3223,27 +3378,47 @@ const CID_RANGE_V: [CidRange; 57] = [
     CidRange {
         start: 33125,
         end: 33125,
-        cid: 8282,
+        cid: 8281,
     },
     CidRange {
         start: 33126,
         end: 33126,
-        cid: 8275,
+        cid: 8276,
     },
     CidRange {
         start: 33127,
         end: 33127,
-        cid: 8280,
+        cid: 8279,
     },
     CidRange {
         start: 33128,
         end: 33128,
-        cid: 8277,
+        cid: 8278,
     },
     CidRange {
         start: 33129,
         end: 33146,
         cid: 7899,
+    },
+    CidRange {
+        start: 33163,
+        end: 33163,
+        cid: 8269,
+    },
+    CidRange {
+        start: 33164,
+        end: 33164,
+        cid: 8273,
+    },
+    CidRange {
+        start: 33165,
+        end: 33165,
+        cid: 8283,
+    },
+    CidRange {
+        start: 33196,
+        end: 33196,
+        cid: 8270,
     },
     CidRange {
         start: 33439,
@@ -3294,11 +3469,6 @@ const CID_RANGE_V: [CidRange; 57] = [
         start: 33516,
         end: 33516,
         cid: 7927,
-    },
-    CidRange {
-        start: 33523,
-        end: 33524,
-        cid: 8264,
     },
     CidRange {
         start: 33600,
@@ -3356,133 +3526,23 @@ const CID_RANGE_V: [CidRange; 57] = [
         cid: 7938,
     },
     CidRange {
-        start: 60536,
-        end: 60536,
-        cid: 7943,
-    },
-    CidRange {
-        start: 60537,
-        end: 60537,
+        start: 34655,
+        end: 34670,
         cid: 7940,
     },
     CidRange {
-        start: 60538,
-        end: 60538,
-        cid: 8329,
-    },
-    CidRange {
-        start: 60539,
-        end: 60539,
-        cid: 7941,
-    },
-    CidRange {
-        start: 60540,
-        end: 60540,
-        cid: 8330,
-    },
-    CidRange {
-        start: 60541,
-        end: 60542,
-        cid: 8339,
-    },
-    CidRange {
-        start: 60544,
-        end: 60544,
-        cid: 7945,
-    },
-    CidRange {
-        start: 60545,
-        end: 60545,
-        cid: 8338,
-    },
-    CidRange {
-        start: 60546,
-        end: 60546,
-        cid: 7947,
-    },
-    CidRange {
-        start: 60547,
-        end: 60547,
-        cid: 7951,
-    },
-    CidRange {
-        start: 60548,
-        end: 60548,
-        cid: 8348,
-    },
-    CidRange {
-        start: 60549,
-        end: 60549,
-        cid: 7953,
-    },
-    CidRange {
-        start: 60550,
-        end: 60550,
-        cid: 7950,
-    },
-    CidRange {
-        start: 60551,
-        end: 60551,
-        cid: 8344,
-    },
-    CidRange {
-        start: 60552,
-        end: 60552,
-        cid: 8347,
-    },
-    CidRange {
-        start: 60553,
-        end: 60553,
-        cid: 7954,
-    },
-    CidRange {
-        start: 60554,
-        end: 60554,
-        cid: 8343,
-    },
-    CidRange {
-        start: 60555,
-        end: 60556,
-        cid: 8349,
-    },
-    CidRange {
-        start: 60557,
-        end: 60557,
-        cid: 8358,
-    },
-    CidRange {
-        start: 60558,
-        end: 60558,
-        cid: 8357,
-    },
-    CidRange {
-        start: 60559,
-        end: 60559,
-        cid: 8353,
-    },
-    CidRange {
-        start: 60560,
-        end: 60560,
-        cid: 8356,
-    },
-    CidRange {
-        start: 60565,
-        end: 60565,
-        cid: 8324,
-    },
-    CidRange {
-        start: 61330,
-        end: 61330,
-        cid: 8333,
+        start: 34688,
+        end: 34689,
+        cid: 7956,
     },
 ];
 
-pub const ADD_RKSJ_H: CMap = CMap {
-    name: b"Add-RKSJ-H",
+pub const EXT_RKSJ_H: CMap = CMap {
+    name: b"Ext-RKSJ-H",
     cid_system_info: CidSystemInfo {
         registry: b"Adobe",
         ordering: b"Japan1",
-        supplement: 1,
+        supplement: 2,
     },
     writing_mode: CMapWritingMode::Horizontal,
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
@@ -3490,12 +3550,12 @@ pub const ADD_RKSJ_H: CMap = CMap {
     cid_range: Cow::Borrowed(&CID_RANGE_H),
 };
 
-pub const ADD_RKSJ_V: CMap = CMap {
-    name: b"Add-RKSJ-V",
+pub const EXT_RKSJ_V: CMap = CMap {
+    name: b"Ext-RKSJ-V",
     cid_system_info: CidSystemInfo {
         registry: b"Adobe",
         ordering: b"Japan1",
-        supplement: 1,
+        supplement: 2,
     },
     writing_mode: CMapWritingMode::Vertical,
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),

@@ -2,10 +2,10 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use super::cmap::{
-    CIDOperator, CMap, CMapWritingMode, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
+    CIDOperator, CMap, CMapWritingMode, CidChar, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
     MAX_CODE_SPACE_LENGTH,
 };
-use super::font::CidSystemInfo;
+use super::font::{Cid, CidSystemInfo};
 use crate::parser::parser::ObjectKind;
 use crate::parser::parser::{Name, Object};
 use crate::util::reduce_slice_to_numeric;
@@ -27,6 +27,7 @@ pub struct CMapFileParser<'a> {
     writing_mode: CMapWritingMode,
     codespace: Option<Codespace<'a>>,
     cid_range: Vec<CidRange>,
+    cid_chars: Vec<CidChar>,
 }
 
 impl<'a> CMapFileParser<'a> {
@@ -41,6 +42,7 @@ impl<'a> CMapFileParser<'a> {
             writing_mode: CMapWritingMode::default(),
             codespace: None,
             cid_range: vec![],
+            cid_chars: vec![],
         }
     }
 
@@ -50,21 +52,40 @@ impl<'a> CMapFileParser<'a> {
                 ObjectKind::Name(name) => self.name(name),
                 ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange) => self.code_space(),
                 ObjectKind::CIDOperator(CIDOperator::BeginCIDRange) => self.cid_range(),
+                ObjectKind::CIDOperator(CIDOperator::BeginCIDChar) => self.cid_char(),
                 _ => continue,
             };
         }
-        let cmap = CMap::new(
-            self.name?,
-            CidSystemInfo {
+        let cmap = CMap {
+            name: self.name?,
+            cid_system_info: CidSystemInfo {
                 registry: self.registry?,
                 ordering: self.ordering?,
                 supplement: self.supplement?,
             },
-            self.writing_mode,
-            self.codespace.unwrap_or_default(),
-            self.cid_range.into(),
-        );
+            writing_mode: self.writing_mode,
+            codespace: self.codespace.unwrap_or_default(),
+            cid_chars: self.cid_chars.into(),
+            cid_range: self.cid_range.into(),
+        };
         Some(cmap)
+    }
+
+    fn cid_char(&mut self) -> Option<()> {
+        while let Some(object) = self.pop() {
+            let char_code = match &object.kind {
+                ObjectKind::String(string) => string,
+                _ => break,
+            };
+            let char_code = reduce_slice_to_numeric(char_code);
+            let cid = match &self.pop()?.kind {
+                ObjectKind::Integer(i) => *i as Cid,
+                _ => break,
+            };
+            let cid_char = CidChar::new(char_code, cid);
+            self.cid_chars.push(cid_char);
+        }
+        Some(())
     }
 
     fn cid_range(&mut self) -> Option<()> {
@@ -355,7 +376,8 @@ mod tests {
 
     #[test]
     fn test_cid_parser_japan_cmap() {
-        let text = std::fs::read_to_string("JAPAN.txt").unwrap();
+        let args: Vec<String> = std::env::args().collect();
+        let text = std::fs::read_to_string(&args[2]).unwrap();
         let text = text.as_bytes();
         let mut lexer = crate::parser::lexer::Lexer::new(text);
         let tokens = lexer.lex();
@@ -363,7 +385,20 @@ mod tests {
         let objects = parser.parse();
         let cmap_parser = CMapFileParser::new(&objects);
         let cmap = cmap_parser.parse().unwrap();
-        println!("{:?}", cmap);
+        println!("{}", std::str::from_utf8(cmap.name).unwrap());
+        println!(
+            "{}",
+            std::str::from_utf8(cmap.cid_system_info.registry).unwrap()
+        );
+        println!(
+            "{}",
+            std::str::from_utf8(cmap.cid_system_info.ordering).unwrap()
+        );
+        println!("{}", cmap.cid_system_info.supplement);
+        println!("{:?}", cmap.writing_mode);
+        println!("{:?}", cmap.codespace.ranges);
+        println!("{:?}", cmap.cid_chars);
+        println!("{:?}", cmap.cid_range);
         assert!(false);
     }
 }

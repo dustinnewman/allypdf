@@ -4,21 +4,22 @@ use crate::cmaps::NO_CID_CHARS;
 use crate::font::cmap::{CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange};
 use crate::font::font::CidSystemInfo;
 
-const CODE_SPACE: [CodespaceRange; 2] = [
+const CODE_SPACE: [CodespaceRange; 3] = [
     [0..=0, 0..=0, 0..=0, 0..=128],
-    [0..=0, 0..=0, 161..=254, 161..=254],
+    [0..=0, 0..=0, 161..=252, 161..=254],
+    [0..=0, 0..=0, 0..=0, 253..=255],
 ];
 
-const CID_RANGE_H: [CidRange; 90] = [
+const CID_RANGE_H: [CidRange; 91] = [
     CidRange {
         start: 32,
-        end: 32,
-        cid: 7716,
+        end: 126,
+        cid: 1,
     },
     CidRange {
-        start: 33,
-        end: 126,
-        cid: 814,
+        start: 128,
+        end: 128,
+        cid: 7712,
     },
     CidRange {
         start: 41377,
@@ -460,6 +461,11 @@ const CID_RANGE_H: [CidRange; 90] = [
         end: 63486,
         cid: 7609,
     },
+    CidRange {
+        start: 253,
+        end: 255,
+        cid: 7713,
+    },
 ];
 
 const CID_RANGE_V: [CidRange; 20] = [
@@ -565,8 +571,8 @@ const CID_RANGE_V: [CidRange; 20] = [
     },
 ];
 
-pub const GB_EUC_H: CMap = CMap {
-    name: b"GB-EUC-H",
+pub const GB_1_GBPC_EUC_H: CMap = CMap {
+    name: b"GBpc-EUC-H",
     cid_system_info: CidSystemInfo {
         registry: b"Adobe",
         ordering: b"GB1",
@@ -578,8 +584,8 @@ pub const GB_EUC_H: CMap = CMap {
     cid_range: Cow::Borrowed(&CID_RANGE_H),
 };
 
-pub const GB_EUC_V: CMap = CMap {
-    name: b"GB-EUC-V",
+pub const GB_1_GBPC_EUC_V: CMap = CMap {
+    name: b"GBpc-EUC-V",
     cid_system_info: CidSystemInfo {
         registry: b"Adobe",
         ordering: b"GB1",

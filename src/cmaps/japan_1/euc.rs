@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::cmaps::NO_CID_CHARS;
 use crate::font::cmap::{CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange};
 use crate::font::font::CidSystemInfo;
 
@@ -750,7 +751,7 @@ const CID_RANGE_V: [CidRange; 27] = [
     },
 ];
 
-pub const JAPAN_1_EUC_H: CMap = CMap {
+pub const EUC_H: CMap = CMap {
     name: b"EUC-H",
     cid_system_info: CidSystemInfo {
         registry: b"Adobe",
@@ -759,10 +760,11 @@ pub const JAPAN_1_EUC_H: CMap = CMap {
     },
     writing_mode: CMapWritingMode::Horizontal,
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
+    cid_chars: Cow::Borrowed(&NO_CID_CHARS),
     cid_range: Cow::Borrowed(&CID_RANGE_H),
 };
 
-pub const JAPAN_1_EUC_V: CMap = CMap {
+pub const EUC_V: CMap = CMap {
     name: b"EUC-V",
     cid_system_info: CidSystemInfo {
         registry: b"Adobe",
@@ -771,5 +773,6 @@ pub const JAPAN_1_EUC_V: CMap = CMap {
     },
     writing_mode: CMapWritingMode::Vertical,
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
+    cid_chars: Cow::Borrowed(&NO_CID_CHARS),
     cid_range: Cow::Borrowed(&CID_RANGE_V),
 };

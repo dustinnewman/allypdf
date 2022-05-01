@@ -147,6 +147,21 @@ impl TryFrom<i64> for CMapWritingMode {
 }
 
 #[derive(Debug, Clone)]
+pub struct CidChar {
+    pub char: CharCode,
+    pub cid: Cid,
+}
+
+impl CidChar {
+    pub const fn new(char_code: CharCode, cid: Cid) -> Self {
+        Self {
+            char: char_code,
+            cid,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct CidRange {
     pub start: CharCode,
     pub end: CharCode,
@@ -225,6 +240,7 @@ pub struct CMap<'a> {
     // different CIDs for a given character code." (PDF 9.7.5.1)
     pub writing_mode: CMapWritingMode,
     pub codespace: Codespace<'a>,
+    pub cid_chars: Cow<'a, [CidChar]>,
     // We use Cow here because for predefined CMaps, we use borrowed slices of
     // const ranges, but for CMap files specified in the PDF file itself we
     // use owned vectors allocated at runtime on the heap
@@ -240,24 +256,6 @@ impl<'a> CharCodeToCid for CMap<'a> {
             .iter()
             .rev()
             .find_map(|range| range.to_cid(char_code))
-    }
-}
-
-impl<'a> CMap<'a> {
-    pub fn new(
-        name: &'a Name,
-        cid_system_info: CidSystemInfo<'a>,
-        writing_mode: CMapWritingMode,
-        codespace: Codespace<'a>,
-        cid_range: Cow<'a, [CidRange]>,
-    ) -> Self {
-        Self {
-            name,
-            cid_system_info,
-            writing_mode,
-            codespace,
-            cid_range,
-        }
     }
 }
 

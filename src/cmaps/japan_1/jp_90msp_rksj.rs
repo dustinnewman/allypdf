@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::cmaps::NO_CID_CHARS;
 use crate::font::cmap::{CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange};
 use crate::font::font::CidSystemInfo;
 
@@ -1265,6 +1266,7 @@ pub const JAPAN_1_90MSP_RKSJ_H: CMap = CMap {
     },
     writing_mode: CMapWritingMode::Horizontal,
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
+    cid_chars: Cow::Borrowed(&NO_CID_CHARS),
     cid_range: Cow::Borrowed(&CID_RANGE_H),
 };
 
@@ -1275,7 +1277,8 @@ pub const JAPAN_1_90MSP_RKSJ_V: CMap = CMap {
         ordering: b"Japan1",
         supplement: 2,
     },
-    writing_mode: CMapWritingMode::Horizontal,
+    writing_mode: CMapWritingMode::Vertical,
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
+    cid_chars: Cow::Borrowed(&NO_CID_CHARS),
     cid_range: Cow::Borrowed(&CID_RANGE_V),
 };
