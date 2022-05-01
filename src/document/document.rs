@@ -323,13 +323,13 @@ impl PDFDocument {
             self.follow_till_dict(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
         )?;
         let encoding: Type0Encoding = match &dict.get(ENCODING)?.kind {
-            ObjectKind::Dictionary(dict) => todo!(),
+            ObjectKind::Stream(stream) => todo!(),
             ObjectKind::Name(name) => {
                 let name: &[u8] = name.as_ref();
                 name.try_into().ok()?
             }
             ObjectKind::IndirectReference(r#ref) => match &self.get(r#ref)?.kind {
-                ObjectKind::Dictionary(dict) => todo!(),
+                ObjectKind::Stream(stream) => todo!(),
                 ObjectKind::Name(name) => {
                     let name: &[u8] = name.as_ref();
                     name.try_into().ok()?
