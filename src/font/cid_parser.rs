@@ -375,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cid_parser_japan_cmap() {
+    fn test_cid_parser_predefined_cmap() {
         let args: Vec<String> = std::env::args().collect();
         let text = std::fs::read_to_string(&args[2]).unwrap();
         let text = text.as_bytes();

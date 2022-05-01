@@ -147,6 +147,7 @@ impl TryFrom<i64> for CMapWritingMode {
 }
 
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct CidChar {
     pub char: CharCode,
     pub cid: Cid,
@@ -162,6 +163,7 @@ impl CidChar {
 }
 
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct CidRange {
     pub start: CharCode,
     pub end: CharCode,

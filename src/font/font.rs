@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use super::cmap::{CMap, GlyphWidth};
+use super::cmap::{CMap, GlyphWidth, CharCodeToCid};
 use super::encoding::{Encoding, ENCODING_SIZE};
 use crate::document::page::Resources;
 use crate::error::PdfError;
@@ -449,6 +449,15 @@ impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
             IDENTITY_H => Ok(Self::IdentityH),
             IDENTITY_V => Ok(Self::IdentityV),
             _ => Err(PdfError::InvalidType0EncodingName),
+        }
+    }
+}
+
+impl CharCodeToCid for Type0Encoding<'_> {
+    fn get_cid(&self, char_code: CharCode) -> Option<Cid> {
+        match self {
+            Type0Encoding::IdentityH | Type0Encoding::IdentityV => Some(char_code),
+            Type0Encoding::CMap(cmap) => cmap.get_cid(char_code),
         }
     }
 }
