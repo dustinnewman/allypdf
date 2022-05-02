@@ -7,6 +7,7 @@ use std::{
 
 use super::annotation::{Annotation, AnnotationFlags};
 use super::page::{Page, ProcSet, Resources};
+use crate::cmaps::cmap::CMap;
 use crate::error::{PdfError, Result};
 use crate::font::encoding::Encoding;
 use crate::font::font::{
@@ -324,23 +325,18 @@ impl PDFDocument {
         )?;
         let encoding: Type0Encoding = match &dict.get(ENCODING)?.kind {
             ObjectKind::Stream(stream) => stream.try_into().ok()?,
-            ObjectKind::Name(name) => {
-                let name: &[u8] = name.as_ref();
-                name.try_into().ok()?
-            }
+            ObjectKind::Name(name) => AsRef::<[u8]>::as_ref(name).try_into().ok()?,
             ObjectKind::IndirectReference(r#ref) => match &self.get(r#ref)?.kind {
                 ObjectKind::Stream(stream) => stream.try_into().ok()?,
-                ObjectKind::Name(name) => {
-                    let name: &[u8] = name.as_ref();
-                    name.try_into().ok()?
-                }
+                ObjectKind::Name(name) => AsRef::<[u8]>::as_ref(name).try_into().ok()?,
                 _ => return None,
             },
             _ => return None,
         };
         let to_unicode = dict
             .get(TO_UNICODE)
-            .and_then(|obj| inner!(obj, ObjectKind::Stream));
+            .and_then(|obj| self.follow_till_stream(Some(obj)))
+            .and_then(|stream| TryInto::<CMap>::try_into(stream).ok());
         Some(Type0Font::new(
             base_font,
             encoding,
@@ -856,7 +852,7 @@ mod tests {
         file.push("test_data/docs_multi_font.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
         let pages = doc.pages().unwrap();
-        println!("{:#?}", pages);
+        println!("{:?}", pages);
         assert!(false);
     }
 

@@ -470,7 +470,7 @@ pub struct Type0Font<'a> {
     base_font: &'a Name,
     encoding: Type0Encoding<'a>,
     descendant_fonts: CIDFont<'a>,
-    to_unicode: Option<&'a Stream>,
+    to_unicode: Option<CMap<'a>>,
 }
 
 impl<'a> Type0Font<'a> {
@@ -478,7 +478,7 @@ impl<'a> Type0Font<'a> {
         base_font: &'a Name,
         encoding: Type0Encoding<'a>,
         descendant_fonts: CIDFont<'a>,
-        to_unicode: Option<&'a Stream>,
+        to_unicode: Option<CMap<'a>>,
     ) -> Self {
         Self {
             base_font,
