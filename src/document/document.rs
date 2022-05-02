@@ -275,8 +275,8 @@ impl PDFDocument {
         let ordering = inner!(cid_system_info.get(ORDERING)?, ObjectKind::String)?;
         let supplement = *inner!(cid_system_info.get(SUPPLEMENT)?, ObjectKind::Integer)? as u32;
         let cid_system_info = CidSystemInfo {
-            registry,
-            ordering,
+            registry: registry.into(),
+            ordering: ordering.into(),
             supplement,
         };
         let default_width = match dict.get(DEFAULT_WIDTH) {
@@ -323,13 +323,13 @@ impl PDFDocument {
             self.follow_till_dict(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
         )?;
         let encoding: Type0Encoding = match &dict.get(ENCODING)?.kind {
-            ObjectKind::Stream(stream) => todo!(),
+            ObjectKind::Stream(stream) => stream.try_into().ok()?,
             ObjectKind::Name(name) => {
                 let name: &[u8] = name.as_ref();
                 name.try_into().ok()?
             }
             ObjectKind::IndirectReference(r#ref) => match &self.get(r#ref)?.kind {
-                ObjectKind::Stream(stream) => todo!(),
+                ObjectKind::Stream(stream) => stream.try_into().ok()?,
                 ObjectKind::Name(name) => {
                     let name: &[u8] = name.as_ref();
                     name.try_into().ok()?

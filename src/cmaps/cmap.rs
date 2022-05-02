@@ -3,15 +3,18 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use crate::error::PdfError;
+use crate::font::cid_parser::CMapFileParser;
 use crate::font::font::CidSystemInfo;
+use crate::parser::parser::Stream;
 
 use super::cid::{CharCode, CharCodeToCid, Cid};
 use super::{cns_1, gb_1, japan_1, korea_1};
 
 pub const MAX_CODE_SPACE_LENGTH: usize = 4;
+pub const ADOBE_REGISTRY: &[u8] = b"Adobe";
 pub const NO_CID_CHARS: [CidChar; 0] = [];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CMapWritingMode {
     Horizontal,
     Vertical,
@@ -128,7 +131,7 @@ impl<'a> Codespace<'a> {
 // thousands of glyphs in a large CID-keyed font." (PDF 9.7.2)
 #[derive(Debug)]
 pub struct CMap<'a> {
-    pub name: &'a [u8],
+    pub name: Cow<'a, [u8]>,
     pub cid_system_info: CidSystemInfo<'a>,
     // "Writing mode is specified as part of the CMap because, in some cases,
     // different shapes are used when writing horizontally and vertically.
@@ -221,6 +224,21 @@ impl TryFrom<&[u8]> for CMap<'static> {
             b"UniKS-UTF16-V" => korea_1::uniks_utf16::UNIKS_UTF16_V,
             _ => return Err(PdfError::InvalidType0EncodingName),
         };
+        Ok(cmap)
+    }
+}
+
+impl<'a> TryFrom<&'a Stream> for CMap<'a> {
+    type Error = PdfError;
+
+    fn try_from(value: &'a Stream) -> Result<Self, Self::Error> {
+        let text = &value.content;
+        let mut lexer = crate::parser::lexer::Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = crate::parser::parser::Parser::new(&tokens);
+        let objects = parser.parse();
+        let cmap_parser = CMapFileParser::new(&objects);
+        let cmap = cmap_parser.parse().ok_or(PdfError::CMapParsingError)?;
         Ok(cmap)
     }
 }

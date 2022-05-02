@@ -9,3 +9,5 @@ pub mod jp_90pv_rksj;
 pub mod unijis_ucs2;
 pub mod unijis_ucs2_hw;
 pub mod unijis_utf16;
+
+pub const JAPAN_1: &[u8] = b"Japan1";

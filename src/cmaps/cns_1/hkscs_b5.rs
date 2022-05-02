@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
 use crate::cmaps::cmap::{
-    CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, NO_CID_CHARS,
+    CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, NO_CID_CHARS, ADOBE_REGISTRY,
 };
 use crate::font::font::CidSystemInfo;
+
+use super::CNS_1;
 
 const CODE_SPACE: [CodespaceRange; 2] = [
     [0..=0, 0..=0, 0..=0, 0..=128],
@@ -5600,10 +5602,10 @@ const CID_RANGE_V: [CidRange; 13] = [
 ];
 
 pub const HKSCS_B5_H: CMap = CMap {
-    name: b"HKscs-B5-H",
+    name: Cow::Borrowed(b"HKscs-B5-H"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"CNS1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(CNS_1),
         supplement: 6,
     },
     writing_mode: CMapWritingMode::Horizontal,
@@ -5613,10 +5615,10 @@ pub const HKSCS_B5_H: CMap = CMap {
 };
 
 pub const HKSCS_B5_V: CMap = CMap {
-    name: b"HKscs-B5-V",
+    name: Cow::Borrowed(b"HKscs-B5-V"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"CNS1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(CNS_1),
         supplement: 6,
     },
     writing_mode: CMapWritingMode::Vertical,

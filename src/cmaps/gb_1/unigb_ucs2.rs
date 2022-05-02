@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
 use crate::cmaps::cmap::{
-    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS,
+    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS, ADOBE_REGISTRY,
 };
 use crate::font::font::CidSystemInfo;
+
+use super::GB_1;
 
 const CODE_SPACE: [CodespaceRange; 2] = [
     [0..=0, 0..=0, 0..=215, 0..=255],
@@ -69262,10 +69264,10 @@ const CID_RANGE_V: [CidRange; 24] = [
 ];
 
 pub const UNIGB_UCS2_H: CMap = CMap {
-    name: b"UniGB-UCS2-H",
+    name: Cow::Borrowed(b"UniGB-UCS2-H"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"GB1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(GB_1),
         supplement: 4,
     },
     writing_mode: CMapWritingMode::Horizontal,
@@ -69275,10 +69277,10 @@ pub const UNIGB_UCS2_H: CMap = CMap {
 };
 
 pub const UNIGB_UCS2_V: CMap = CMap {
-    name: b"UniGB-UCS2-V",
+    name: Cow::Borrowed(b"UniGB-UCS2-V"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"GB1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(GB_1),
         supplement: 4,
     },
     writing_mode: CMapWritingMode::Vertical,

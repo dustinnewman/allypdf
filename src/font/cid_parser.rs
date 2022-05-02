@@ -6,7 +6,7 @@ use super::font::CidSystemInfo;
 use crate::cmaps::cid::Cid;
 use crate::cmaps::cmap::{
     CMap, CMapWritingMode, CidChar, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
-    MAX_CODE_SPACE_LENGTH,
+    MAX_CODE_SPACE_LENGTH, CodespaceRange,
 };
 use crate::parser::parser::ObjectKind;
 use crate::parser::parser::{Name, Object};
@@ -22,12 +22,12 @@ const SUPPLEMENT: &[u8] = b"Supplement";
 pub struct CMapFileParser<'a> {
     objects: &'a [Object],
     pos: usize,
-    name: Option<&'a Name>,
-    registry: Option<&'a Name>,
-    ordering: Option<&'a Name>,
+    name: Name,
+    registry: Name,
+    ordering: Name,
     supplement: Option<u32>,
     writing_mode: CMapWritingMode,
-    codespace: Option<Codespace<'a>>,
+    codespace: Vec<CodespaceRange>,
     cid_range: Vec<CidRange>,
     cid_chars: Vec<CidChar>,
 }
@@ -37,18 +37,18 @@ impl<'a> CMapFileParser<'a> {
         Self {
             objects,
             pos: 0,
-            name: None,
-            registry: None,
-            ordering: None,
+            name: vec![],
+            registry: vec![],
+            ordering: vec![],
             supplement: None,
             writing_mode: CMapWritingMode::default(),
-            codespace: None,
+            codespace: vec![],
             cid_range: vec![],
             cid_chars: vec![],
         }
     }
 
-    pub fn parse(mut self) -> Option<CMap<'a>> {
+    pub fn parse<'c>(mut self) -> Option<CMap<'c>> {
         while let Some(object) = self.pop() {
             match &object.kind {
                 ObjectKind::Name(name) => self.name(name),
@@ -59,14 +59,16 @@ impl<'a> CMapFileParser<'a> {
             };
         }
         let cmap = CMap {
-            name: self.name?,
+            name: self.name.into(),
             cid_system_info: CidSystemInfo {
-                registry: self.registry?,
-                ordering: self.ordering?,
+                registry: self.registry.into(),
+                ordering: self.ordering.into(),
                 supplement: self.supplement?,
             },
             writing_mode: self.writing_mode,
-            codespace: self.codespace.unwrap_or_default(),
+            codespace: Codespace {
+                ranges: self.codespace.into()
+            },
             cid_chars: self.cid_chars.into(),
             cid_range: self.cid_range.into(),
         };
@@ -113,7 +115,6 @@ impl<'a> CMapFileParser<'a> {
     }
 
     fn code_space(&mut self) -> Option<()> {
-        let mut ranges = vec![];
         while let Some(first) = self.pop() {
             let first = match &first.kind {
                 ObjectKind::String(string) => string,
@@ -131,13 +132,12 @@ impl<'a> CMapFileParser<'a> {
             for (i, (&lower, &upper)) in first.iter().zip(second.iter()).rev().enumerate() {
                 range[MAX_CODE_SPACE_LENGTH - 1 - i] = RangeInclusive::new(lower, upper);
             }
-            ranges.push(range);
+            self.codespace.push(range);
         }
-        self.codespace = Some(Codespace::from(ranges.into()));
         Some(())
     }
 
-    fn name(&mut self, name: &'a Name) -> Option<()> {
+    fn name(&mut self, name: &Name) -> Option<()> {
         if name == WMODE {
             match self.pop()?.kind {
                 ObjectKind::Integer(i) => self.writing_mode = CMapWritingMode::try_from(i).ok()?,
@@ -147,29 +147,29 @@ impl<'a> CMapFileParser<'a> {
             self.cid_system_info_dict();
         } else if name == CMAP_NAME {
             match &self.pop()?.kind {
-                ObjectKind::Name(name) => self.name = Some(name),
+                ObjectKind::Name(name) => self.name = name.to_owned(),
                 _ => return None,
             };
         }
         Some(())
     }
 
-    fn match_cid_system_info_pair(&mut self, name: &Name, value: Option<&'a Object>) {
+    fn match_cid_system_info_pair(&mut self, name: &'a Name, value: Option<&'a Object>) {
         if name == REGISTRY {
             if let Some(Object {
-                kind: ObjectKind::String(reg),
+                kind: ObjectKind::String(registry),
                 ..
             }) = value
             {
-                self.registry = Some(reg);
+                self.registry = registry.to_owned();
             }
         } else if name == ORDERING {
             if let Some(Object {
-                kind: ObjectKind::String(ord),
+                kind: ObjectKind::String(ordering),
                 ..
             }) = value
             {
-                self.ordering = Some(ord);
+                self.ordering = ordering.to_owned();
             }
         } else if name == SUPPLEMENT {
             if let Some(Object {
@@ -281,10 +281,10 @@ mod tests {
         ];
         let parser = CMapFileParser::new(&objects);
         let cmap = parser.parse().unwrap();
-        assert_eq!(cmap.cid_system_info.registry, b"Adobe");
-        assert_eq!(cmap.cid_system_info.ordering, b"UCS");
+        assert_eq!(cmap.cid_system_info.registry.to_vec(), b"Adobe");
+        assert_eq!(cmap.cid_system_info.ordering.to_vec(), b"UCS");
         assert_eq!(cmap.cid_system_info.supplement, 0);
-        assert_eq!(cmap.name, b"Adobe-Identity-UCS");
+        assert_eq!(cmap.name.to_vec(), b"Adobe-Identity-UCS");
     }
 
     #[test]
@@ -387,14 +387,14 @@ mod tests {
         let objects = parser.parse();
         let cmap_parser = CMapFileParser::new(&objects);
         let cmap = cmap_parser.parse().unwrap();
-        println!("{}", std::str::from_utf8(cmap.name).unwrap());
+        println!("{}", std::str::from_utf8(&cmap.name).unwrap());
         println!(
             "{}",
-            std::str::from_utf8(cmap.cid_system_info.registry).unwrap()
+            std::str::from_utf8(&cmap.cid_system_info.registry).unwrap()
         );
         println!(
             "{}",
-            std::str::from_utf8(cmap.cid_system_info.ordering).unwrap()
+            std::str::from_utf8(&cmap.cid_system_info.ordering).unwrap()
         );
         println!("{}", cmap.cid_system_info.supplement);
         println!("{:?}", cmap.writing_mode);

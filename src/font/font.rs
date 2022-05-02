@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::{collections::BTreeMap, convert::TryFrom};
 
 use super::encoding::{Encoding, ENCODING_SIZE};
@@ -390,8 +391,8 @@ impl TryFrom<&[u8]> for CIDFontSubtypeKind {
 // PDF 9.7.3 Table 114
 #[derive(Debug)]
 pub struct CidSystemInfo<'a> {
-    pub registry: &'a [u8],
-    pub ordering: &'a [u8],
+    pub registry: Cow<'a ,[u8]>,
+    pub ordering: Cow<'a ,[u8]>,
     pub supplement: u32,
 }
 
@@ -443,6 +444,14 @@ impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
             IDENTITY_V => Ok(Self::IdentityV),
             name => CMap::try_from(name).and_then(|cmap| Ok(Self::CMap(cmap))),
         }
+    }
+}
+
+impl<'a> TryFrom<&'a Stream> for Type0Encoding<'a> {
+    type Error = PdfError;
+
+    fn try_from(value: &'a Stream) -> Result<Self, Self::Error> {
+        Ok(Self::CMap(CMap::try_from(value)?))
     }
 }
 

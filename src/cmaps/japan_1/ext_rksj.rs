@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
 use crate::cmaps::cmap::{
-    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS,
+    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS, ADOBE_REGISTRY,
 };
 use crate::font::font::CidSystemInfo;
+
+use super::JAPAN_1;
 
 const CODE_SPACE: [CodespaceRange; 4] = [
     [0..=0, 0..=0, 0..=0, 0..=128],
@@ -3539,10 +3541,10 @@ const CID_RANGE_V: [CidRange; 39] = [
 ];
 
 pub const EXT_RKSJ_H: CMap = CMap {
-    name: b"Ext-RKSJ-H",
+    name: Cow::Borrowed(b"Ext-RKSJ-H"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"Japan1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(JAPAN_1),
         supplement: 2,
     },
     writing_mode: CMapWritingMode::Horizontal,
@@ -3552,10 +3554,10 @@ pub const EXT_RKSJ_H: CMap = CMap {
 };
 
 pub const EXT_RKSJ_V: CMap = CMap {
-    name: b"Ext-RKSJ-V",
+    name: Cow::Borrowed(b"Ext-RKSJ-V"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"Japan1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(JAPAN_1),
         supplement: 2,
     },
     writing_mode: CMapWritingMode::Vertical,

@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
 use crate::cmaps::cmap::{
-    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS,
+    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS, ADOBE_REGISTRY,
 };
 use crate::font::font::CidSystemInfo;
+
+use super::JAPAN_1;
 
 const CODE_SPACE: [CodespaceRange; 5] = [
     [0..=0, 0..=0, 0..=0, 0..=128],
@@ -1332,10 +1334,10 @@ const CID_RANGE_H: [CidRange; 263] = [
 ];
 
 pub const JAPAN_1_90PV_RKSJ_H: CMap = CMap {
-    name: b"90pv-RKSJ-H",
+    name: Cow::Borrowed(b"90pv-RKSJ-H"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"Japan1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(JAPAN_1),
         supplement: 1,
     },
     writing_mode: CMapWritingMode::Horizontal,

@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 
-use crate::cmaps::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange};
+use crate::cmaps::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY};
 use crate::font::font::CidSystemInfo;
+
+use super::KOREA_1;
 
 const CODE_SPACE: [CodespaceRange; 3] = [
     [0..=0, 0..=0, 0..=215, 0..=255],
@@ -36289,10 +36291,10 @@ const CID_RANGE_V: [CidRange; 7] = [
 ];
 
 pub const UNIKS_UTF16_H: CMap = CMap {
-    name: b"UniKS-UTF16-H",
+    name: Cow::Borrowed(b"UniKS-UTF16-H"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"Korea1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(KOREA_1),
         supplement: 1,
     },
     writing_mode: CMapWritingMode::Horizontal,
@@ -36302,10 +36304,10 @@ pub const UNIKS_UTF16_H: CMap = CMap {
 };
 
 pub const UNIKS_UTF16_V: CMap = CMap {
-    name: b"UniKS-UTF16-V",
+    name: Cow::Borrowed(b"UniKS-UTF16-V"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"Korea1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(KOREA_1),
         supplement: 1,
     },
     writing_mode: CMapWritingMode::Vertical,

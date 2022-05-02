@@ -5,3 +5,5 @@ pub mod gbkp_euc;
 pub mod gbpc_euc;
 pub mod unigb_ucs2;
 pub mod unigb_utf16;
+
+pub const GB_1: &[u8] = b"GB1";

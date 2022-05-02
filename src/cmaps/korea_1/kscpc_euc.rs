@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
 use crate::cmaps::cmap::{
-    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS,
+    CMap, CMapWritingMode, CidRange, Codespace, CodespaceRange, NO_CID_CHARS, ADOBE_REGISTRY,
 };
 use crate::font::font::CidSystemInfo;
+
+use super::KOREA_1;
 
 const CODE_SPACE: [CodespaceRange; 3] = [
     [0..=0, 0..=0, 0..=0, 0..=132],
@@ -2560,10 +2562,10 @@ const CID_RANGE_H: [CidRange; 509] = [
 ];
 
 pub const KSCPC_EUC_H: CMap = CMap {
-    name: b"KSCpc-EUC-H",
+    name: Cow::Borrowed(b"KSCpc-EUC-H"),
     cid_system_info: CidSystemInfo {
-        registry: b"Adobe",
-        ordering: b"Korea1",
+        registry: Cow::Borrowed(ADOBE_REGISTRY),
+        ordering: Cow::Borrowed(KOREA_1),
         supplement: 0,
     },
     writing_mode: CMapWritingMode::Horizontal,
