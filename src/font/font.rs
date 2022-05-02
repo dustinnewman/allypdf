@@ -1,24 +1,17 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
-use super::cmap::{CMap, GlyphWidth, CharCodeToCid};
 use super::encoding::{Encoding, ENCODING_SIZE};
+use crate::cmaps::cid::{CharCode, CharCodeToCid, Cid};
+use crate::cmaps::cmap::CMap;
 use crate::document::page::Resources;
 use crate::error::PdfError;
+use crate::font::glyph_width::GlyphWidth;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
 use crate::parser::parser::{Dictionary, Name, Object, ObjectKind, Stream};
 
 const IDENTITY: &[u8] = b"Identity";
 const IDENTITY_H: &[u8] = b"Identity-H";
 const IDENTITY_V: &[u8] = b"Identity-V";
-// In simple fonts, character codes are only 8-bit and can thus only address
-// 256 glyphs. In composite fonts, however, we can have multi-byte character
-// codes from 2 to 4 bytes.
-pub type CharCode = u32;
-// "In previous versions of PDF, it was recommended that the maximum value of
-// a CID (character identifier) was limited to 65,535." (PDF Annex C.2)
-// However, we will use u32 to be safe. If a PDF works for CID 65,535, why
-// shouldn't it work for 65,536?
-pub type Cid = u32;
 
 #[derive(Debug)]
 pub struct FontDescriptorFlags(u32);
@@ -448,7 +441,7 @@ impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
         match name {
             IDENTITY_H => Ok(Self::IdentityH),
             IDENTITY_V => Ok(Self::IdentityV),
-            _ => Err(PdfError::InvalidType0EncodingName),
+            name => CMap::try_from(name).and_then(|cmap| Ok(Self::CMap(cmap))),
         }
     }
 }

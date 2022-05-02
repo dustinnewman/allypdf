@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, convert::TryFrom};
 use super::lexer::{Token, TokenKind};
 use crate::error::PdfError;
 use crate::filter::{decode, Filter};
-use crate::font::cmap::CIDOperator;
+use crate::font::cid_operator::CIDOperator;
 use crate::operators::operators::Operator;
 use crate::util::{hex_string_to_string, literal_string_to_string, name_to_name};
 

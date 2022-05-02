@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::font::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange};
+use crate::cmaps::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange};
 use crate::font::font::CidSystemInfo;
 
 const CODE_SPACE: [CodespaceRange; 3] = [

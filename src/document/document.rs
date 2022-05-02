@@ -8,13 +8,13 @@ use std::{
 use super::annotation::{Annotation, AnnotationFlags};
 use super::page::{Page, ProcSet, Resources};
 use crate::error::{PdfError, Result};
-use crate::font::cmap::object_array_to_glyph_widths;
 use crate::font::encoding::Encoding;
 use crate::font::font::{
-    CIDFont, CIDFontSubtypeKind, CIDToGIDMap, CidSystemInfo, Font, FontDescriptor,
+    CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDescriptor,
     FontDescriptorFlags, FontDictionary, FontProgramKind, FontStretch, FontWeight, TrueTypeFont,
     Type0Encoding, Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
 };
+use crate::font::glyph_width::object_array_to_glyph_widths;
 use crate::inner;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
 use crate::parser::lexer::Lexer;

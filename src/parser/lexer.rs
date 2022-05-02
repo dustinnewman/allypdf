@@ -1,4 +1,4 @@
-use crate::font::cmap::CIDOperator;
+use crate::font::cid_operator::CIDOperator;
 use crate::operators::operators::Operator;
 use crate::util::{
     byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace, Byte,

@@ -4,8 +4,7 @@ use std::{
 };
 
 use super::base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING};
-use super::cmap::CharCodeToGlyphName;
-use super::font::CharCode;
+use crate::cmaps::cid::{CharCode, CharCodeToGlyphName};
 use crate::error::PdfError;
 use crate::parser::parser::{Dictionary, Name, Object, ObjectKind};
 

@@ -1,11 +1,13 @@
 use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
-use super::cmap::{
-    CIDOperator, CMap, CMapWritingMode, CidChar, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
+use super::cid_operator::CIDOperator;
+use super::font::CidSystemInfo;
+use crate::cmaps::cid::Cid;
+use crate::cmaps::cmap::{
+    CMap, CMapWritingMode, CidChar, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
     MAX_CODE_SPACE_LENGTH,
 };
-use super::font::{Cid, CidSystemInfo};
 use crate::parser::parser::ObjectKind;
 use crate::parser::parser::{Name, Object};
 use crate::util::reduce_slice_to_numeric;
@@ -236,7 +238,7 @@ mod tests {
     use super::*;
     use crate::{
         dict,
-        font::{cid_parser::CMapFileParser, cmap::CIDOperator},
+        font::{cid_operator::CIDOperator, cid_parser::CMapFileParser},
         integer, name, offset,
         parser::parser::{Object, ObjectKind},
         string,

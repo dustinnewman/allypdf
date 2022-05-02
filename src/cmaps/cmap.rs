@@ -1,121 +1,15 @@
-use std::convert::TryInto;
-use std::{borrow::Cow, convert::TryFrom, ops::RangeInclusive};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::ops::RangeInclusive;
 
-use super::font::{CharCode, Cid, CidSystemInfo};
-use crate::parser::parser::{Object, ObjectKind};
-use crate::{error::PdfError, parser::parser::Name};
+use crate::error::PdfError;
+use crate::font::font::CidSystemInfo;
+
+use super::cid::{CharCode, CharCodeToCid, Cid};
+use super::{cns_1, gb_1, japan_1, korea_1};
 
 pub const MAX_CODE_SPACE_LENGTH: usize = 4;
-
-// beginrearrangedfont, endrearrangedfont, beginusematrix, endusematrix are
-// not used in PDF - PDF 9.7.5.4.e
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CIDOperator {
-    FindResource,
-    Dict,
-    Dup,
-    Def,
-    UseFont,
-    UseCMap,
-    Begin,
-    End,
-    BeginCMap,
-    EndCMap,
-    BeginCodeSpaceRange,
-    EndCodeSpaceRange,
-    BeginBfChar,
-    EndBfChar,
-    BeginBfRange,
-    EndBfRange,
-    BeginCIDChar,
-    EndCIDChar,
-    BeginCIDRange,
-    EndCIDRange,
-    BeginNotdefChar,
-    EndNotdefChar,
-    BeginNotdefRange,
-    EndNotdefRange,
-}
-
-pub trait CharCodeToCid {
-    fn get_cid(&self, char_code: CharCode) -> Option<Cid>;
-}
-
-pub trait CharCodeToGlyphName {
-    fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]>;
-}
-
-#[derive(Debug)]
-pub enum GlyphWidth {
-    Consecutive(Cid, Vec<f64>),
-    Range(Cid, Cid, f64),
-}
-
-// This is perhaps the ugliest function I have ever written
-pub fn object_array_to_glyph_widths(array: &Vec<Object>) -> Vec<GlyphWidth> {
-    let mut glyph_widths = vec![];
-    let mut iter = array.iter();
-    while let Some(object) = iter.next() {
-        let first = match object.kind {
-            ObjectKind::Integer(i) => i as Cid,
-            ObjectKind::Real(r) => r as Cid,
-            _ => break,
-        };
-        match iter.next() {
-            Some(Object {
-                kind: ObjectKind::Integer(i),
-                ..
-            }) => {
-                let end = *i as Cid;
-                let width = match iter.next() {
-                    Some(Object {
-                        kind: ObjectKind::Integer(i),
-                        ..
-                    }) => *i as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(r),
-                        ..
-                    }) => *r as f64,
-                    _ => break,
-                };
-                let glyph_width = GlyphWidth::Range(first, end, width);
-                glyph_widths.push(glyph_width);
-            }
-            Some(Object {
-                kind: ObjectKind::Real(r),
-                ..
-            }) => {
-                let end = *r as Cid;
-                let width = match iter.next() {
-                    Some(Object {
-                        kind: ObjectKind::Integer(i),
-                        ..
-                    }) => *i as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(r),
-                        ..
-                    }) => *r as f64,
-                    _ => break,
-                };
-                let glyph_width = GlyphWidth::Range(first, end, width);
-                glyph_widths.push(glyph_width);
-            }
-            Some(Object {
-                kind: ObjectKind::Array(widths),
-                ..
-            }) => {
-                let widths = widths
-                    .iter()
-                    .filter_map(|obj| obj.try_into().ok())
-                    .collect::<Vec<f64>>();
-                let glyph_width = GlyphWidth::Consecutive(first, widths);
-                glyph_widths.push(glyph_width);
-            }
-            _ => break,
-        };
-    }
-    glyph_widths
-}
+pub const NO_CID_CHARS: [CidChar; 0] = [];
 
 #[derive(Debug)]
 pub enum CMapWritingMode {
@@ -258,6 +152,76 @@ impl<'a> CharCodeToCid for CMap<'a> {
             .iter()
             .rev()
             .find_map(|range| range.to_cid(char_code))
+    }
+}
+
+impl TryFrom<&[u8]> for CMap<'static> {
+    type Error = PdfError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let cmap = match value {
+            b"GB-EUC-H" => gb_1::gb_euc::GB_EUC_H,
+            b"GB-EUC-V" => gb_1::gb_euc::GB_EUC_V,
+            b"GBpc-EUC-H" => gb_1::gbpc_euc::GB_1_GBPC_EUC_H,
+            b"GBpc-EUC-V" => gb_1::gbpc_euc::GB_1_GBPC_EUC_V,
+            b"GBK-EUC-H" => gb_1::gbk_euc::GBK_EUC_H,
+            b"GBK-EUC-V" => gb_1::gbk_euc::GBK_EUC_V,
+            b"GBKp-EUC-H" => gb_1::gbkp_euc::GBKP_EUC_H,
+            b"GBKp-EUC-V" => gb_1::gbkp_euc::GBKP_EUC_V,
+            b"GBK2K-H" => gb_1::gbk2k::GBK2K_H,
+            b"GBK2K-V" => gb_1::gbk2k::GBK2K_V,
+            b"UniGB-UCS2-H" => gb_1::unigb_ucs2::UNIGB_UCS2_H,
+            b"UniGB-UCS2-V" => gb_1::unigb_ucs2::UNIGB_UCS2_V,
+            b"UniGB-UTF16-H" => gb_1::unigb_utf16::UNIGB_UTF16_H,
+            b"UniGB-UTF16-V" => gb_1::unigb_utf16::UNIGB_UTF16_V,
+            b"B5pc-H" => cns_1::b5pc::B5PC_H,
+            b"B5pc-V" => cns_1::b5pc::B5PC_V,
+            b"HKscs-B5-H" => cns_1::hkscs_b5::HKSCS_B5_H,
+            b"HKscs-B5-V" => cns_1::hkscs_b5::HKSCS_B5_V,
+            b"ETen-B5-H" => cns_1::eten_b5::ETEN_B5_H,
+            b"ETen-B5-V" => cns_1::eten_b5::ETEN_B5_V,
+            b"ETenms-B5-H" => cns_1::etenms_b5::ETENMS_B5_H,
+            b"ETenms-B5-V" => cns_1::etenms_b5::ETENMS_B5_V,
+            b"CNS-EUC-H" => cns_1::cns_euc::CNS_EUC_H,
+            b"CNS-EUC-V" => cns_1::cns_euc::CNS_EUC_V,
+            b"UniCNS-UCS2-H" => cns_1::unicns_ucs2::UNICNS_UCS2_H,
+            b"UniCNS-UCS2-V" => cns_1::unicns_ucs2::UNICNS_UCS2_V,
+            b"UniCNS-UTF16-H" => cns_1::unicns_utf16::UNICNS_UTF16_H,
+            b"UniCNS-UTF16-V" => cns_1::unicns_utf16::UNICNS_UTF16_V,
+            b"83pv-RKSJ-H" => japan_1::jp_83pv_rksj::JAPAN_1_83PV_RKSJ_H,
+            b"90ms-RKSJ-H" => japan_1::jp_90ms_rksj::JAPAN_1_90MS_RKSJ_H,
+            b"90ms-RKSJ-V" => japan_1::jp_90ms_rksj::JAPAN_1_90MS_RKSJ_V,
+            b"90msp-RKSJ-H" => japan_1::jp_90msp_rksj::JAPAN_1_90MSP_RKSJ_H,
+            b"90msp-RKSJ-V" => japan_1::jp_90msp_rksj::JAPAN_1_90MSP_RKSJ_V,
+            b"90pv-RKSJ-H" => japan_1::jp_90pv_rksj::JAPAN_1_90PV_RKSJ_H,
+            b"Add-RKSJ-H" => japan_1::add_rksj::ADD_RKSJ_H,
+            b"Add-RKSJ-V" => japan_1::add_rksj::ADD_RKSJ_V,
+            b"EUC-H" => japan_1::euc::EUC_H,
+            b"EUC-V" => japan_1::euc::EUC_V,
+            b"Ext-RKSJ-H" => japan_1::ext_rksj::EXT_RKSJ_H,
+            b"Ext-RKSJ-V" => japan_1::ext_rksj::EXT_RKSJ_V,
+            b"H" => japan_1::h_v::H,
+            b"V" => japan_1::h_v::V,
+            b"UniJIS-UCS2-H" => japan_1::unijis_ucs2::JAPAN_1_UNIJIS_UCS2_H,
+            b"UniJIS-UCS2-V" => japan_1::unijis_ucs2::JAPAN_1_UNIJIS_UCS2_V,
+            b"UniJIS-UCS2-HW-H" => japan_1::unijis_ucs2_hw::UNIJIS_UCS2_HW_H,
+            b"UniJIS-UCS2-HW-V" => japan_1::unijis_ucs2_hw::UNIJIS_UCS2_HW_V,
+            b"UniJIS-UTF16-H" => japan_1::unijis_utf16::UNIJIS_UTF16_H,
+            b"UniJIS-UTF16-V" => japan_1::unijis_utf16::UNIJIS_UTF16_V,
+            b"KSC-EUC-H" => korea_1::ksc_euc::KSC_EUC_H,
+            b"KSC-EUC-V" => korea_1::ksc_euc::KSC_EUC_V,
+            b"KSCms-UHC-H" => korea_1::kscms_uhc::KSCMS_UHC_H,
+            b"KSCms-UHC-V" => korea_1::kscms_uhc::KSCMS_UHC_V,
+            b"KSCms-UHC-HW-H" => korea_1::kscms_uhc_hw::KSCMS_UHC_HW_H,
+            b"KSCms-UHC-HW-V" => korea_1::kscms_uhc_hw::KSCMS_UHC_HW_V,
+            b"KSCpc-EUC-H" => korea_1::kscpc_euc::KSCPC_EUC_H,
+            b"UniKS-UCS2-H" => korea_1::uniks_ucs2::UNIKS_UCS2_H,
+            b"UniKS-UCS2-V" => korea_1::uniks_ucs2::UNIKS_UCS2_V,
+            b"UniKS-UTF16-H" => korea_1::uniks_utf16::UNIKS_UTF16_H,
+            b"UniKS-UTF16-V" => korea_1::uniks_utf16::UNIKS_UTF16_V,
+            _ => return Err(PdfError::InvalidType0EncodingName),
+        };
+        Ok(cmap)
     }
 }
 
