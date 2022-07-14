@@ -9,6 +9,7 @@ use super::annotation::{Annotation, AnnotationFlags};
 use super::page::{Page, ProcSet, Resources};
 use crate::cmaps::cmap::CMap;
 use crate::error::{PdfError, Result};
+use crate::font::base_encodings::STANDARD_ENCODING;
 use crate::font::encoding::Encoding;
 use crate::font::font::{
     CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDescriptor,
@@ -569,9 +570,21 @@ impl PDFDocument {
         } else {
             None
         };
-        let encoding = self
-            .follow_till_dict(dict.get(ENCODING))
-            .and_then(|dict| Encoding::try_from(dict).ok());
+        let encoding = if let Some(object) = dict.get(ENCODING) {
+            if let Some(dict) = self.follow_till_dict(Some(object)) {
+                Encoding::try_from(dict).ok()
+            } else if let Some(name) = inner!(object, ObjectKind::Name) {
+                Encoding::try_from(name).ok()
+            } else {
+                None
+            }
+        } else {
+            Some(STANDARD_ENCODING)
+        };
+        // let encoding = if let Some(dict) = self
+        //     .follow_till_dict(dict.get(ENCODING)) {
+        //         Encoding::try_from(dict).ok())
+        //     } else if let Some(Object) = self.fol
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -849,10 +862,10 @@ mod tests {
     #[test]
     fn test_document_test() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/docs_multi_font.pdf");
+        file.push("test_data/pages_simple.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
-        let pages = doc.pages().unwrap();
-        println!("{:?}", pages);
+        let mut pages = doc.pages().unwrap();
+        pages[0].process_operations();
         assert!(false);
     }
 

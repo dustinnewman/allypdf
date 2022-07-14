@@ -41,6 +41,5 @@ mod tests {
             126, 4, 24, 0, 130, 19, 94, 56,
         ];
         let content = flate_decode(&data, Some(12), Some(5), Some(0), Some(0)).unwrap();
-        println!("{:?}", content);
     }
 }

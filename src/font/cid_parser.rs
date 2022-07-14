@@ -387,20 +387,6 @@ mod tests {
         let objects = parser.parse();
         let cmap_parser = CMapFileParser::new(&objects);
         let cmap = cmap_parser.parse().unwrap();
-        println!("{}", std::str::from_utf8(&cmap.name).unwrap());
-        println!(
-            "{}",
-            std::str::from_utf8(&cmap.cid_system_info.registry).unwrap()
-        );
-        println!(
-            "{}",
-            std::str::from_utf8(&cmap.cid_system_info.ordering).unwrap()
-        );
-        println!("{}", cmap.cid_system_info.supplement);
-        println!("{:?}", cmap.writing_mode);
-        println!("{:?}", cmap.codespace.ranges);
-        println!("{:?}", cmap.cid_chars);
-        println!("{:?}", cmap.cid_range);
         assert!(false);
     }
 }

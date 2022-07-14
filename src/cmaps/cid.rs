@@ -15,3 +15,7 @@ pub trait CharCodeToCid {
 pub trait CharCodeToGlyphName {
     fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]>;
 }
+
+pub trait GlyphNameToUnicode<'a, 'b: 'a> {
+    fn get_unicode(&self, glyph_name: &'a [u8]) -> Option<&'b str>;
+}

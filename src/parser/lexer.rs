@@ -344,7 +344,10 @@ impl<'a> Lexer<'a> {
 
     fn number(&mut self) -> Option<TokenKind<'a>> {
         let start = self.pos - 1;
-        let mut is_real = false;
+        let mut is_real = match self.buf.get(start) {
+            Some(&b) if b == PERIOD => true,
+            _ => false
+        };
         loop {
             match self.peek() {
                 Some(c) if is_decimal(c) => self.advance(),
@@ -715,11 +718,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_null() {
+    fn test_lexer_null() {
         let text = "null
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![TokenKind::Null, TokenKind::Eof];
+        assert_eq!(lexer.lex(), kinds);
+    }
+
+    #[test]
+    fn test_lexer_real_leading() {
+        let text = "0.75
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let kinds = vec![TokenKind::Real(0.75), TokenKind::Eof];
+        assert_eq!(lexer.lex(), kinds);
+    }
+
+    #[test]
+    fn test_lexer_real_no_leading() {
+        let text = ".75
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let kinds = vec![TokenKind::Real(0.75), TokenKind::Eof];
         assert_eq!(lexer.lex(), kinds);
     }
 

@@ -483,6 +483,16 @@ mod tests {
     }
 
     #[test]
+    fn test_parser_hex_string() {
+        let text = "<4e6f762073686d6f7a206b6120706f702e> %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let expected = vec![string!("Nov shmoz ka pop.")];
+        assert_eq!(parser.parse(), expected);
+    }
+
+    #[test]
     fn test_indirect_ref() {
         let text = "17 0 R false";
         let mut lexer = Lexer::new(text.as_bytes());

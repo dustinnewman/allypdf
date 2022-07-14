@@ -358,7 +358,8 @@ impl<'a> GraphicsEngine<'a> {
                 Matrix::new([font_size * hor_scaling, 0.0, 0.0, 0.0, font_size, rise]);
             rendering_matrix.concatenate(&self.state.text_matrix);
             rendering_matrix.concatenate(&self.state.ctm);
-        } else {
+        } else if let Some(Font::TrueType(font)) = &self.state.text_state.font {
+            println!("{:?}", font);
         }
         // After rendering glyph, then update text matrix
         // let (tx, ty) = ;

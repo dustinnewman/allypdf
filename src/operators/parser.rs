@@ -56,6 +56,7 @@ impl<'a> OperatorParser<'a> {
         while let Some(op) = self.next() {
             vec.push(op);
         }
+        vec.reverse();
         vec
     }
 

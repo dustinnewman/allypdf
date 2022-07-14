@@ -317,23 +317,14 @@ pub fn literal_string_to_string(literal: &[u8]) -> Option<Vec<u8>> {
 }
 
 pub fn hex_string_to_string(hex_string: &[u8]) -> Option<Vec<u8>> {
-    let mut vec = vec![];
-    let mut hex_pos = 0;
-    let hex_len = hex_string.len();
-    while hex_pos + 1 < hex_len {
-        let first = hex_string[hex_pos];
-        let second = hex_string[hex_pos + 1];
-        let slice = [first, second];
-        let code = slice_to_numeric(&slice, 16)? as u8;
-        vec.push(code);
-        hex_pos += 2;
-    }
-    if hex_pos < hex_len {
-        let first = hex_string[hex_len - 1];
-        let code = slice_to_numeric(&[first, b'0'], 16)? as u8;
-        vec.push(code);
-    }
-    Some(vec)
+    hex_string
+        .chunks(2)
+        .map(|bytes| {
+            let first = bytes[0];
+            let second = if let Some(byte) = bytes.get(1) { *byte } else { 0 };
+            Some(byte_to_numeric(first, 16)? << 4 | byte_to_numeric(second, 16)?)
+        })
+        .collect()
 }
 
 pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {

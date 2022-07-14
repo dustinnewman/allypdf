@@ -3,8 +3,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use super::adobe_glyph_list::adobe_glyph_list;
 use super::base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING};
-use crate::cmaps::cid::{CharCode, CharCodeToGlyphName};
+use crate::cmaps::cid::{CharCode, CharCodeToGlyphName, GlyphNameToUnicode};
 use crate::error::PdfError;
 use crate::parser::parser::{Dictionary, Name, Object, ObjectKind};
 
@@ -34,6 +35,12 @@ impl CharCodeToGlyphName for Encoding<'_> {
     fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]> {
         self.get(char_code as usize)
             .and_then(|entry| entry.and_then(|name| Some(name)))
+    }
+}
+
+impl<'a> GlyphNameToUnicode<'a, 'static> for Encoding<'a> {
+    fn get_unicode(&self, glyph_name: &'a [u8]) -> Option<&'static str> {
+        adobe_glyph_list(glyph_name)
     }
 }
 

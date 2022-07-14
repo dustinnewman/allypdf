@@ -8561,7 +8561,7 @@ const VAL_4279: &str = "\u{305A}";
 const KEY_4280: &[u8] = b"zukatakana";
 const VAL_4280: &str = "\u{30BA}";
 
-pub fn adobe_glyph_list(x: &[u8]) -> Option<&str> {
+pub fn adobe_glyph_list(x: &[u8]) -> Option<&'static str> {
     let c = match x {
         _ if x == KEY_0 => VAL_0,
         _ if x == KEY_1 => VAL_1,
