@@ -379,13 +379,14 @@ impl PDFDocument {
             .and_then(|obj| f64::try_from(obj).ok());
         let font_file = if let Some(obj) = dict.get(FONT_FILE) {
             self.follow_till_stream(Some(obj))
-                .map(|stream| (FontProgramKind::Type1, stream))
+                .map(|stream| (FontProgramKind::Type1(stream)))
         } else if let Some(obj) = dict.get(FONT_FILE_2) {
             self.follow_till_stream(Some(obj))
-                .map(|stream| (FontProgramKind::TrueType, stream))
+                .and_then(|stream| ttf_parser::Face::from_slice(&stream.content, 0).ok())
+                .map(|font| (FontProgramKind::TrueType(font)))
         } else if let Some(obj) = dict.get(FONT_FILE_3) {
             self.follow_till_stream(Some(obj))
-                .map(|stream| (FontProgramKind::OpenType, stream))
+                .map(|stream| (FontProgramKind::OpenType(stream)))
         } else {
             None
         };
@@ -572,19 +573,28 @@ impl PDFDocument {
         };
         let encoding = if let Some(object) = dict.get(ENCODING) {
             if let Some(dict) = self.follow_till_dict(Some(object)) {
+                // If the Encoding entry is a dictionary, the table shall be
+                // initialised with the entries from the dictionary’s
+                // BaseEncoding entry. Any entries in the Differences array
+                // shall be used to update the table. Finally, any undefined
+                // entries in the table shall be filled using StandardEncoding.
+                // - PDF 9.6.5.4 paragraph 6 item 2
                 Encoding::try_from(dict).ok()
             } else if let Some(name) = inner!(object, ObjectKind::Name) {
+                // If the Encoding entry is one of the names MacRomanEncoding
+                // or WinAnsiEncoding, the table shall be initialised with the
+                // mappings described in Annex D, "Character Sets and Encodings".
+                // - PDF 9.6.5.4 paragraph 6 item 1
                 Encoding::try_from(name).ok()
             } else {
                 None
             }
         } else {
-            Some(STANDARD_ENCODING)
+            // A font that is used to display glyphs that do not use
+            // MacRomanEncoding or WinAnsiEncoding should not specify an
+            // Encoding entry. - PDF 9.6.5.4 paragraph 4 item 3
+            None
         };
-        // let encoding = if let Some(dict) = self
-        //     .follow_till_dict(dict.get(ENCODING)) {
-        //         Encoding::try_from(dict).ok())
-        //     } else if let Some(Object) = self.fol
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));

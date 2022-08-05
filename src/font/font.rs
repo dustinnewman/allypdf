@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use std::{collections::BTreeMap, convert::TryFrom};
 
+use ttf_parser::Face;
+
 use super::encoding::{Encoding, ENCODING_SIZE};
 use crate::cmaps::cid::{CharCode, CharCodeToCid, Cid};
 use crate::cmaps::cmap::CMap;
@@ -145,12 +147,12 @@ pub struct Type1FontProgram<'a> {
 // PDF 9.9.1 Table 124 - Not technically accurate, Type1C, CID Font, and OpenType
 // are subtypes rather than types themselves.
 #[derive(Debug)]
-pub enum FontProgramKind {
-    Type1,
-    TrueType,
+pub enum FontProgramKind<'a> {
+    Type1(&'a Stream),
+    TrueType(Face<'a>),
     Type1C,
     CIDFontType0C,
-    OpenType,
+    OpenType(&'a Stream),
 }
 
 // PDF 9.8.1 Table 120
@@ -176,7 +178,7 @@ pub struct FontDescriptor<'a> {
     avg_width: Option<f64>,
     max_width: Option<f64>,
     pub missing_width: f64,
-    font_file: Option<(FontProgramKind, &'a Stream)>,
+    font_file: Option<FontProgramKind<'a>>,
     char_set: Option<&'a Name>,
     // CID only
     style: Option<&'a Dictionary>,
@@ -204,7 +206,7 @@ impl<'a> FontDescriptor<'a> {
         avg_width: Option<f64>,
         max_width: Option<f64>,
         missing_width: Option<f64>,
-        font_file: Option<(FontProgramKind, &'a Stream)>,
+        font_file: Option<FontProgramKind<'a>>,
         char_set: Option<&'a Name>,
         style: Option<&'a Dictionary>,
         lang: Option<Name>,
@@ -501,3 +503,24 @@ pub enum Font<'a> {
 }
 
 pub type FontDictionary<'a> = BTreeMap<&'a Name, Font<'a>>;
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+    use std::path::Path;
+
+    use ttf_parser::fonts_in_collection;
+
+    #[test]
+    fn test_true_type_font_parser() {
+        let file_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data").join("true_type_font.ttf");
+        let font = fs::read(file_path).unwrap();
+        let index = fonts_in_collection(&font).unwrap_or(0);
+        let font = ttf_parser::Face::from_slice(&font, index).unwrap();
+        let cmap = font.tables().cmap.unwrap().subtables.get(0).unwrap();
+        let post = font.tables().post.unwrap();
+        for i in 0..post.names.len() {
+            println!("{:?}", post.names.get(ttf_parser::GlyphId(i)));
+        }
+    }
+}
