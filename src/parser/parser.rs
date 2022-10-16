@@ -1,17 +1,18 @@
 use std::{collections::BTreeMap, convert::TryFrom};
 
+use super::cid_parser::CIDOperator;
 use super::lexer::{Token, TokenKind};
 use crate::error::PdfError;
 use crate::filter::{decode, Filter};
-use crate::font::cid_operator::CIDOperator;
 use crate::operators::operators::Operator;
 use crate::util::{hex_string_to_string, literal_string_to_string, name_to_name};
 
 const FILTER: &[u8] = b"Filter";
 const SIZE: &[u8] = b"Size";
 const ROOT: &[u8] = b"Root";
+const LENGTH: &[u8] = b"Length";
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CrossReference {
     offset: u64,
     generation_number: u32,
@@ -79,6 +80,8 @@ pub enum ObjectKind {
 }
 
 #[derive(Debug)]
+// When not in test mode, use default equality impl (consider different
+// offsets to be different objects)
 #[cfg_attr(not(test), derive(PartialEq))]
 pub struct Object {
     pub offset: u64,
@@ -233,6 +236,9 @@ impl<'a> Parser<'a> {
             let root = dict.get(ROOT)?;
             if let ObjectKind::Integer(size) = size.kind {
                 if let ObjectKind::IndirectReference(root) = root.kind {
+                    for (key, val) in &dict {
+                        println!("{:?}: {:?}", key, val);
+                    }
                     let trailer = Trailer {
                         size: size as u64,
                         root,
@@ -282,7 +288,14 @@ impl<'a> Parser<'a> {
     }
 
     fn stream_content(&self, dict: &Dictionary, content: &[u8]) -> Option<Vec<u8>> {
-        let mut vec = content.to_vec();
+        // SPEC_BREAK Technically there is always supposed to be a stream length
+        // but for testing purposes we can allow omission
+        let length = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(LENGTH) {
+            *i as usize
+        } else {
+            content.len()
+        };
+        let mut vec = content[0..length].to_vec();
         let mut filters = vec![];
         match dict.get(FILTER) {
             Some(Object {
@@ -493,6 +506,16 @@ mod tests {
     }
 
     #[test]
+    fn test_parser_hex_string_with_space() {
+        let text = b"<0644 0627>\n%%EOF";
+        let mut lexer = Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let expected = vec![string!("N")];
+        assert_eq!(parser.parse(), expected);
+    }
+
+    #[test]
     fn test_indirect_ref() {
         let text = "17 0 R false";
         let mut lexer = Lexer::new(text.as_bytes());
@@ -697,7 +720,36 @@ mod tests {
             generation_number: 0,
             object: Box::new(dict),
         });
-        let expected = vec![kind];
+        let expected = vec![offset!(kind)];
+        assert_eq!(parser.parse(), expected);
+    }
+
+    #[test]
+    fn test_trailer() {
+        let text =
+            b"trailer\n<</Root 1 0 R\n/ID [<01234567890ABCDEF> <01234567890ABCDEF>]\n/Size 8\n>>
+        startxref\n491
+        %%EOF";
+        let mut lexer = Lexer::new(text);
+        let tokens = lexer.lex();
+        let mut parser = Parser::new(&tokens);
+        let dict = dict!(
+            b"Root" => indirect_reference!(1),
+            b"ID" => array![offset!(ObjectKind::String(vec![1, 35, 69, 103, 137, 10, 188, 222, 240])), offset!(ObjectKind::String(vec![1, 35, 69, 103, 137, 10, 188, 222, 240]))],
+            b"Size" => integer!(8)
+        );
+        let dict = inner!(dict, ObjectKind::Dictionary).unwrap();
+        let trailer = Trailer {
+            size: 8,
+            root: IndirectReference {
+                object_number: 1,
+                generation_number: 0,
+            },
+            dictionary: dict,
+        };
+        let trailer = offset!(ObjectKind::Trailer(trailer));
+        let startxref = offset!(ObjectKind::StartXref(491));
+        let expected = vec![trailer, startxref];
         assert_eq!(parser.parse(), expected);
     }
 

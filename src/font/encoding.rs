@@ -34,7 +34,7 @@ impl<'a> Encoding<'a> {
 impl CharCodeToGlyphName for Encoding<'_> {
     fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]> {
         self.get(char_code as usize)
-            .and_then(|entry| entry.and_then(|name| Some(name)))
+            .and_then(|entry| entry.and_then(Some))
     }
 }
 

@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, convert::TryFrom};
 use ttf_parser::Face;
 
 use super::encoding::{Encoding, ENCODING_SIZE};
-use crate::cmaps::cid::{CharCode, CharCodeToCid, Cid};
+use crate::cmaps::cid::{CharCode, CharCodeToCid, Cid, CharCodeToGlyphName, CharCodeToUnicode};
 use crate::cmaps::cmap::CMap;
 use crate::document::page::Resources;
 use crate::error::PdfError;
@@ -298,7 +298,7 @@ pub struct TrueTypeFont<'a> {
     widths: Option<[f64; ENCODING_SIZE]>,
     font_descriptor: Option<FontDescriptor<'a>>,
     encoding: Option<Encoding<'a>>,
-    to_unicode: Option<&'a Stream>,
+    to_unicode: Option<CMap<'a>>,
 }
 
 impl<'a> TrueTypeFont<'a> {
@@ -310,7 +310,7 @@ impl<'a> TrueTypeFont<'a> {
         widths: Option<[f64; ENCODING_SIZE]>,
         font_descriptor: Option<FontDescriptor<'a>>,
         encoding: Option<Encoding<'a>>,
-        to_unicode: Option<&'a Stream>,
+        to_unicode: Option<CMap<'a>>,
     ) -> Self {
         Self {
             name,
@@ -391,16 +391,20 @@ impl TryFrom<&[u8]> for CIDFontSubtypeKind {
 }
 
 // PDF 9.7.3 Table 114
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CidSystemInfo<'a> {
     pub registry: Cow<'a ,[u8]>,
     pub ordering: Cow<'a ,[u8]>,
     pub supplement: u32,
 }
 
+// Map character identifiers to glyph identifiers.
 #[derive(Debug)]
 pub enum CIDToGIDMap<'a> {
+    // Basically there is no mapping, just use the CID as the GID but we
+    // needed a way to represent this formally
     Identity,
+    // There is an actual mapping inside the stream, use it
     Stream(&'a Stream),
 }
 
@@ -444,7 +448,7 @@ impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
         match name {
             IDENTITY_H => Ok(Self::IdentityH),
             IDENTITY_V => Ok(Self::IdentityV),
-            name => CMap::try_from(name).and_then(|cmap| Ok(Self::CMap(cmap))),
+            name => CMap::try_from(name).map(|cmap| Self::CMap(cmap)),
         }
     }
 }
@@ -502,6 +506,33 @@ pub enum Font<'a> {
     // CID fonts cannot be used directly but only as children of Type0 fonts
 }
 
+impl CharCodeToGlyphName for TrueTypeFont<'_> {
+    fn get_glyph_name(&self, char_code: CharCode) -> Option<&[u8]> {
+        if let Some(encoding) = &self.encoding {
+            encoding.get_glyph_name(char_code)
+        } else {
+            // PDF 9.6.5.4 Encodings for TrueType fonts
+            // "When the font has no Encoding entry, or the font descriptor's
+            // Symbolic flag is set (in which case the Encoding entry is
+            // ignored), this shall occur:
+            // If the font contains a (1, 0) subtable, single bytes
+            // from the string shall be used to look up the associated glyph
+            // descriptions from the subtable
+            todo!()
+        }
+    }
+}
+
+impl CharCodeToUnicode for TrueTypeFont<'_> {
+    fn get_unicode(&self, char_code: CharCode) -> Option<String> {
+        if let Some(to_unicode_cmap) = &self.to_unicode {
+            Some(String::from("A"))
+        } else {
+            None
+        }
+    }
+}
+
 pub type FontDictionary<'a> = BTreeMap<&'a Name, Font<'a>>;
 
 #[cfg(test)]
@@ -516,11 +547,10 @@ mod test {
         let file_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data").join("true_type_font.ttf");
         let font = fs::read(file_path).unwrap();
         let index = fonts_in_collection(&font).unwrap_or(0);
-        let font = ttf_parser::Face::from_slice(&font, index).unwrap();
-        let cmap = font.tables().cmap.unwrap().subtables.get(0).unwrap();
+        let font = ttf_parser::Face::parse(&font, index).unwrap();
         let post = font.tables().post.unwrap();
-        for i in 0..post.names.len() {
-            println!("{:?}", post.names.get(ttf_parser::GlyphId(i)));
+        for name in post.names() {
+            println!("{:?}", name);
         }
     }
 }

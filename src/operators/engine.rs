@@ -6,6 +6,7 @@ use super::operations::{
 };
 use super::path::{Path, PathMode, Point};
 use super::rect::Rectangle;
+use crate::cmaps::cid::{CharCodeToGlyphName, CharCodeToUnicode};
 use crate::document::page::Resources;
 use crate::font::font::Font;
 use crate::parser::parser::{Dictionary, Name};
@@ -359,7 +360,10 @@ impl<'a> GraphicsEngine<'a> {
             rendering_matrix.concatenate(&self.state.text_matrix);
             rendering_matrix.concatenate(&self.state.ctm);
         } else if let Some(Font::TrueType(font)) = &self.state.text_state.font {
-            println!("{:?}", font);
+            println!("{:?}", bytes);
+            for byte in bytes {
+                println!("{:?}", font.get_unicode(*byte as u32));
+            }
         }
         // After rendering glyph, then update text matrix
         // let (tx, ty) = ;

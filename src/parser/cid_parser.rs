@@ -1,15 +1,15 @@
 use std::convert::TryFrom;
 use std::ops::RangeInclusive;
+use std::vec::IntoIter;
 
-use super::cid_operator::CIDOperator;
-use super::font::CidSystemInfo;
+use super::parser::ObjectKind;
+use super::parser::{Name, Object};
+use crate::font::font::CidSystemInfo;
 use crate::cmaps::cid::Cid;
 use crate::cmaps::cmap::{
     CMap, CMapWritingMode, CidChar, CidRange, Codespace, DEFAULT_CODE_SPACE_RANGE,
-    MAX_CODE_SPACE_LENGTH, CodespaceRange,
+    MAX_CODE_SPACE_LENGTH, CodespaceRange, BaseFontChar, BaseFontCharDestination,
 };
-use crate::parser::parser::ObjectKind;
-use crate::parser::parser::{Name, Object};
 use crate::util::reduce_slice_to_numeric;
 
 const WMODE: &[u8] = b"WMode";
@@ -19,109 +19,155 @@ const REGISTRY: &[u8] = b"Registry";
 const ORDERING: &[u8] = b"Ordering";
 const SUPPLEMENT: &[u8] = b"Supplement";
 
-pub struct CMapFileParser<'a> {
-    objects: &'a [Object],
-    pos: usize,
-    name: Name,
-    registry: Name,
-    ordering: Name,
-    supplement: Option<u32>,
-    writing_mode: CMapWritingMode,
-    codespace: Vec<CodespaceRange>,
-    cid_range: Vec<CidRange>,
-    cid_chars: Vec<CidChar>,
+// beginrearrangedfont, endrearrangedfont, beginusematrix, endusematrix are
+// not used in PDF - PDF 9.7.5.4.e
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CIDOperator {
+    FindResource,
+    Dict,
+    Dup,
+    Def,
+    UseFont,
+    UseCMap,
+    Begin,
+    End,
+    BeginCMap,
+    EndCMap,
+    BeginCodeSpaceRange,
+    EndCodeSpaceRange,
+    BeginBfChar,
+    EndBfChar,
+    BeginBfRange,
+    EndBfRange,
+    BeginCIDChar,
+    EndCIDChar,
+    BeginCIDRange,
+    EndCIDRange,
+    BeginNotdefChar,
+    EndNotdefChar,
+    BeginNotdefRange,
+    EndNotdefRange,
 }
 
-impl<'a> CMapFileParser<'a> {
-    pub fn new(objects: &'a [Object]) -> Self {
+pub struct CMapFileParser {
+    objects: IntoIter<Object>,
+    pos: usize,
+}
+
+enum CMapStringKind {
+    WritingMode,
+    CMapName,
+}
+
+impl<'a> CMapFileParser {
+    pub fn new(objects: Vec<Object>) -> Self {
         Self {
-            objects,
-            pos: 0,
-            name: vec![],
-            registry: vec![],
-            ordering: vec![],
-            supplement: None,
-            writing_mode: CMapWritingMode::default(),
-            codespace: vec![],
-            cid_range: vec![],
-            cid_chars: vec![],
+            objects: objects.into_iter(),
+            pos: 0
         }
     }
 
-    pub fn parse<'c>(mut self) -> Option<CMap<'c>> {
-        while let Some(object) = self.pop() {
+    fn next(&mut self) -> Option<Object> {
+        self.objects.next()
+    }
+
+    pub fn parse(mut self) -> Option<CMap<'a>> {
+        let mut cmap = CMap::default();
+        while let Some(object) = self.next() {
             match &object.kind {
-                ObjectKind::Name(name) => self.name(name),
-                ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange) => self.code_space(),
-                ObjectKind::CIDOperator(CIDOperator::BeginCIDRange) => self.cid_range(),
-                ObjectKind::CIDOperator(CIDOperator::BeginCIDChar) => self.cid_char(),
+                ObjectKind::Name(name) => if name == WMODE {
+                    match self.next()?.kind {
+                        ObjectKind::Integer(i) => if let Ok(writing_mode) = CMapWritingMode::try_from(i) {
+                            cmap.writing_mode = writing_mode;
+                        },
+                        _ => continue,
+                    }
+                } else if name == CID_SYSTEM_INFO {
+                    self.cid_system_info_dict(&mut cmap.cid_system_info);
+                } else if name == CMAP_NAME {
+                    match self.next()?.kind {
+                        ObjectKind::Name(name) => cmap.name = name.into(),
+                        _ => continue,
+                    };
+                },
+                ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange) => self.code_space(cmap.codespace.ranges.to_mut()),
+                ObjectKind::CIDOperator(CIDOperator::BeginCIDRange) => self.cid_range(cmap.cid_range.to_mut()),
+                ObjectKind::CIDOperator(CIDOperator::BeginCIDChar) => self.cid_char(cmap.cid_chars.to_mut()),
+                ObjectKind::CIDOperator(CIDOperator::BeginBfChar) => self.base_font_chars(cmap.base_font_chars.to_mut()),
                 _ => continue,
             };
         }
-        let cmap = CMap {
-            name: self.name.into(),
-            cid_system_info: CidSystemInfo {
-                registry: self.registry.into(),
-                ordering: self.ordering.into(),
-                supplement: self.supplement?,
-            },
-            writing_mode: self.writing_mode,
-            codespace: Codespace {
-                ranges: self.codespace.into()
-            },
-            cid_chars: self.cid_chars.into(),
-            cid_range: self.cid_range.into(),
-        };
         Some(cmap)
     }
 
-    fn cid_char(&mut self) -> Option<()> {
-        while let Some(object) = self.pop() {
-            let char_code = match &object.kind {
-                ObjectKind::String(string) => string,
-                _ => break,
-            };
-            let char_code = reduce_slice_to_numeric(char_code);
-            let cid = match &self.pop()?.kind {
-                ObjectKind::Integer(i) => *i as Cid,
+    fn cid_char(&mut self, vec: &mut Vec<CidChar>) {
+        while let Some(Object { kind: ObjectKind::String(char_code), .. }) = self.next() {
+            let char_code = reduce_slice_to_numeric(&char_code);
+            let cid = match self.next() {
+                Some(object) => match object.kind {
+                    ObjectKind::Integer(i) => i as Cid,
+                    _ => break,
+                },
                 _ => break,
             };
             let cid_char = CidChar::new(char_code, cid);
-            self.cid_chars.push(cid_char);
+            vec.push(cid_char);
         }
-        Some(())
     }
 
-    fn cid_range(&mut self) -> Option<()> {
-        while let Some(start) = self.pop() {
-            let start = match &start.kind {
-                ObjectKind::String(string) => string,
+    fn base_font_chars(&mut self, vec: &mut Vec<BaseFontChar>) {
+        // CID Font spec 7.4
+        // srcCode and destCode must be specified as hexadecimal strings.
+        // dstCharname must be a PostScript language name object.
+        while let Some(Object { kind: ObjectKind::String(char_code), .. }) = self.next() {
+            let char_code = reduce_slice_to_numeric(&char_code);
+            let dest = if let Some(object) = self.next() {
+                match object.kind {
+                    ObjectKind::String(string) => {
+                        let dest_code = reduce_slice_to_numeric(&string);
+                        BaseFontCharDestination::Cid(dest_code)
+                    },
+                    ObjectKind::Name(name) => BaseFontCharDestination::CharName(name),
+                    _ => break
+                }
+            } else {
+                break
+            };
+            let base_font_char = BaseFontChar::new(char_code, dest);
+            vec.push(base_font_char);
+        }
+    }
+
+    fn cid_range(&mut self, vec: &mut Vec<CidRange>) {
+        while let Some(Object { kind: ObjectKind::String(start), .. }) = self.next() {
+            let start = reduce_slice_to_numeric(&start);
+            let end = match self.next() {
+                Some(object) => match object.kind {
+                    ObjectKind::String(string) => string,
+                    _ => break,
+                },
                 _ => break,
             };
-            let start = reduce_slice_to_numeric(start);
-            let end = match &self.pop()?.kind {
-                ObjectKind::String(string) => string,
-                _ => break,
-            };
-            let end = reduce_slice_to_numeric(end);
-            let cid = match &self.pop()?.kind {
-                ObjectKind::Integer(i) => *i as u32,
+            let end = reduce_slice_to_numeric(&end);
+            let cid = match self.next() {
+                Some(object) => match object.kind {
+                    ObjectKind::Integer(i) => i as u32,
+                    _ => break,
+                },
                 _ => break,
             };
             let range = CidRange::new(start, end, cid);
-            self.cid_range.push(range);
+            vec.push(range);
         }
-        Some(())
     }
 
-    fn code_space(&mut self) -> Option<()> {
-        while let Some(first) = self.pop() {
-            let first = match &first.kind {
-                ObjectKind::String(string) => string,
-                _ => break,
-            };
-            let second = match &self.pop()?.kind {
-                ObjectKind::String(string) => string,
+    fn code_space(&mut self, vec: &mut Vec<CodespaceRange>) {
+        while let Some(Object { kind: ObjectKind::String(first), .. }) = self.next() {
+            let second = match self.next() {
+                Some(object) => match object.kind {
+                    ObjectKind::String(string) => string,
+                    _ => break,
+                },
                 _ => break,
             };
             let mut range = [DEFAULT_CODE_SPACE_RANGE; MAX_CODE_SPACE_LENGTH];
@@ -132,64 +178,50 @@ impl<'a> CMapFileParser<'a> {
             for (i, (&lower, &upper)) in first.iter().zip(second.iter()).rev().enumerate() {
                 range[MAX_CODE_SPACE_LENGTH - 1 - i] = RangeInclusive::new(lower, upper);
             }
-            self.codespace.push(range);
+            vec.push(range);
         }
-        Some(())
     }
 
-    fn name(&mut self, name: &Name) -> Option<()> {
-        if name == WMODE {
-            match self.pop()?.kind {
-                ObjectKind::Integer(i) => self.writing_mode = CMapWritingMode::try_from(i).ok()?,
-                _ => return None,
-            }
-        } else if name == CID_SYSTEM_INFO {
-            self.cid_system_info_dict();
-        } else if name == CMAP_NAME {
-            match &self.pop()?.kind {
-                ObjectKind::Name(name) => self.name = name.to_owned(),
-                _ => return None,
-            };
-        }
-        Some(())
-    }
-
-    fn match_cid_system_info_pair(&mut self, name: &'a Name, value: Option<&'a Object>) {
+    fn match_cid_system_info_pair(&mut self, name: Name, value: Object, cid_info: &mut CidSystemInfo<'a>) {
         if name == REGISTRY {
-            if let Some(Object {
+            if let Object {
                 kind: ObjectKind::String(registry),
                 ..
-            }) = value
+            } = value
             {
-                self.registry = registry.to_owned();
+                cid_info.registry = registry.into();
             }
         } else if name == ORDERING {
-            if let Some(Object {
+            if let Object {
                 kind: ObjectKind::String(ordering),
                 ..
-            }) = value
+            } = value
             {
-                self.ordering = ordering.to_owned();
+                cid_info.ordering = ordering.into();
             }
         } else if name == SUPPLEMENT {
-            if let Some(Object {
+            if let Object {
                 kind: ObjectKind::Integer(i),
                 ..
-            }) = value
+            } = value
             {
-                self.supplement = Some(*i as u32);
+                cid_info.supplement = i as u32;
             }
         }
     }
 
-    fn cid_system_info_dict(&mut self) {
-        while let Some(object) = self.pop() {
-            if let ObjectKind::Name(name) = &object.kind {
-                let next = self.pop();
-                self.match_cid_system_info_pair(name, next);
-            } else if let ObjectKind::Dictionary(dict) = &object.kind {
-                for (key, val) in dict.iter() {
-                    self.match_cid_system_info_pair(key, Some(val));
+    fn cid_system_info_dict(&mut self, cid_info: &mut CidSystemInfo<'a>) {
+        while let Some(object) = self.next() {
+            if let ObjectKind::Name(name) = object.kind {
+                let next = if let Some(object) = self.next() {
+                    object
+                } else {
+                    break
+                };
+                self.match_cid_system_info_pair(name, next, cid_info);
+            } else if let ObjectKind::Dictionary(dict) = object.kind {
+                for (key, val) in dict.into_iter() {
+                    self.match_cid_system_info_pair(key, val, cid_info);
                 }
                 // Return after parsing the dictionary since there is only
                 // one dictionary per CID system info
@@ -197,36 +229,6 @@ impl<'a> CMapFileParser<'a> {
             } else if let ObjectKind::CIDOperator(CIDOperator::End) = &object.kind {
                 break;
             }
-        }
-    }
-
-    fn pop(&mut self) -> Option<&'a Object> {
-        if self.pos == self.objects.len() {
-            return None;
-        }
-        self.advance();
-        Some(&self.objects[self.pos - 1])
-    }
-
-    fn advance(&mut self) {
-        self.seek(1);
-    }
-
-    fn seek(&mut self, n: usize) {
-        if self.pos + n <= self.objects.len() {
-            self.pos += n;
-        }
-    }
-
-    fn peek(&self) -> Option<&'a Object> {
-        self.nth(0)
-    }
-
-    fn nth(&self, n: usize) -> Option<&'a Object> {
-        if self.pos + n < self.objects.len() {
-            Some(&self.objects[self.pos + n])
-        } else {
-            None
         }
     }
 }
@@ -238,7 +240,6 @@ mod tests {
     use super::*;
     use crate::{
         dict,
-        font::{cid_operator::CIDOperator, cid_parser::CMapFileParser},
         integer, name, offset,
         parser::parser::{Object, ObjectKind},
         string,
@@ -279,7 +280,7 @@ mod tests {
             name!("CMapName"),
             name!("Adobe-Identity-UCS"),
         ];
-        let parser = CMapFileParser::new(&objects);
+        let parser = CMapFileParser::new(objects);
         let cmap = parser.parse().unwrap();
         assert_eq!(cmap.cid_system_info.registry.to_vec(), b"Adobe");
         assert_eq!(cmap.cid_system_info.ordering.to_vec(), b"UCS");
@@ -340,7 +341,7 @@ mod tests {
                 offset: 0,
             },
         ];
-        let parser = CMapFileParser::new(&objects);
+        let parser = CMapFileParser::new(objects);
         let cmap = parser.parse().unwrap();
         let ranges = vec![
             [
@@ -385,7 +386,7 @@ mod tests {
         let tokens = lexer.lex();
         let mut parser = crate::parser::parser::Parser::new(&tokens);
         let objects = parser.parse();
-        let cmap_parser = CMapFileParser::new(&objects);
+        let cmap_parser = CMapFileParser::new(objects);
         let cmap = cmap_parser.parse().unwrap();
         assert!(false);
     }

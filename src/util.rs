@@ -270,7 +270,7 @@ pub fn slice_to_numeric(slice: &[Byte], radix: u8) -> Option<u32> {
 pub fn reduce_slice_to_numeric(slice: &[u8]) -> u32 {
     let mut result: u32 = 0;
     for &x in slice {
-        result = result * 256 + x as u32;
+        result = (result << 8) | x as u32;
     }
     result
 }
@@ -316,15 +316,36 @@ pub fn literal_string_to_string(literal: &[u8]) -> Option<Vec<u8>> {
     Some(vec)
 }
 
+fn hex_byte_to_byte(bytes: &[u8]) -> Option<u8> {
+    let first = *bytes.first().unwrap_or(&b'0');
+    let second = *bytes.get(1).unwrap_or(&b'0');
+    let first = byte_to_numeric(first, 16)?;
+    let second = byte_to_numeric(second, 16)?;
+    Some(first << 4 | second)
+}
+
 pub fn hex_string_to_string(hex_string: &[u8]) -> Option<Vec<u8>> {
+    // We need to ignore whitespace so we have to filter it out before
+    // anything else is done
     hex_string
+        .iter()
+        .filter(|c| is_hexadecimal(**c))
+        .map(|r| *r)
+        .collect::<Vec<u8>>()
         .chunks(2)
-        .map(|bytes| {
-            let first = bytes[0];
-            let second = if let Some(byte) = bytes.get(1) { *byte } else { 0 };
-            Some(byte_to_numeric(first, 16)? << 4 | byte_to_numeric(second, 16)?)
-        })
+        .map(hex_byte_to_byte)
         .collect()
+}
+
+pub fn hex_string_to_utf16(hex_string: &[u8]) -> Vec<u16> {
+    let mut vec = vec![];
+    for bytes in hex_string.chunks(4) {
+        let first = hex_byte_to_byte(&bytes[0..2]).unwrap_or_default() as u16;
+        let second = hex_byte_to_byte(&bytes[2..4]).unwrap_or_default() as u16;
+        let ch = (first << 8) | second;
+        vec.push(ch);
+    }
+    vec
 }
 
 pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
@@ -334,10 +355,8 @@ pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
     while original_pos < original_len {
         let original_curr = name[original_pos];
         if original_curr == POUND {
-            let first = name[original_pos + 1];
-            let second = name[original_pos + 2];
-            let hex = [first, second];
-            let code = slice_to_numeric(&hex, 16)? as u8;
+            let hex = &name[original_pos + 1..original_pos + 3];
+            let code = hex_byte_to_byte(hex)?;
             vec.push(code);
             original_pos += 3;
         } else {
@@ -346,4 +365,52 @@ pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
         }
     }
     Some(vec)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_name_basic() {
+        let name = b"Name1";
+        let expected = b"Name1";
+        assert_eq!(name_to_name(name).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_name_with_hash() {
+        let name = b"Lime#20Green";
+        let expected = b"Lime Green";
+        assert_eq!(name_to_name(name).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_name_with_two_hashes() {
+        let name = b"paired#28#29parentheses";
+        let expected = b"paired()parentheses";
+        assert_eq!(name_to_name(name).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_hex_string_even_length() {
+        let bytes = b"4e6f762073686d6f7a206b6120706f702e";
+        let string = hex_string_to_string(bytes);
+        assert!(string.is_some());
+        assert_eq!(string.unwrap(), b"Nov shmoz ka pop.".to_vec());
+    }
+
+    #[test]
+    fn test_hex_string_odd_length() {
+        let bytes = b"01234567890ABCDEF";
+        let string = hex_string_to_string(bytes);
+        assert!(string.is_some());
+        assert_eq!(string.unwrap(), vec![1, 35, 69, 103, 137, 10, 188, 222, 240]);
+    }
+    
+    #[test]
+    fn test_hex_string_to_utf16() {
+        let bytes = b"06440627";
+        assert_eq!(hex_string_to_utf16(bytes), vec![1604, 1575]);
+    }
 }

@@ -1,4 +1,4 @@
-use crate::font::cid_operator::CIDOperator;
+use super::cid_parser::CIDOperator;
 use crate::operators::operators::Operator;
 use crate::util::{
     byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace, Byte,
@@ -344,10 +344,7 @@ impl<'a> Lexer<'a> {
 
     fn number(&mut self) -> Option<TokenKind<'a>> {
         let start = self.pos - 1;
-        let mut is_real = match self.buf.get(start) {
-            Some(&b) if b == PERIOD => true,
-            _ => false
-        };
+        let mut is_real = matches!(self.buf.get(start), Some(&b) if b == PERIOD);
         loop {
             match self.peek() {
                 Some(c) if is_decimal(c) => self.advance(),
@@ -506,7 +503,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn hex_string(&mut self) -> Option<TokenKind<'a>> {
-        let string = self.get_next_char_while(is_hexadecimal);
+        // PDF spec 7.3.4.3 - White space shall be ignored
+        let string = self.get_next_char_while(|c| is_hexadecimal(c) || is_whitespace(c));
         Some(TokenKind::HexString(string))
     }
 
@@ -741,6 +739,14 @@ mod tests {
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![TokenKind::Real(0.75), TokenKind::Eof];
+        assert_eq!(lexer.lex(), kinds);
+    }
+
+    #[test]
+    fn test_hex_string_with_space() {
+        let text = b"<0644 0627>\n%%EOF";
+        let mut lexer = Lexer::new(text);
+        let kinds = vec![TokenKind::HexString(b"0644 0627"), TokenKind::Eof];
         assert_eq!(lexer.lex(), kinds);
     }
 
@@ -1036,6 +1042,39 @@ mod tests {
             TokenKind::Name(b"Producer"),
             TokenKind::LiteralString(b"GPL Ghostscript 8.71"),
             TokenKind::DoubleRThan,
+            TokenKind::Eof,
+        ];
+        assert_eq!(lexer.lex(), kinds);
+    }
+
+    #[test]
+    fn test_trailer() {
+        let text = "trailer
+        <</Root 1 0 R
+        /ID [<01234567890ABCDEF> <01234567890ABCDEF>]
+        /Size 8
+        >>
+        startxref
+        491
+        %%EOF";
+        let mut lexer = Lexer::new(text.as_bytes());
+        let kinds = vec![
+            TokenKind::Trailer,
+            TokenKind::DoubleLThan,
+            TokenKind::Name(b"Root"),
+            TokenKind::Integer(1),
+            TokenKind::Integer(0),
+            TokenKind::Reference,
+            TokenKind::Name(b"ID"),
+            TokenKind::LBracket,
+            TokenKind::HexString(b"01234567890ABCDEF"),
+            TokenKind::HexString(b"01234567890ABCDEF"),
+            TokenKind::RBracket,
+            TokenKind::Name(b"Size"),
+            TokenKind::Integer(8),
+            TokenKind::DoubleRThan,
+            TokenKind::StartXref,
+            TokenKind::Integer(491),
             TokenKind::Eof,
         ];
         assert_eq!(lexer.lex(), kinds);

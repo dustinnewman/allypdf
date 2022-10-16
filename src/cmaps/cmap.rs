@@ -3,16 +3,18 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use crate::error::PdfError;
-use crate::font::cid_parser::CMapFileParser;
+use crate::parser::cid_parser::CMapFileParser;
 use crate::font::font::CidSystemInfo;
-use crate::parser::parser::Stream;
+use crate::parser::parser::{Stream, Name};
 
 use super::cid::{CharCode, CharCodeToCid, Cid};
 use super::{cns_1, gb_1, japan_1, korea_1};
 
 pub const MAX_CODE_SPACE_LENGTH: usize = 4;
 pub const ADOBE_REGISTRY: &[u8] = b"Adobe";
-pub const NO_CID_CHARS: [CidChar; 0] = [];
+pub const NO_CID_CHARS: Cow<[CidChar]> = Cow::Borrowed(&[]);
+pub const NO_CID_RANGE: Cow<[CidRange]> = Cow::Borrowed(&[]);
+pub const NO_BASE_FONT_CHARS: Cow<[BaseFontChar]> = Cow::Borrowed(&[]);
 
 #[derive(Debug, Clone)]
 pub enum CMapWritingMode {
@@ -60,6 +62,24 @@ impl CidChar {
 }
 
 #[derive(Debug, Clone)]
+pub enum BaseFontCharDestination {
+    Cid(Cid),
+    CharName(Name),
+}
+
+#[derive(Debug, Clone)]
+pub struct BaseFontChar {
+    pub char: CharCode,
+    pub dest: BaseFontCharDestination,
+}
+
+impl BaseFontChar {
+    pub const fn new(char: CharCode, dest: BaseFontCharDestination) -> Self {
+        Self { char, dest }
+    }
+}
+
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct CidRange {
     pub start: CharCode,
@@ -79,6 +99,19 @@ impl CidRange {
             None
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum BaseFontRangeDestination {
+    Cid(Cid),
+    CharNames(Vec<Name>)
+}
+
+#[derive(Debug, Clone)]
+pub struct BaseFontRange {
+    pub start: CharCode,
+    pub end: CharCode,
+    pub dest: BaseFontRangeDestination,
 }
 
 // "The code length shall not be greater than 4." - PDF 9.7.6.2
@@ -129,7 +162,7 @@ impl<'a> Codespace<'a> {
 // simple font allows a maximum of 256 glyphs to be encoded and accessible at
 // one time, a CMap can describe a mapping from multiple-byte codes to
 // thousands of glyphs in a large CID-keyed font." (PDF 9.7.2)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CMap<'a> {
     pub name: Cow<'a, [u8]>,
     pub cid_system_info: CidSystemInfo<'a>,
@@ -144,6 +177,8 @@ pub struct CMap<'a> {
     // const ranges, but for CMap files specified in the PDF file itself we
     // use owned vectors allocated at runtime on the heap
     pub cid_range: Cow<'a, [CidRange]>,
+    pub base_font_chars: Cow<'a, [BaseFontChar]>,
+    // pub base_font_range: Cow<>,
 }
 
 impl<'a> CharCodeToCid for CMap<'a> {
@@ -228,18 +263,25 @@ impl TryFrom<&[u8]> for CMap<'static> {
     }
 }
 
-impl<'a> TryFrom<&'a Stream> for CMap<'a> {
+impl<'a> TryFrom<&'a Vec<u8>> for CMap<'a> {
     type Error = PdfError;
 
-    fn try_from(value: &'a Stream) -> Result<Self, Self::Error> {
-        let text = &value.content;
+    fn try_from(text: &'a Vec<u8>) -> Result<Self, Self::Error> {
         let mut lexer = crate::parser::lexer::Lexer::new(text);
         let tokens = lexer.lex();
         let mut parser = crate::parser::parser::Parser::new(&tokens);
         let objects = parser.parse();
-        let cmap_parser = CMapFileParser::new(&objects);
-        let cmap = cmap_parser.parse().ok_or(PdfError::CMapParsingError)?;
-        Ok(cmap)
+        let cmap_parser = CMapFileParser::new(objects);
+        let cmap = cmap_parser.parse();
+        cmap.ok_or(PdfError::CMapParsingError)
+    }
+}
+
+impl<'a, 'b: 'a> TryFrom<&'b Stream> for CMap<'a> {
+    type Error = PdfError;
+
+    fn try_from(stream: &'b Stream) -> Result<Self, Self::Error> {
+        Self::try_from(&stream.content)
     }
 }
 
@@ -289,5 +331,38 @@ mod tests {
         assert_eq!(cid_range.to_cid(0x22).unwrap(), 3);
         // SPEC_BREAK? CID says this should be 94, not sure
         assert_eq!(cid_range.to_cid(0x7e).unwrap(), 95);
+    }
+
+    #[test]
+    fn test_cmap_bf_char() {
+        let text = b"/CIDInit /ProcSet findresource begin
+        12 dict begin
+        begincmap
+        /CIDSystemInfo <<
+          /Registry (Adobe)
+          /Ordering (UCS)
+          /Supplement 0
+        >> def
+        /CMapName /Adobe-Identity-UCS def
+        /CMapType 2 def
+        1 begincodespacerange
+        <00><FF>
+        endcodespacerange
+        1 beginbfchar
+        <22><0644 0627>
+        endbfchar
+        2 beginbfrange
+        <21><21><0645>
+        <23><23><0633>
+        endbfrange
+        endcmap
+        CMapName currentdict /CMap defineresource pop
+        end
+        end".to_vec();
+        let cmap = CMap::try_from(&text);
+        assert!(cmap.is_ok());
+        let cmap = cmap.unwrap();
+        println!("{:?}", cmap);
+        assert!(false);
     }
 }

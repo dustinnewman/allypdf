@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::cmaps::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY};
+use crate::cmaps::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY, NO_BASE_FONT_CHARS};
 use crate::font::font::CidSystemInfo;
 
 use super::CNS_1;
@@ -75209,6 +75209,7 @@ pub const UNICNS_UTF16_H: CMap = CMap {
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
     cid_chars: Cow::Borrowed(&CID_CHARS_H),
     cid_range: Cow::Borrowed(&CID_RANGE_H),
+    base_font_chars: NO_BASE_FONT_CHARS,
 };
 
 pub const UNICNS_UTF16_V: CMap = CMap {
@@ -75222,4 +75223,5 @@ pub const UNICNS_UTF16_V: CMap = CMap {
     codespace: Codespace::from(Cow::Borrowed(&CODE_SPACE)),
     cid_chars: Cow::Borrowed(&CID_CHARS_V),
     cid_range: Cow::Borrowed(&CID_RANGE_V),
+    base_font_chars: NO_BASE_FONT_CHARS,
 };
