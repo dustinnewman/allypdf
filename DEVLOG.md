@@ -1,3 +1,6 @@
+# October 20, 2022
+Kind of figured out stream decoding. You only need to worry about length for font objects. And even then, only really for Type 1 fonts. So I moved this into font_descriptor function inside document.
+
 # October 16, 2022
 Need to work on two things next: decode stream dictionaries after the fact (not in parser, but rather in document when you have all objects already) (motivating example: << /Length 143 0 R >>stream...endstream) and then the bfchars part of the CMaps in TrueType fonts. Will they always be UTF16? Or is that only hello_salam.pdf? fraud_proofs.pdf does not seem to use UTF16 but need to check it out.
 

@@ -378,6 +378,56 @@ mod tests {
     }
 
     #[test]
+    fn test_cid_parser_bf() {
+        let objects = vec![
+            name!("CIDInit"),
+            name!("ProcSet"),
+            offset!(ObjectKind::CIDOperator(CIDOperator::FindResource)),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Begin)),
+            integer!(12),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Dict)),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Begin)),
+            offset!(ObjectKind::CIDOperator(CIDOperator::BeginCMap)),
+            name!("CIDSystemInfo"),
+            dict!(
+                b"Ordering" => string!("USC"),
+                b"Registry" => string!("Adobe"),
+                b"Supplement" => integer!(0)
+            ),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Def)),
+            name!("CMapName"),
+            name!("Adobe-Identity-UCS"),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Def)),
+            name!("CMapType"),
+            integer!(2),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Def)),
+            integer!(1),
+            offset!(ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange)),
+            Object { offset: 212, kind: String([0]) },
+            Object { offset: 216, kind: String([255]) },
+            offset!(ObjectKind::CIDOperator(CIDOperator::EndCodeSpaceRange)),
+            Object { offset: 235, kind: Operator(EndPathNoFill) },
+            Object { offset: 236, kind: Operator(SetGrayNonstroke) },
+            offset!(ObjectKind::CIDOperator(CIDOperator::BeginBfChar)),
+            Object { offset: 253, kind: String([34]) },
+            Object { offset: 257, kind: String([6, 68, 6, 39]) },
+            offset!(ObjectKind::CIDOperator(CIDOperator::EndBfChar)),
+            integer!(2),
+            offset!(ObjectKind::CIDOperator(CIDOperator::BeginBfRange)),
+            Object { offset: 294, kind: String([33]) },
+            Object { offset: 298, kind: String([33]) },
+            Object { offset: 302, kind: String([6, 69]) },
+            Object { offset: 309, kind: String([35]) },
+            Object { offset: 313, kind: String([35]) },
+            Object { offset: 317, kind: String([6, 51]) },
+            offset!(ObjectKind::CIDOperator(CIDOperator::End)),
+            offset!(ObjectKind::CIDOperator(CIDOperator::Def)),
+            offset!(ObjectKind::CIDOperator(CIDOperator::End)),
+            offset!(ObjectKind::CIDOperator(CIDOperator::End)),
+        ];
+    }
+
+    #[test]
     fn test_cid_parser_predefined_cmap() {
         let args: Vec<String> = std::env::args().collect();
         let text = std::fs::read_to_string(&args[2]).unwrap();

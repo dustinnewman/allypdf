@@ -16,7 +16,7 @@ stream = re.compile(bytes, re.S)
 
 s = re.search(stream, pdf).group(1).strip()
 try:
-    print(zlib.decompress(s).decode('UTF-8'))
+    print(zlib.decompress(s))
     print("")
 except:
     print("Error: Could not find desired object")

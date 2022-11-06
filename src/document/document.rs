@@ -85,6 +85,9 @@ const CONTENTS: &[u8] = b"Contents";
 const ANNOTS: &[u8] = b"Annots";
 const SUB_TYPE: &[u8] = b"Subtype";
 const LENGTH: &[u8] = b"Length";
+const LENGTH_1: &[u8] = b"Length1";
+const LENGTH_2: &[u8] = b"Length2";
+const LENGTH_3: &[u8] = b"Length3";
 const RECTANGLE: &[u8] = b"Rect";
 const CATALOG: &[u8] = b"Catalog";
 const ANNOTS_FLAGS: &[u8] = b"F";
@@ -121,32 +124,26 @@ impl PDFDocument {
         inner!(self.get(&self.trailer.root)?, ObjectKind::Dictionary)
     }
 
-    fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
-        match object {
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => Some(dict),
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => self.follow_till_dict(self.get(r#ref)),
-            _ => None,
+    fn follow_till<'a, T>(&'a self, object: Option<&'a Object>, f: fn(Option<&'a Object>) -> Option<&'a T>) -> Option<&'a T> {
+        if let Some(x) = f(object) {
+            Some(x)
+        } else if let Some(Object { kind: ObjectKind::IndirectReference(r), .. }) = object {
+            self.follow_till(self.get(r), f)
+        } else {
+            None
         }
     }
 
+    fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
+        self.follow_till(object, |x| inner!(x?, ObjectKind::Dictionary))
+    }
+
     fn follow_till_stream<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Stream> {
-        match object {
-            Some(Object {
-                kind: ObjectKind::Stream(stream),
-                ..
-            }) => Some(stream),
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => self.follow_till_stream(self.get(r#ref)),
-            _ => None,
-        }
+        self.follow_till(object, |x| inner!(x?, ObjectKind::Stream))
+    }
+
+    fn follow_till_int<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a i64> {
+        self.follow_till(object, |x| inner!(x?, ObjectKind::Integer))
     }
 
     fn page_refs(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
@@ -376,29 +373,26 @@ impl PDFDocument {
         let missing_width = dict
             .get(MISSING_WIDTH)
             .and_then(|obj| f64::try_from(obj).ok());
-        let font_file = if let Some(obj) = dict.get(FONT_FILE) {
-            self.follow_till_stream(Some(obj))
-                .map(FontProgramKind::Type1)
-        } else if let Some(obj) = dict.get(FONT_FILE_2) {
-            self.follow_till_stream(Some(obj))
-                .and_then(|stream| ttf_parser::Face::parse(&stream.content, 0).ok())
-                .map(FontProgramKind::TrueType)
-        } else if let Some(obj) = dict.get(FONT_FILE_3) {
-            self.follow_till_stream(Some(obj))
-                .map(FontProgramKind::OpenType)
+        let font_file = if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE)) {
+            // PDF 9.9.1 Table 125
+            let clear_text_length = self.follow_till_int(dict.get(LENGTH_1));
+            let cypher_text_length = self.follow_till_int(dict.get(LENGTH_2));
+            let fixed_content_length = self.follow_till_int(dict.get(LENGTH_3));
+            Some(FontProgramKind::Type1(stream))
+        } else if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE_2)) {
+            // PDF 9.9.1 Table 125
+            let font_program_length = self.follow_till_int(dict.get(LENGTH_1));
+            let font_program_length = if let Some(x) = font_program_length {
+                *x as usize
+            } else {
+                stream.content.len()
+            };
+            let content = &stream.content[..font_program_length];
+            ttf_parser::Face::parse(content, 0).ok().map(FontProgramKind::TrueType)
+        } else if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE_3)) {
+            Some(FontProgramKind::OpenType(stream))
         } else {
             None
-        };
-        match font_file {
-            Some(ref x) => match x {
-                FontProgramKind::TrueType(f) => {
-                    for name in f.tables().post.unwrap().names() {
-                        println!("{}", name);
-                    }
-                },
-                _ => (),
-            },
-            _ => (),
         };
         let char_set = dict
             .get(CHAR_SET)
@@ -806,26 +800,12 @@ impl TryFrom<Vec<Object>> for PDFDocument {
                 _ => continue,
             }
         }
-        let mut decoded_object_map: ObjectMap = BTreeMap::new();
-        for (r#ref, object) in object_map {
-            if let ObjectKind::Stream(mut stream) = object.kind {
-                // TODO: We need to use the length field to decode the stream dictionaries
-                // but the issue is that the stream length may be specified by an object
-                // which is later in the object stream. So we have to decode everything
-                // first into regular object_map and then process the stream dictionaries
-                // with all the filters/lengths and put the result into the new decoded
-                // object map
-                stream.content = vec![];
-            } else {
-                decoded_object_map.insert(r#ref, object);
-            }
-        }
         Ok(PDFDocument {
             version: version?,
             trailer: trailer?,
             xref_table: xref_section?,
             start_xref: start_xref?,
-            object_map: decoded_object_map,
+            object_map,
         })
     }
 }
@@ -896,10 +876,12 @@ mod tests {
     #[test]
     fn test_document_test() {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        file.push("test_data/fraud_proofs.pdf");
+        file.push("test_data/pages_salam.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
-        // let mut pages = doc.pages().unwrap();
-        let o = doc.get(&IndirectReference { object_number: 244, generation_number: 0 });
+        let pages = doc.pages().unwrap();
+        for mut page in pages {
+            page.process_operations();
+        }
         assert!(false);
     }
 

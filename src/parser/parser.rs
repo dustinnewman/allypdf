@@ -236,9 +236,6 @@ impl<'a> Parser<'a> {
             let root = dict.get(ROOT)?;
             if let ObjectKind::Integer(size) = size.kind {
                 if let ObjectKind::IndirectReference(root) = root.kind {
-                    for (key, val) in &dict {
-                        println!("{:?}: {:?}", key, val);
-                    }
                     let trailer = Trailer {
                         size: size as u64,
                         root,
