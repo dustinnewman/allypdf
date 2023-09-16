@@ -1,4 +1,6 @@
 # PDF parser
+Open source PDF parser in Rust. **Work in progress** with no guarantees made!
+
 ## Modules
 ### parser
 `Lexer` parses a list of raw bytes (`Vec<u8>`) into a list of tokens. These are basic things like numbers, strings, and even basic punctuation delimiters (`(`, `]`). Tokens do not consider context or surrounding tokens at all. `Parser` then takes this list of tokens and turns it into a list of objects. Objects do consider context. For example, a number by itself is just a number but two numbers followed by `obj` (e.g. `4 0 obj`) is an indirect object definition.
