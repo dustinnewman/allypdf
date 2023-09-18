@@ -75,25 +75,21 @@ impl<'a> CMapFileParser {
         let mut cmap = CMap::default();
         while let Some(object) = self.next() {
             match &object.kind {
-                ObjectKind::Name(name) => {
-                    if name == WMODE {
-                        match self.next()?.kind {
-                            ObjectKind::Integer(i) => {
-                                if let Ok(writing_mode) = CMapWritingMode::try_from(i) {
-                                    cmap.writing_mode = writing_mode;
-                                }
-                            }
-                            _ => continue,
+                ObjectKind::Name(name) if name == WMODE => match self.next()?.kind {
+                    ObjectKind::Integer(i) => {
+                        if let Ok(writing_mode) = CMapWritingMode::try_from(i) {
+                            cmap.writing_mode = writing_mode;
                         }
-                    } else if name == CID_SYSTEM_INFO {
-                        self.cid_system_info_dict(&mut cmap.cid_system_info);
-                    } else if name == CMAP_NAME {
-                        match self.next()?.kind {
-                            ObjectKind::Name(name) => cmap.name = name.into(),
-                            _ => continue,
-                        };
                     }
+                    _ => continue,
+                },
+                ObjectKind::Name(name) if name == CID_SYSTEM_INFO => {
+                    self.cid_system_info_dict(&mut cmap.cid_system_info)
                 }
+                ObjectKind::Name(name) if name == CMAP_NAME => match self.next()?.kind {
+                    ObjectKind::Name(name) => cmap.name = name.into(),
+                    _ => continue,
+                },
                 ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange) => {
                     self.code_space(cmap.codespace.ranges.to_mut())
                 }

@@ -181,7 +181,11 @@ impl PDFDocument {
         if value.is_some() {
             return value;
         }
-        if let Object{kind: ObjectKind::IndirectReference(parent), ..} = page_object.get(PARENT)? {
+        if let Object {
+            kind: ObjectKind::IndirectReference(parent),
+            ..
+        } = page_object.get(PARENT)?
+        {
             self.get_inherited_page_key(parent, key)
         } else {
             None

@@ -88,8 +88,8 @@ impl TryFrom<&Object> for Vec<Filter> {
                     Filter::try_from(name).map(|filter| filters.push(filter))?;
                 }
                 Ok(filters)
-            },
-            _ => return Ok(vec![])
+            }
+            _ => return Ok(vec![]),
         }
     }
 }
