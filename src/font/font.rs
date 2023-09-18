@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, convert::TryFrom};
 use ttf_parser::Face;
 
 use super::encoding::{Encoding, ENCODING_SIZE};
-use crate::cmaps::cid::{CharCode, CharCodeToCid, Cid, CharCodeToGlyphName, CharCodeToUnicode};
+use crate::cmaps::cid::{CharCode, CharCodeToCid, CharCodeToGlyphName, CharCodeToUnicode, Cid};
 use crate::cmaps::cmap::CMap;
 use crate::document::page::Resources;
 use crate::error::PdfError;
@@ -393,8 +393,8 @@ impl TryFrom<&[u8]> for CIDFontSubtypeKind {
 // PDF 9.7.3 Table 114
 #[derive(Debug, Default)]
 pub struct CidSystemInfo<'a> {
-    pub registry: Cow<'a ,[u8]>,
-    pub ordering: Cow<'a ,[u8]>,
+    pub registry: Cow<'a, [u8]>,
+    pub ordering: Cow<'a, [u8]>,
     pub supplement: u32,
 }
 
@@ -544,7 +544,9 @@ mod test {
 
     #[test]
     fn test_true_type_font_parser() {
-        let file_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data").join("true_type_font.ttf");
+        let file_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data")
+            .join("true_type_font.ttf");
         let font = fs::read(file_path).unwrap();
         let index = fonts_in_collection(&font).unwrap_or(0);
         let font = ttf_parser::Face::parse(&font, index).unwrap();

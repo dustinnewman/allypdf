@@ -455,7 +455,7 @@ impl<'a> OperatorParser<'a> {
                 Some(Object {
                     kind: ObjectKind::Real(r),
                     ..
-                }) => *r as f64,
+                }) => *r,
                 Some(Object {
                     kind: ObjectKind::Integer(i),
                     ..
@@ -469,7 +469,7 @@ impl<'a> OperatorParser<'a> {
                 Some(Object {
                     kind: ObjectKind::Real(r),
                     ..
-                }) => *r as f64,
+                }) => *r,
                 Some(Object {
                     kind: ObjectKind::Integer(i),
                     ..

@@ -73,6 +73,27 @@ impl TryFrom<&Name> for Filter {
     }
 }
 
+impl TryFrom<&Object> for Vec<Filter> {
+    type Error = PdfError;
+
+    fn try_from(object: &Object) -> Result<Self, Self::Error> {
+        match &object.kind {
+            ObjectKind::Name(name) => Filter::try_from(name).map(|filter| vec![filter]),
+            ObjectKind::Array(names) => {
+                let mut filters = vec![];
+                for name in names {
+                    let Object {kind: ObjectKind::Name(name), .. } = name else {
+                        return Err(PdfError::InvalidFilterName);
+                    };
+                    Filter::try_from(name).map(|filter| filters.push(filter))?;
+                }
+                Ok(filters)
+            },
+            _ => return Ok(vec![])
+        }
+    }
+}
+
 pub fn decode(content: &[u8], filter: Filter, params: &Dictionary) -> Option<Vec<u8>> {
     match filter {
         Filter::AsciiHexDecode => ascii_hex_decode::ascii_hex_decode(content),

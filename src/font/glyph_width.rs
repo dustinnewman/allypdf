@@ -33,7 +33,7 @@ pub fn object_array_to_glyph_widths(array: &Vec<Object>) -> Vec<GlyphWidth> {
                     Some(Object {
                         kind: ObjectKind::Real(r),
                         ..
-                    }) => *r as f64,
+                    }) => *r,
                     _ => break,
                 };
                 let glyph_width = GlyphWidth::Range(first, end, width);
@@ -52,7 +52,7 @@ pub fn object_array_to_glyph_widths(array: &Vec<Object>) -> Vec<GlyphWidth> {
                     Some(Object {
                         kind: ObjectKind::Real(r),
                         ..
-                    }) => *r as f64,
+                    }) => *r,
                     _ => break,
                 };
                 let glyph_width = GlyphWidth::Range(first, end, width);

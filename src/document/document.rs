@@ -124,10 +124,18 @@ impl PDFDocument {
         inner!(self.get(&self.trailer.root)?, ObjectKind::Dictionary)
     }
 
-    fn follow_till<'a, T>(&'a self, object: Option<&'a Object>, f: fn(Option<&'a Object>) -> Option<&'a T>) -> Option<&'a T> {
+    fn follow_till<'a, T>(
+        &'a self,
+        object: Option<&'a Object>,
+        f: fn(Option<&'a Object>) -> Option<&'a T>,
+    ) -> Option<&'a T> {
         if let Some(x) = f(object) {
             Some(x)
-        } else if let Some(Object { kind: ObjectKind::IndirectReference(r), .. }) = object {
+        } else if let Some(Object {
+            kind: ObjectKind::IndirectReference(r),
+            ..
+        }) = object
+        {
             self.follow_till(self.get(r), f)
         } else {
             None
@@ -147,29 +155,17 @@ impl PDFDocument {
     }
 
     fn page_refs(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
-        let dict = match self.get(cur) {
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => dict,
-            _ => return,
+        let Some(Object {kind: ObjectKind::Dictionary(dict), ..}) = self.get(cur) else {
+            return;
         };
-        let r#type = match dict.get(TYPE) {
-            Some(Object {
-                kind: ObjectKind::Name(name),
-                ..
-            }) => name,
-            _ => return,
+        let Some(Object{kind: ObjectKind::Name(r#type), ..}) = dict.get(TYPE) else {
+            return;
         };
         if r#type == PAGE {
             refs.push(*cur);
         } else if r#type == PAGE_ROOT {
-            let kids = match dict.get(KIDS) {
-                Some(Object {
-                    kind: ObjectKind::Array(arr),
-                    ..
-                }) => arr,
-                _ => return,
+            let Some(Object {kind: ObjectKind::Array(kids), ..}) = dict.get(KIDS) else {
+                return;
             };
             for kid in kids {
                 if let Some(r#ref) = inner!(kid, ObjectKind::IndirectReference) {
@@ -185,12 +181,10 @@ impl PDFDocument {
         if value.is_some() {
             return value;
         }
-        match page_object.get(PARENT)? {
-            Object {
-                kind: ObjectKind::IndirectReference(parent),
-                ..
-            } => self.get_inherited_page_key(parent, key),
-            _ => None,
+        if let Object{kind: ObjectKind::IndirectReference(parent), ..} = page_object.get(PARENT)? {
+            self.get_inherited_page_key(parent, key)
+        } else {
+            None
         }
     }
 
@@ -388,7 +382,9 @@ impl PDFDocument {
                 stream.content.len()
             };
             let content = &stream.content[..font_program_length];
-            ttf_parser::Face::parse(content, 0).ok().map(FontProgramKind::TrueType)
+            ttf_parser::Face::parse(content, 0)
+                .ok()
+                .map(FontProgramKind::TrueType)
         } else if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE_3)) {
             Some(FontProgramKind::OpenType(stream))
         } else {

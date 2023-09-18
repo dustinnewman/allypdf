@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
 use crate::cmaps::cmap::{
-    CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, NO_CID_CHARS, ADOBE_REGISTRY, NO_BASE_FONT_CHARS
+    CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY,
+    NO_BASE_FONT_CHARS, NO_CID_CHARS,
 };
 use crate::font::font::CidSystemInfo;
 

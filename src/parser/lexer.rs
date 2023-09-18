@@ -1,9 +1,8 @@
 use super::cid_parser::CIDOperator;
 use crate::operators::operators::Operator;
 use crate::util::{
-    byte_to_numeric, is_decimal, is_hexadecimal, is_newline, is_regular, is_whitespace, Byte,
-    DQUOTE, FSLASH, LBRACE, LBRACKET, LINE_FEED, LPAREN, LTHAN, PERCENT, PERIOD, RBRACE, RBRACKET,
-    RPAREN, RTHAN, SQUOTE,
+    byte_to_numeric, is_newline, is_regular, is_whitespace, Byte, DQUOTE, FSLASH, LBRACE, LBRACKET,
+    LINE_FEED, LPAREN, LTHAN, PERCENT, PERIOD, RBRACE, RBRACKET, RPAREN, RTHAN, SQUOTE,
 };
 
 enum Character {
@@ -347,7 +346,7 @@ impl<'a> Lexer<'a> {
         let mut is_real = matches!(self.buf.get(start), Some(&b) if b == PERIOD);
         loop {
             match self.peek() {
-                Some(c) if is_decimal(c) => self.advance(),
+                Some(c) if c.is_ascii_digit() => self.advance(),
                 Some(PERIOD) => {
                     self.advance();
                     is_real = true
@@ -504,7 +503,7 @@ impl<'a> Lexer<'a> {
 
     fn hex_string(&mut self) -> Option<TokenKind<'a>> {
         // PDF spec 7.3.4.3 - White space shall be ignored
-        let string = self.get_next_char_while(|c| is_hexadecimal(c) || is_whitespace(c));
+        let string = self.get_next_char_while(|c| c.is_ascii_hexdigit() || is_whitespace(c));
         Some(TokenKind::HexString(string))
     }
 
@@ -572,7 +571,7 @@ impl<'a> Lexer<'a> {
             self.nth(6),
         ) {
             (Some(b'D'), Some(b'F'), Some(b'-'), Some(m), Some(b'.'), Some(n))
-                if is_decimal(m) && is_decimal(n) =>
+                if m.is_ascii_digit() && n.is_ascii_digit() =>
             {
                 // Skip past "DF-m.n"
                 self.seek(7);

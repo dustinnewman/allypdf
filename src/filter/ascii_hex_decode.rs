@@ -1,8 +1,8 @@
-use crate::util::{byte_to_numeric, is_whitespace, RTHAN};
+use crate::util::{byte_to_numeric, RTHAN};
 
 pub fn ascii_hex_decode(content: &[u8]) -> Option<Vec<u8>> {
     let mut buf = Vec::with_capacity(content.len() * 2);
-    let mut iter = content.iter().filter(|&&b| !is_whitespace(b));
+    let mut iter = content.iter().filter(|&&b| !b.is_ascii_whitespace());
     while let Some(&first) = iter.next() {
         if first == RTHAN {
             break;

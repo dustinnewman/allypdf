@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use crate::cmaps::cmap::{CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY, NO_BASE_FONT_CHARS};
+use crate::cmaps::cmap::{
+    CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY,
+    NO_BASE_FONT_CHARS,
+};
 use crate::font::font::CidSystemInfo;
 
 use super::KOREA_1;

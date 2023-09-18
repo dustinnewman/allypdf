@@ -6,7 +6,7 @@ use super::operations::{
 };
 use super::path::{Path, PathMode, Point};
 use super::rect::Rectangle;
-use crate::cmaps::cid::{CharCodeToGlyphName, CharCodeToUnicode};
+use crate::cmaps::cid::CharCodeToUnicode;
 use crate::document::page::Resources;
 use crate::font::font::Font;
 use crate::parser::parser::{Dictionary, Name};

@@ -189,10 +189,6 @@ pub fn is_whitespace(byte: Byte) -> bool {
     )
 }
 
-pub fn isnt_whitespace(byte: Byte) -> bool {
-    !is_whitespace(byte)
-}
-
 pub fn is_delimiter(byte: Byte) -> bool {
     matches!(
         byte,
@@ -220,17 +216,9 @@ pub fn is_octal(byte: Byte) -> bool {
     matches!(byte, b'0'..=b'7')
 }
 
-pub fn is_decimal(byte: Byte) -> bool {
-    matches!(byte, b'0'..=b'9')
-}
-
-pub fn is_hexadecimal(byte: Byte) -> bool {
-    matches!(byte, b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F')
-}
-
 pub fn byte_to_numeric(byte: Byte, radix: u8) -> Option<u8> {
     if radix == 10 {
-        if is_decimal(byte) {
+        if byte.is_ascii_digit() {
             Some(byte - b'0')
         } else {
             None
@@ -329,8 +317,8 @@ pub fn hex_string_to_string(hex_string: &[u8]) -> Option<Vec<u8>> {
     // anything else is done
     hex_string
         .iter()
-        .filter(|c| is_hexadecimal(**c))
-        .map(|r| *r)
+        .filter(|c| c.is_ascii_hexdigit())
+        .copied()
         .collect::<Vec<u8>>()
         .chunks(2)
         .map(hex_byte_to_byte)
@@ -405,9 +393,12 @@ mod tests {
         let bytes = b"01234567890ABCDEF";
         let string = hex_string_to_string(bytes);
         assert!(string.is_some());
-        assert_eq!(string.unwrap(), vec![1, 35, 69, 103, 137, 10, 188, 222, 240]);
+        assert_eq!(
+            string.unwrap(),
+            vec![1, 35, 69, 103, 137, 10, 188, 222, 240]
+        );
     }
-    
+
     #[test]
     fn test_hex_string_to_utf16() {
         let bytes = b"06440627";

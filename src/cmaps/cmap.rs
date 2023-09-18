@@ -3,9 +3,9 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use crate::error::PdfError;
-use crate::parser::cid_parser::CMapFileParser;
 use crate::font::font::CidSystemInfo;
-use crate::parser::parser::{Stream, Name};
+use crate::parser::cid_parser::CMapFileParser;
+use crate::parser::parser::{Name, Stream};
 
 use super::cid::{CharCode, CharCodeToCid, Cid};
 use super::{cns_1, gb_1, japan_1, korea_1};
@@ -104,7 +104,7 @@ impl CidRange {
 #[derive(Debug, Clone)]
 pub enum BaseFontRangeDestination {
     Cid(Cid),
-    CharNames(Vec<Name>)
+    CharNames(Vec<Name>),
 }
 
 #[derive(Debug, Clone)]
@@ -358,7 +358,8 @@ mod tests {
         endcmap
         CMapName currentdict /CMap defineresource pop
         end
-        end".to_vec();
+        end"
+        .to_vec();
         let cmap = CMap::try_from(&text);
         assert!(cmap.is_ok());
         let cmap = cmap.unwrap();

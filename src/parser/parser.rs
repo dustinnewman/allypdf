@@ -287,47 +287,22 @@ impl<'a> Parser<'a> {
     fn stream_content(&self, dict: &Dictionary, content: &[u8]) -> Option<Vec<u8>> {
         // SPEC_BREAK Technically there is always supposed to be a stream length
         // but for testing purposes we can allow omission
-        let length = if let Some(Object { kind: ObjectKind::Integer(i), .. }) = dict.get(LENGTH) {
+        let length = if let Some(Object {
+            kind: ObjectKind::Integer(i),
+            ..
+        }) = dict.get(LENGTH)
+        {
             *i as usize
         } else {
             content.len()
         };
-        let mut vec = content[0..length].to_vec();
-        let mut filters = vec![];
-        match dict.get(FILTER) {
-            Some(Object {
-                kind: ObjectKind::Name(name),
-                ..
-            }) => {
-                if let Ok(filter) = Filter::try_from(name) {
-                    filters.push(filter);
-                } else {
-                    return None;
-                }
-            }
-            Some(Object {
-                kind: ObjectKind::Array(names),
-                ..
-            }) => {
-                for name in names {
-                    if let Object {
-                        kind: ObjectKind::Name(name),
-                        ..
-                    } = name
-                    {
-                        if let Ok(filter) = Filter::try_from(name) {
-                            filters.push(filter);
-                        } else {
-                            return None;
-                        }
-                    } else {
-                        return None;
-                    }
-                }
-            }
-            _ => (),
+        let filters = if let Some(object) = dict.get(FILTER) {
+            Vec::<Filter>::try_from(object).ok()?
+        } else {
+            vec![]
         };
         // Iterate through filters
+        let mut vec = content[0..length].to_vec();
         for filter in filters {
             vec = decode(&vec, filter, dict)?;
         }
