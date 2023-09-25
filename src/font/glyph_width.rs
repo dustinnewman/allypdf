@@ -1,7 +1,8 @@
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
+use std::slice::Iter;
 
 use crate::cmaps::cid::Cid;
-use crate::parser::parser::{Object, ObjectKind};
+use crate::parser::object::{Object, ObjectKind};
 
 #[derive(Debug)]
 pub enum GlyphWidth {
@@ -13,47 +14,18 @@ pub enum GlyphWidth {
 pub fn object_array_to_glyph_widths(array: &Vec<Object>) -> Vec<GlyphWidth> {
     let mut glyph_widths = vec![];
     let mut iter = array.iter();
-    while let Some(object) = iter.next() {
-        let first = match object.kind {
-            ObjectKind::Integer(i) => i as Cid,
-            ObjectKind::Real(r) => r as Cid,
-            _ => break,
+    while let Some(first) = iter.next() {
+        let Ok(first) = u32::try_from(first) else {
+            break
         };
         match iter.next() {
-            Some(Object {
-                kind: ObjectKind::Integer(i),
-                ..
-            }) => {
-                let end = *i as Cid;
-                let width = match iter.next() {
-                    Some(Object {
-                        kind: ObjectKind::Integer(i),
-                        ..
-                    }) => *i as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(r),
-                        ..
-                    }) => *r,
-                    _ => break,
+            Some(num) if u32::try_from(num).is_ok() => {
+                let end = u32::try_from(num).unwrap();
+                let Some(width) = iter.next() else {
+                    break
                 };
-                let glyph_width = GlyphWidth::Range(first, end, width);
-                glyph_widths.push(glyph_width);
-            }
-            Some(Object {
-                kind: ObjectKind::Real(r),
-                ..
-            }) => {
-                let end = *r as Cid;
-                let width = match iter.next() {
-                    Some(Object {
-                        kind: ObjectKind::Integer(i),
-                        ..
-                    }) => *i as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(r),
-                        ..
-                    }) => *r,
-                    _ => break,
+                let Ok(width) = f64::try_from(width) else {
+                    break
                 };
                 let glyph_width = GlyphWidth::Range(first, end, width);
                 glyph_widths.push(glyph_width);

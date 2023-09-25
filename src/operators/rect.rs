@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
-use crate::error::PdfError;
-use crate::parser::parser::{Object, ObjectKind};
+use crate::error::{PdfError, Result};
+use crate::parser::object::{Object, ObjectKind};
 
 // Default page size is letter: 8.5" x 11" = 612pt x 792pt
 const LETTER_PAGE: Rectangle = Rectangle {
@@ -35,54 +35,17 @@ impl Default for Rectangle {
 impl TryFrom<&Object> for Rectangle {
     type Error = PdfError;
 
-    fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        let error = Err(PdfError::RectangleParsingError);
+    fn try_from(object: &Object) -> Result<Self> {
         match &object.kind {
             ObjectKind::Array(array) => {
-                let lower_left_x = match array.get(0) {
-                    Some(Object {
-                        kind: ObjectKind::Integer(x),
-                        ..
-                    }) => *x as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(x),
-                        ..
-                    }) => *x,
-                    _ => return error,
-                };
-                let lower_left_y = match array.get(1) {
-                    Some(Object {
-                        kind: ObjectKind::Integer(x),
-                        ..
-                    }) => *x as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(x),
-                        ..
-                    }) => *x,
-                    _ => return error,
-                };
-                let upper_right_x = match array.get(2) {
-                    Some(Object {
-                        kind: ObjectKind::Integer(x),
-                        ..
-                    }) => *x as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(x),
-                        ..
-                    }) => *x,
-                    _ => return error,
-                };
-                let upper_right_y = match array.get(3) {
-                    Some(Object {
-                        kind: ObjectKind::Integer(x),
-                        ..
-                    }) => *x as f64,
-                    Some(Object {
-                        kind: ObjectKind::Real(x),
-                        ..
-                    }) => *x,
-                    _ => return error,
-                };
+                let lower_left_x =
+                    f64::try_from(array.get(0).ok_or(PdfError::RectangleParsingError)?)?;
+                let lower_left_y =
+                    f64::try_from(array.get(1).ok_or(PdfError::RectangleParsingError)?)?;
+                let upper_right_x =
+                    f64::try_from(array.get(2).ok_or(PdfError::RectangleParsingError)?)?;
+                let upper_right_y =
+                    f64::try_from(array.get(3).ok_or(PdfError::RectangleParsingError)?)?;
                 Ok(Self {
                     lower_left_x,
                     lower_left_y,
@@ -90,7 +53,7 @@ impl TryFrom<&Object> for Rectangle {
                     upper_right_y,
                 })
             }
-            _ => error,
+            _ => Err(PdfError::RectangleParsingError),
         }
     }
 }

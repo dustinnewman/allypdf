@@ -11,17 +11,18 @@ use crate::cmaps::cmap::CMap;
 use crate::error::{PdfError, Result};
 use crate::font::encoding::Encoding;
 use crate::font::font::{
-    CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDescriptor, FontDescriptorFlags,
-    FontDictionary, FontProgramKind, FontStretch, FontWeight, TrueTypeFont, Type0Encoding,
+    CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDictionary, TrueTypeFont, Type0Encoding,
     Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
 };
+use crate::font::font_descriptor::FontDescriptor;
 use crate::font::glyph_width::object_array_to_glyph_widths;
 use crate::inner;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
-use crate::parser::lexer::Lexer;
-use crate::parser::parser::{
-    Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream, Trailer, XrefSection,
+use crate::parser::lexer::{Header, Lexer};
+use crate::parser::object::{
+    Dictionary, IndirectReference, Name, Object, ObjectKind, Stream, Trailer, XrefSection,
 };
+use crate::parser::parser::Parser;
 
 const TYPE: &[u8] = b"Type";
 const NAME: &[u8] = b"Name";
@@ -102,68 +103,58 @@ const GLYPH_WIDTHS: &[u8] = b"W";
 const VERTICAL_GLYPH_WIDTHS: &[u8] = b"W2";
 const CID_TO_GID_MAP: &[u8] = b"CIDToGIDMap";
 
-pub type Version = (u8, u8);
 pub type ObjectMap = BTreeMap<IndirectReference, Object>;
+
+pub trait ReferenceResolver<'a, W, K>
+where
+    W: TryInto<K>,
+{
+    fn follow_till(&'a self, object: Option<W>) -> Option<K>;
+}
+
+impl<'a, K> ReferenceResolver<'a, &'a Object, K> for ObjectMap
+where
+    K: TryFrom<&'a Object>,
+{
+    fn follow_till(&'a self, object: Option<&'a Object>) -> Option<K> {
+        if let Ok(x) = object?.try_into() {
+            Some(x)
+        } else if let ObjectKind::IndirectReference(r) = &object?.kind {
+            self.follow_till(self.get(r))
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct PDFDocument {
-    // (major, minor)
-    version: Version,
+    version: Header,
     trailer: Trailer,
     xref_table: XrefSection,
     start_xref: u64,
     object_map: ObjectMap,
 }
 
-impl PDFDocument {
-    pub fn get(&self, key: &IndirectReference) -> Option<&Object> {
+impl<'a> PDFDocument {
+    pub fn get(&'a self, key: &IndirectReference) -> Option<&'a Object> {
         self.object_map.get(key)
     }
 
-    fn catalog(&self) -> Option<&Dictionary> {
+    fn catalog(&'a self) -> Option<&'a Dictionary> {
         inner!(self.get(&self.trailer.root)?, ObjectKind::Dictionary)
     }
 
-    fn follow_till<'a, T>(
-        &'a self,
-        object: Option<&'a Object>,
-        f: fn(Option<&'a Object>) -> Option<&'a T>,
-    ) -> Option<&'a T> {
-        if let Some(x) = f(object) {
-            Some(x)
-        } else if let Some(Object {
-            kind: ObjectKind::IndirectReference(r),
-            ..
-        }) = object
-        {
-            self.follow_till(self.get(r), f)
-        } else {
-            None
-        }
-    }
-
-    fn follow_till_dict<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Dictionary> {
-        self.follow_till(object, |x| inner!(x?, ObjectKind::Dictionary))
-    }
-
-    fn follow_till_stream<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a Stream> {
-        self.follow_till(object, |x| inner!(x?, ObjectKind::Stream))
-    }
-
-    fn follow_till_int<'a>(&'a self, object: Option<&'a Object>) -> Option<&'a i64> {
-        self.follow_till(object, |x| inner!(x?, ObjectKind::Integer))
-    }
-
-    fn page_refs(&self, cur: &IndirectReference, refs: &mut Vec<IndirectReference>) {
-        let Some(Object {kind: ObjectKind::Dictionary(dict), ..}) = self.get(cur) else {
+    fn page_refs(&'a self, cur: &'a IndirectReference, refs: &'a mut Vec<IndirectReference>) {
+        let Some(dict): Option<&'a Dictionary> = self.get(cur).and_then(|obj| obj.try_into().ok()) else {
             return;
         };
-        let Some(Object{kind: ObjectKind::Name(r#type), ..}) = dict.get(TYPE) else {
+        let Some(name): Option<&'a Name> = dict.get(TYPE).and_then(|obj| obj.try_into().ok()) else {
             return;
         };
-        if r#type == PAGE {
+        if name == &PAGE {
             refs.push(*cur);
-        } else if r#type == PAGE_ROOT {
+        } else if name == &PAGE_ROOT {
             let Some(Object {kind: ObjectKind::Array(kids), ..}) = dict.get(KIDS) else {
                 return;
             };
@@ -175,7 +166,11 @@ impl PDFDocument {
         }
     }
 
-    fn get_inherited_page_key(&self, r#ref: &IndirectReference, key: &[u8]) -> Option<&Object> {
+    fn get_inherited_page_key(
+        &'a self,
+        r#ref: &IndirectReference,
+        key: &'a [u8],
+    ) -> Option<&'a Object> {
         let page_object = inner!(self.get(r#ref)?, ObjectKind::Dictionary)?;
         let value = page_object.get(key);
         if value.is_some() {
@@ -192,7 +187,7 @@ impl PDFDocument {
         }
     }
 
-    fn content_streams<'a>(&'a self, object: &'a Object, streams: &mut Vec<&'a Stream>) {
+    fn content_streams(&'a self, object: &'a Object, streams: &mut Vec<&'a Stream>) {
         match object {
             Object {
                 kind: ObjectKind::IndirectReference(r#ref),
@@ -218,8 +213,8 @@ impl PDFDocument {
         }
     }
 
-    fn annotation<'a>(&'a self, object: &'a Object) -> Option<Annotation<'a>> {
-        let annotation_dict = self.follow_till_dict(Some(object))?;
+    fn annotation(&'a self, object: &'a Object) -> Option<Annotation<'a>> {
+        let annotation_dict: &Dictionary = self.object_map.follow_till(Some(object))?;
         let subtype = inner!(annotation_dict.get(SUB_TYPE)?, ObjectKind::Name)?;
         let rect = Rectangle::try_from(annotation_dict.get(RECTANGLE)?).ok()?;
         let flags = match annotation_dict.get(ANNOTS_FLAGS) {
@@ -236,7 +231,7 @@ impl PDFDocument {
         })
     }
 
-    fn object_array_to_array<'a, T>(&'a self, object: &'a Object) -> Option<Vec<T>>
+    fn object_array_to_array<T>(&'a self, object: &'a Object) -> Option<Vec<T>>
     where
         T: TryFrom<&'a Object>,
     {
@@ -259,14 +254,18 @@ impl PDFDocument {
         )
     }
 
-    fn cid_font<'a>(&'a self, dict: &'a Dictionary) -> Option<CIDFont<'a>> {
-        let subtype = inner!(dict.get(SUB_TYPE)?, ObjectKind::Name)?;
-        let subtype = CIDFontSubtypeKind::try_from(subtype.as_ref()).ok()?;
+    fn cid_font(&'a self, dict: &'a Dictionary) -> Option<CIDFont<'a>> {
+        let subtype = self
+            .object_map
+            .follow_till(dict.get(SUB_TYPE))
+            .and_then(|name: &Name| CIDFontSubtypeKind::try_from(name.0.as_ref()).ok())?;
         let font_descriptor = self
-            .follow_till_dict(dict.get(FONT_DESCRIPTOR))
-            .and_then(|dict| self.font_descriptor(dict))?;
+            .object_map
+            .follow_till(dict.get(FONT_DESCRIPTOR))
+            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok())?;
         let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
-        let cid_system_info = self.follow_till_dict(dict.get(CID_SYSTEM_INFO))?;
+        let cid_system_info: &Dictionary =
+            self.object_map.follow_till(dict.get(CID_SYSTEM_INFO))?;
         let registry = inner!(cid_system_info.get(REGISTRY)?, ObjectKind::String)?;
         let ordering = inner!(cid_system_info.get(ORDERING)?, ObjectKind::String)?;
         let supplement = *inner!(cid_system_info.get(SUPPLEMENT)?, ObjectKind::Integer)? as u32;
@@ -313,25 +312,18 @@ impl PDFDocument {
         Some(cid_font)
     }
 
-    fn composite_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
+    fn composite_font(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
         let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
         let descendant_fonts = self.cid_font(
-            self.follow_till_dict(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
+            self.object_map
+                .follow_till(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
         )?;
-        let encoding: Type0Encoding = match &dict.get(ENCODING)?.kind {
-            ObjectKind::Stream(stream) => stream.try_into().ok()?,
-            ObjectKind::Name(name) => AsRef::<[u8]>::as_ref(name).try_into().ok()?,
-            ObjectKind::IndirectReference(r#ref) => match &self.get(r#ref)?.kind {
-                ObjectKind::Stream(stream) => stream.try_into().ok()?,
-                ObjectKind::Name(name) => AsRef::<[u8]>::as_ref(name).try_into().ok()?,
-                _ => return None,
-            },
-            _ => return None,
-        };
-        let to_unicode = dict
-            .get(TO_UNICODE)
-            .and_then(|obj| self.follow_till_stream(Some(obj)))
-            .and_then(|stream| TryInto::<CMap>::try_into(stream).ok());
+        let encoding: Type0Encoding =
+            Type0Encoding::try_from((dict.get(ENCODING), &self.object_map)).ok()?;
+        let to_unicode = self
+            .object_map
+            .follow_till(dict.get(TO_UNICODE))
+            .and_then(|stream: &Stream| TryInto::<CMap>::try_into(stream).ok());
         Some(Type0Font::new(
             base_font,
             encoding,
@@ -340,112 +332,22 @@ impl PDFDocument {
         ))
     }
 
-    fn font_descriptor<'a>(&'a self, dict: &'a Dictionary) -> Option<FontDescriptor<'a>> {
-        let font_name = inner!(dict.get(FONT_NAME)?, ObjectKind::Name)?;
-        let font_family = dict
-            .get(FONT_FAMILY)
-            .and_then(|obj| inner!(obj, ObjectKind::Name));
-        let font_stretch = dict
-            .get(FONT_STRETCH)
-            .and_then(|obj| inner!(obj, ObjectKind::Name))
-            .and_then(|name| FontStretch::try_from(name).ok());
-        let font_weight = dict
-            .get(FONT_WEIGHT)
-            .and_then(|obj| inner!(obj, ObjectKind::Name))
-            .and_then(|name| FontWeight::try_from(name).ok());
-        let flags = *inner!(dict.get(FLAGS)?, ObjectKind::Integer)? as u32;
-        let flags = FontDescriptorFlags::new(flags);
-        let font_b_box = dict
-            .get(FONT_B_BOX)
-            .and_then(|obj| Rectangle::try_from(obj).ok());
-        let italic_angle = f64::try_from(dict.get(ITALIC_ANGLE)?).unwrap();
-        let ascent = dict.get(ASCENT).and_then(|obj| f64::try_from(obj).ok());
-        let descent = dict.get(DESCENT).and_then(|obj| f64::try_from(obj).ok());
-        let leading = dict.get(LEADING).and_then(|obj| f64::try_from(obj).ok());
-        let cap_height = dict.get(CAP_HEIGHT).and_then(|obj| f64::try_from(obj).ok());
-        let x_height = dict.get(X_HEIGHT).and_then(|obj| f64::try_from(obj).ok());
-        let stem_v = dict.get(STEM_V).and_then(|obj| f64::try_from(obj).ok());
-        let stem_h = dict.get(STEM_H).and_then(|obj| f64::try_from(obj).ok());
-        let avg_width = dict.get(AVG_WIDTH).and_then(|obj| f64::try_from(obj).ok());
-        let max_width = dict.get(MAX_WIDTH).and_then(|obj| f64::try_from(obj).ok());
-        let missing_width = dict
-            .get(MISSING_WIDTH)
-            .and_then(|obj| f64::try_from(obj).ok());
-        let font_file = if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE)) {
-            // PDF 9.9.1 Table 125
-            let clear_text_length = self.follow_till_int(dict.get(LENGTH_1));
-            let cypher_text_length = self.follow_till_int(dict.get(LENGTH_2));
-            let fixed_content_length = self.follow_till_int(dict.get(LENGTH_3));
-            Some(FontProgramKind::Type1(stream))
-        } else if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE_2)) {
-            // PDF 9.9.1 Table 125
-            let font_program_length = self.follow_till_int(dict.get(LENGTH_1));
-            let font_program_length = if let Some(x) = font_program_length {
-                *x as usize
-            } else {
-                stream.content.len()
-            };
-            let content = &stream.content[..font_program_length];
-            ttf_parser::Face::parse(content, 0)
-                .ok()
-                .map(FontProgramKind::TrueType)
-        } else if let Some(stream) = self.follow_till_stream(dict.get(FONT_FILE_3)) {
-            Some(FontProgramKind::OpenType(stream))
-        } else {
-            None
-        };
-        let char_set = dict
-            .get(CHAR_SET)
-            .and_then(|obj| inner!(obj, ObjectKind::String));
-        // TODO: Parse char_set list of names into Vec<Name> using helper functions
-        Some(FontDescriptor::new(
-            font_name,
-            font_family,
-            font_stretch,
-            font_weight,
-            flags,
-            font_b_box,
-            italic_angle,
-            ascent,
-            descent,
-            leading,
-            cap_height,
-            x_height,
-            stem_v,
-            stem_h,
-            avg_width,
-            max_width,
-            missing_width,
-            font_file,
-            char_set,
-            None,
-            None,
-            None,
-            None,
-        ))
-    }
-
-    fn type_1_font<'a>(
+    fn type_1_font(
         &'a self,
         dict: &'a Dictionary,
         subtype: Type1SubtypeKind,
     ) -> Option<Type1Font<'a>> {
-        let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
-        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
-        let first_char = dict
-            .get(FIRST_CHAR)
-            .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .map(|i| *i as u32);
-        let last_char = dict
-            .get(LAST_CHAR)
-            .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .map(|i| *i as u32);
+        let name = self.object_map.follow_till(dict.get(NAME));
+        let base_font = self.object_map.follow_till(dict.get(BASE_FONT))?;
+        let first_char = self.object_map.follow_till(dict.get(FIRST_CHAR));
+        let last_char = self.object_map.follow_till(dict.get(LAST_CHAR));
         let src_widths: Option<Vec<f64>> = dict
             .get(WIDTHS)
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
         let font_descriptor = self
-            .follow_till_dict(dict.get(FONT_DESCRIPTOR))
-            .and_then(|dict| self.font_descriptor(dict));
+            .object_map
+            .follow_till(dict.get(FONT_DESCRIPTOR))
+            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok());
         let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
             (first_char, last_char, src_widths)
         {
@@ -456,31 +358,10 @@ impl PDFDocument {
         } else {
             None
         };
-        let encoding = match dict.get(ENCODING) {
-            Some(Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            }) => Encoding::try_from(dict).ok(),
-            Some(Object {
-                kind: ObjectKind::Name(name),
-                ..
-            }) => Encoding::try_from(name).ok(),
-            Some(Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            }) => match self.get(r#ref) {
-                Some(Object {
-                    kind: ObjectKind::Dictionary(dict),
-                    ..
-                }) => Encoding::try_from(dict).ok(),
-                Some(Object {
-                    kind: ObjectKind::Name(name),
-                    ..
-                }) => Encoding::try_from(name).ok(),
-                _ => None,
-            },
-            _ => None,
-        };
+        let encoding = self
+            .object_map
+            .follow_till(dict.get(ENCODING))
+            .and_then(|obj: &Object| Encoding::try_from(obj).ok());
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -497,10 +378,11 @@ impl PDFDocument {
         ))
     }
 
-    fn type_3_font<'a>(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
-        let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
+    fn type_3_font(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
+        let name = self.object_map.follow_till(dict.get(NAME));
         let resources = self
-            .follow_till_dict(dict.get(RESOURCES))
+            .object_map
+            .follow_till(dict.get(RESOURCES))
             .map(|dict| self.resources(dict));
         let font_b_box = Rectangle::try_from(dict.get(FONT_B_BOX)?).ok()?;
         let font_matrix = inner!(dict.get(FONT_MATRIX)?, ObjectKind::Array)?
@@ -509,27 +391,21 @@ impl PDFDocument {
             .collect::<Vec<f64>>();
         let font_matrix: [f64; 6] = font_matrix.try_into().ok()?;
         let font_matrix = Matrix::new(font_matrix);
-        let char_procs = self.follow_till_dict(dict.get(CHAR_PROCS))?;
-        let first_char = *inner!(dict.get(FIRST_CHAR)?, ObjectKind::Integer)? as u32;
-        let last_char = *inner!(dict.get(LAST_CHAR)?, ObjectKind::Integer)? as u32;
+        let char_procs = self.object_map.follow_till(dict.get(CHAR_PROCS))?;
+        let first_char = self.object_map.follow_till(dict.get(FIRST_CHAR))?;
+        let last_char = self.object_map.follow_till(dict.get(LAST_CHAR))?;
         let src_widths: Vec<f64> = self.object_array_to_array::<f64>(dict.get(WIDTHS)?)?;
         let src_widths: &[f64] = &src_widths[0..((last_char - first_char) as usize)];
-        let font_descriptor =
-            self.font_descriptor(self.follow_till_dict(dict.get(FONT_DESCRIPTOR))?)?;
+        let font_descriptor = self
+            .object_map
+            .follow_till(dict.get(FONT_DESCRIPTOR))
+            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok())?;
         let mut widths = [font_descriptor.missing_width; 256];
         widths[(first_char as usize)..(last_char as usize + 1)].clone_from_slice(src_widths);
-        let encoding = match dict.get(ENCODING)? {
-            Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            } => inner!(self.get(r#ref)?, ObjectKind::Dictionary)?,
-            Object {
-                kind: ObjectKind::Dictionary(dict),
-                ..
-            } => dict,
-            _ => return None,
-        };
-        let encoding = Encoding::try_from(encoding).ok()?;
+        let encoding = self
+            .object_map
+            .follow_till(dict.get(ENCODING))
+            .and_then(|obj: &Object| Encoding::try_from(obj).ok())?;
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
@@ -548,23 +424,18 @@ impl PDFDocument {
         ))
     }
 
-    fn true_type_font<'a>(&'a self, dict: &'a Dictionary) -> Option<TrueTypeFont<'a>> {
-        let name = dict.get(NAME).and_then(|obj| inner!(obj, ObjectKind::Name));
-        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
-        let first_char = dict
-            .get(FIRST_CHAR)
-            .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .map(|i| *i as u32);
-        let last_char = dict
-            .get(LAST_CHAR)
-            .and_then(|obj| inner!(obj, ObjectKind::Integer))
-            .map(|i| *i as u32);
+    fn true_type_font(&'a self, dict: &'a Dictionary) -> Option<TrueTypeFont<'a>> {
+        let name = self.object_map.follow_till(dict.get(NAME));
+        let base_font = self.object_map.follow_till(dict.get(BASE_FONT))?;
+        let first_char = self.object_map.follow_till(dict.get(FIRST_CHAR));
+        let last_char = self.object_map.follow_till(dict.get(LAST_CHAR));
         let src_widths: Option<Vec<f64>> = dict
             .get(WIDTHS)
             .and_then(|obj| self.object_array_to_array::<f64>(obj));
         let font_descriptor = self
-            .follow_till_dict(dict.get(FONT_DESCRIPTOR))
-            .and_then(|fd| self.font_descriptor(fd));
+            .object_map
+            .follow_till(dict.get(FONT_DESCRIPTOR))
+            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok());
         let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
             (first_char, last_char, src_widths)
         {
@@ -575,33 +446,17 @@ impl PDFDocument {
         } else {
             None
         };
-        let encoding = if let Some(object) = dict.get(ENCODING) {
-            if let Some(dict) = self.follow_till_dict(Some(object)) {
-                // If the Encoding entry is a dictionary, the table shall be
-                // initialised with the entries from the dictionary’s
-                // BaseEncoding entry. Any entries in the Differences array
-                // shall be used to update the table. Finally, any undefined
-                // entries in the table shall be filled using StandardEncoding.
-                // - PDF 9.6.5.4 paragraph 6 item 2
-                Encoding::try_from(dict).ok()
-            } else if let Some(name) = inner!(object, ObjectKind::Name) {
-                // If the Encoding entry is one of the names MacRomanEncoding
-                // or WinAnsiEncoding, the table shall be initialised with the
-                // mappings described in Annex D, "Character Sets and Encodings".
-                // - PDF 9.6.5.4 paragraph 6 item 1
-                Encoding::try_from(name).ok()
-            } else {
-                None
-            }
-        } else {
-            // A font that is used to display glyphs that do not use
-            // MacRomanEncoding or WinAnsiEncoding should not specify an
-            // Encoding entry. - PDF 9.6.5.4 paragraph 4 item 3
-            None
-        };
+        // A font that is used to display glyphs that do not use
+        // MacRomanEncoding or WinAnsiEncoding should not specify an
+        // Encoding entry. - PDF 9.6.5.4 paragraph 4 item 3
+        let encoding = self
+            .object_map
+            .follow_till(dict.get(ENCODING))
+            .and_then(|obj: &Object| Encoding::try_from(obj).ok());
         let to_unicode = self
-            .follow_till_stream(dict.get(TO_UNICODE))
-            .and_then(|stream| CMap::try_from(stream).ok());
+            .object_map
+            .follow_till(dict.get(TO_UNICODE))
+            .and_then(|stream: &Stream| CMap::try_from(stream).ok());
         Some(TrueTypeFont::new(
             name,
             base_font,
@@ -614,47 +469,49 @@ impl PDFDocument {
         ))
     }
 
-    fn font<'a>(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
+    fn font(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
         let name = inner!(dict.get(SUB_TYPE)?, ObjectKind::Name)?;
-        if name == TYPE_0 {
+        if name == &TYPE_0 {
             Some(Font::Type0(self.composite_font(dict)?))
-        } else if name == TYPE_1 {
+        } else if name == &TYPE_1 {
             Some(Font::Type1(
                 self.type_1_font(dict, Type1SubtypeKind::Type1)?,
             ))
-        } else if name == TYPE_1_MM {
+        } else if name == &TYPE_1_MM {
             Some(Font::Type1(
                 self.type_1_font(dict, Type1SubtypeKind::MMType1)?,
             ))
-        } else if name == TYPE_3 {
+        } else if name == &TYPE_3 {
             Some(Font::Type3(self.type_3_font(dict)?))
-        } else if name == TRUE_TYPE {
+        } else if name == &TRUE_TYPE {
             Some(Font::TrueType(self.true_type_font(dict)?))
         } else {
             None
         }
     }
 
-    fn font_dictionary<'a>(&'a self, dict: &'a Dictionary) -> FontDictionary<'a> {
+    fn font_dictionary(&'a self, dict: &'a Dictionary) -> FontDictionary<'a> {
         let mut font_dictionary = FontDictionary::new();
-        for (name, object) in dict {
-            if let Some(dict) = self.follow_till_dict(Some(object)) {
+        for (name, object) in &dict.0 {
+            let name = Name(name.clone());
+            if let Some(dict) = self.object_map.follow_till(Some(object)) {
                 if let Some(font) = self.font(dict) {
-                    font_dictionary.insert(name, font);
+                    font_dictionary.insert(std::borrow::Cow::Owned(name), font);
                 }
             }
         }
         font_dictionary
     }
 
-    fn resources<'a>(&'a self, dict: &'a Dictionary) -> Resources<'a> {
-        let ext_g_state = self.follow_till_dict(dict.get(EXT_G_STATE));
-        let color_space = self.follow_till_dict(dict.get(COLOR_SPACE));
-        let pattern = self.follow_till_dict(dict.get(PATTERN));
-        let shading = self.follow_till_dict(dict.get(SHADING));
-        let x_object = self.follow_till_dict(dict.get(X_OBJECT));
+    fn resources(&'a self, dict: &'a Dictionary) -> Resources<'a> {
+        let ext_g_state = self.object_map.follow_till(dict.get(EXT_G_STATE));
+        let color_space = self.object_map.follow_till(dict.get(COLOR_SPACE));
+        let pattern = self.object_map.follow_till(dict.get(PATTERN));
+        let shading = self.object_map.follow_till(dict.get(SHADING));
+        let x_object = self.object_map.follow_till(dict.get(X_OBJECT));
         let font = self
-            .follow_till_dict(dict.get(FONT))
+            .object_map
+            .follow_till(dict.get(FONT))
             .map(|dict| self.font_dictionary(dict));
         let proc_set = dict
             .get(PROC_SET)
@@ -664,7 +521,7 @@ impl PDFDocument {
                     .filter_map(|obj| ProcSet::try_from(obj).ok())
                     .collect()
             });
-        let properties = self.follow_till_dict(dict.get(PROPERTIES));
+        let properties = self.object_map.follow_till(dict.get(PROPERTIES));
         Resources {
             ext_g_state,
             color_space,
@@ -677,10 +534,10 @@ impl PDFDocument {
         }
     }
 
-    fn page(&self, r#ref: &IndirectReference) -> Option<Page> {
-        let page_object = inner!(self.get(r#ref)?, ObjectKind::Dictionary)?;
+    fn page(&'a self, r#ref: IndirectReference) -> Option<Page<'a>> {
+        let page_object = inner!(self.get(&r#ref)?, ObjectKind::Dictionary)?;
         let parent = *inner!(page_object.get(PARENT)?, ObjectKind::IndirectReference)?;
-        let media_box = self.get_inherited_page_key(r#ref, MEDIA_BOX)?;
+        let media_box = self.get_inherited_page_key(&r#ref, MEDIA_BOX)?;
         let media_box = Rectangle::try_from(media_box).ok()?;
         // TODO: Clarify this behavior here. Crop box is inheritable and optional
         // so do we inherit the value of crop box from parent if present or do we
@@ -699,7 +556,9 @@ impl PDFDocument {
         let art_box = page_object
             .get(ART_BOX)
             .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
-        let resources = self.follow_till_dict(self.get_inherited_page_key(r#ref, RESOURCES))?;
+        let resources = self
+            .object_map
+            .follow_till(self.get_inherited_page_key(&r#ref, RESOURCES))?;
         let resources = self.resources(resources);
         let contents = match page_object.get(CONTENTS) {
             Some(object) => {
@@ -729,7 +588,7 @@ impl PDFDocument {
             _ => 0,
         };
         let page = Page::new(
-            *r#ref,
+            r#ref,
             parent,
             media_box,
             crop_box,
@@ -744,23 +603,12 @@ impl PDFDocument {
         Some(page)
     }
 
-    pub(crate) fn pages(&self) -> Option<Vec<Page>> {
+    pub(crate) fn pages(&'a self) -> Option<Vec<Page<'a>>> {
         let catalog = self.catalog()?;
-        let page_root = match catalog.get(PAGE_ROOT)? {
-            Object {
-                kind: ObjectKind::IndirectReference(r#ref),
-                ..
-            } => r#ref,
-            _ => return None,
-        };
+        let page_root = catalog.get(PAGE_ROOT)?.try_into().ok()?;
         let mut refs = vec![];
         self.page_refs(page_root, &mut refs);
-        let mut pages = vec![];
-        for r#ref in refs {
-            if let Some(page) = self.page(&r#ref) {
-                pages.push(page);
-            }
-        }
+        let pages = refs.into_iter().filter_map(|r| self.page(r)).collect();
         Some(pages)
     }
 }
@@ -786,7 +634,7 @@ impl TryFrom<Vec<Object>> for PDFDocument {
         let mut object_map: ObjectMap = BTreeMap::new();
         for obj in objects {
             match obj.kind {
-                ObjectKind::Header(m, n) => version = Ok((m, n)),
+                ObjectKind::Header(header) => version = Ok(header),
                 ObjectKind::Trailer(t) => trailer = Ok(t),
                 ObjectKind::StartXref(s) => start_xref = Ok(s),
                 ObjectKind::IndirectObject(ind) => {
@@ -813,9 +661,11 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::parser::Stream;
+    use crate::parser::object::Stream;
     use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};
     use std::path::PathBuf;
+
+    const F0: &[u8] = b"F0";
 
     macro_rules! get {
         ($dict:expr, $key:expr) => {
@@ -829,10 +679,7 @@ mod tests {
         file.push("test_data/hello.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
         let catalog = doc.catalog().unwrap();
-        assert_eq!(
-            get!(catalog, TYPE.to_vec()).kind,
-            ObjectKind::Name(CATALOG.to_vec())
-        );
+        assert_eq!(*get!(catalog, TYPE.to_vec()), name!("Catalog"));
         assert_eq!(*get!(catalog, PAGE_ROOT.to_vec()), indirect_reference!(2));
     }
 
@@ -890,7 +737,7 @@ mod tests {
         let mut file = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         file.push("test_data/hello.pdf");
         let doc = PDFDocument::try_from(file).unwrap();
-        assert_eq!(doc.version, (1, 4));
+        assert_eq!(doc.version, Header { major: 1, minor: 4 });
         assert_eq!(doc.start_xref, 491);
         assert_eq!(
             doc.trailer.root,
@@ -916,11 +763,7 @@ mod tests {
         assert!(
             matches!(&get!(catalog, TYPE.to_vec()).kind, ObjectKind::Name(x) if *x == CATALOG.to_vec())
         );
-        let pages = inner!(
-            get!(catalog, PAGE_ROOT.to_vec()),
-            ObjectKind::IndirectReference
-        )
-        .expect("Catalog's pages is not indirect reference.");
+        let pages: &IndirectReference = catalog.get(PAGE_ROOT).unwrap().try_into().expect("Catalog's pages is not indirect reference.");
         let pages = get!(doc, pages);
         let expected_pages = dict!(
             TYPE => name!("Pages"),
@@ -929,8 +772,7 @@ mod tests {
         );
         assert_eq!(pages, &expected_pages);
         let pages = inner!(&pages, ObjectKind::Dictionary).expect("Pages is not a dictionary.");
-        let kids = inner!(&get!(pages, KIDS.to_vec()), ObjectKind::Array)
-            .expect("Pages' kids is not array.");
+        let kids: &Vec<Object> = pages.get(KIDS).unwrap().try_into().expect("Pages' kids is not array.");
         let kids = inner!(kids[0], ObjectKind::IndirectReference)
             .expect("Kids is not indirect reference.");
         let kids = get!(doc, kids);
@@ -943,7 +785,7 @@ mod tests {
         );
         assert_eq!(kids, &expected_kids);
         let kids = inner!(&kids, ObjectKind::Dictionary).expect("Kids is not dictionary.");
-        let resources_ref = get!(kids, b"Resources".to_vec());
+        let resources_ref = kids.get(RESOURCES).unwrap();
         assert_eq!(resources_ref, &indirect_reference!(4));
         let resources_ref = inner!(resources_ref, ObjectKind::IndirectReference)
             .expect("Kids' resources field is not indirect reference.");
@@ -955,7 +797,7 @@ mod tests {
         assert_eq!(resources, &expected_resources);
         let resources =
             inner!(&resources, ObjectKind::Dictionary).expect("Resources is not a dictionary");
-        let font_ref = get!(resources, b"Font".to_vec());
+        let font_ref = resources.get(FONT).unwrap();
         assert_eq!(font_ref, &indirect_reference!(6));
         let font_ref = inner!(font_ref, ObjectKind::IndirectReference)
             .expect("Resources' font field is not indirect reference.");
@@ -965,7 +807,7 @@ mod tests {
         );
         assert_eq!(font, &expected_font);
         let font = inner!(&font, ObjectKind::Dictionary).expect("Font is not a dictionary.");
-        let helvetica_ref = get!(font, b"F0".to_vec());
+        let helvetica_ref = font.get(F0).unwrap();
         assert_eq!(helvetica_ref, &indirect_reference!(8));
         let helvetica_ref = inner!(helvetica_ref, ObjectKind::IndirectReference)
             .expect("F0 is not indirect reference.");
@@ -976,7 +818,7 @@ mod tests {
             b"BaseFont" => name!("Helvetica")
         );
         assert_eq!(helvetica, &expected_helvetica);
-        let contents = get!(kids, CONTENTS.to_vec());
+        let contents = kids.get(CONTENTS).unwrap();
         assert_eq!(contents, &indirect_reference!(5));
         let contents = inner!(contents, ObjectKind::IndirectReference)
             .expect("Kids' contents field is not indirect reference.");
@@ -988,7 +830,7 @@ mod tests {
         );
         assert_eq!(contents, &expected_contents);
         let contents = inner!(&contents, ObjectKind::Stream).expect("Contents is not a stream.");
-        let length = get!(contents.dict, LENGTH.to_vec());
+        let length = contents.dict.get(LENGTH).unwrap();
         assert_eq!(length, &indirect_reference!(7));
         let length = inner!(length, ObjectKind::IndirectReference)
             .expect("Contents' length is not indirect reference.");

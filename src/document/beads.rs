@@ -1,4 +1,5 @@
-use crate::{operators::rect::Rectangle, parser::parser::IndirectReference};
+use crate::operators::rect::Rectangle;
+use crate::parser::object::IndirectReference;
 
 // PDF 12.4.3 Table 162
 pub struct ThreadDictionary {

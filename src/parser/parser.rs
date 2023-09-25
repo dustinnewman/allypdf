@@ -1,8 +1,10 @@
-use std::{collections::BTreeMap, convert::TryFrom};
+use std::convert::TryFrom;
 
-use super::cid_parser::CIDOperator;
 use super::lexer::{Token, TokenKind};
-use crate::error::PdfError;
+use super::object::{
+    CrossReference, Dictionary, IndirectObject, IndirectReference, Name, Object, ObjectKind,
+    Stream, Trailer, XrefSection, XrefSubsection,
+};
 use crate::filter::{decode, Filter};
 use crate::operators::operators::Operator;
 use crate::util::{hex_string_to_string, literal_string_to_string, name_to_name};
@@ -11,119 +13,6 @@ const FILTER: &[u8] = b"Filter";
 const SIZE: &[u8] = b"Size";
 const ROOT: &[u8] = b"Root";
 const LENGTH: &[u8] = b"Length";
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct CrossReference {
-    offset: u64,
-    generation_number: u32,
-    in_use: bool,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy, Eq, PartialOrd, Ord)]
-pub struct IndirectReference {
-    pub object_number: u32,
-    pub generation_number: u32,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Stream {
-    pub dict: Dictionary,
-    pub content: Vec<u8>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct IndirectObject {
-    pub object_number: u32,
-    pub generation_number: u32,
-    pub object: Box<Object>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct XrefSubsection {
-    pub start_number: u32,
-    pub subsection_length: u32,
-    pub references: Vec<CrossReference>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct XrefSection {
-    pub subsections: Vec<XrefSubsection>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Trailer {
-    pub size: u64,
-    pub root: IndirectReference,
-    pub dictionary: Dictionary,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ObjectKind {
-    Boolean(bool),
-    Integer(i64),
-    Real(f64),
-    Name(Name),
-    String(Vec<u8>),
-    Array(Vec<Object>),
-    Dictionary(Dictionary),
-    IndirectReference(IndirectReference),
-    CrossReference(CrossReference),
-    IndirectObject(IndirectObject),
-    Stream(Stream),
-    Header(u8, u8),
-    Trailer(Trailer),
-    Xref(XrefSection),
-    StartXref(u64),
-    Operator(Operator),
-    CIDOperator(CIDOperator),
-    Null,
-}
-
-#[derive(Debug)]
-// When not in test mode, use default equality impl (consider different
-// offsets to be different objects)
-#[cfg_attr(not(test), derive(PartialEq))]
-pub struct Object {
-    pub offset: u64,
-    pub kind: ObjectKind,
-}
-
-impl TryFrom<&Object> for f64 {
-    type Error = PdfError;
-
-    fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        match object {
-            Object {
-                kind: ObjectKind::Integer(i),
-                ..
-            } => Ok(*i as f64),
-            Object {
-                kind: ObjectKind::Real(r),
-                ..
-            } => Ok(*r),
-            _ => Err(PdfError::ParseF64Error),
-        }
-    }
-}
-
-// We do not want to test if the offsets are equal during testing so we don't
-// to specify the offsets everywhere when they are not relevant.
-#[cfg(test)]
-impl PartialEq for Object {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
-    }
-}
-
-#[cfg(test)]
-impl PartialEq<ObjectKind> for Object {
-    fn eq(&self, other: &ObjectKind) -> bool {
-        self.kind == *other
-    }
-}
-
-pub type Name = Vec<u8>;
-pub type Dictionary = BTreeMap<Name, Object>;
 
 pub struct Parser<'a> {
     tokens: &'a [Token<'a>],
@@ -150,7 +39,7 @@ impl<'a> Parser<'a> {
             TokenKind::Boolean(b) => ObjectKind::Boolean(b),
             TokenKind::Null => ObjectKind::Null,
             TokenKind::Real(r) => ObjectKind::Real(r),
-            TokenKind::Header(m, n) => ObjectKind::Header(m, n),
+            TokenKind::Header(header) => ObjectKind::Header(header),
             TokenKind::Trailer => self.trailer()?,
             TokenKind::Integer(i) => self.integer(i)?,
             TokenKind::LiteralString(lit) => ObjectKind::String(literal_string_to_string(lit)?),
@@ -230,22 +119,23 @@ impl<'a> Parser<'a> {
     }
 
     fn trailer(&mut self) -> Option<ObjectKind> {
-        let next = self.next()?;
-        if let ObjectKind::Dictionary(dict) = next.kind {
-            let size = dict.get(SIZE)?;
-            let root = dict.get(ROOT)?;
-            if let ObjectKind::Integer(size) = size.kind {
-                if let ObjectKind::IndirectReference(root) = root.kind {
-                    let trailer = Trailer {
-                        size: size as u64,
-                        root,
-                        dictionary: dict,
-                    };
-                    return Some(ObjectKind::Trailer(trailer));
-                }
-            }
-        }
-        None
+        let ObjectKind::Dictionary(dict) = self.next()?.kind else {
+            return None;
+        };
+        let size = dict.get(SIZE)?;
+        let root = dict.get(ROOT)?;
+        let ObjectKind::Integer(size) = size.kind else {
+            return None;
+        };
+        let ObjectKind::IndirectReference(root) = root.kind else {
+            return None;
+        };
+        let trailer = Trailer {
+            size: size as u64,
+            root,
+            dictionary: dict,
+        };
+        Some(ObjectKind::Trailer(trailer))
     }
 
     fn start_xref(&mut self) -> Option<ObjectKind> {
@@ -310,7 +200,7 @@ impl<'a> Parser<'a> {
     }
 
     fn dictionary(&mut self) -> Option<ObjectKind> {
-        let mut dict = BTreeMap::new();
+        let mut dict = Dictionary::new();
         loop {
             if let Some(Token {
                 kind: TokenKind::DoubleRThan,
@@ -437,7 +327,8 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::lexer::Lexer;
+    use crate::parser::cid_parser::CIDOperator;
+    use crate::parser::lexer::{Header, Lexer};
     use crate::{
         array, boolean, dict, indirect_object, indirect_reference, inner, integer, name, offset,
         real, stream, string, xref, xref_section,
@@ -457,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_real() {
+    fn test_real() {
         let text = "0.02
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
@@ -468,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_hex_string() {
+    fn test_hex_string() {
         let text = "<4e6f762073686d6f7a206b6120706f702e> %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let tokens = lexer.lex();
@@ -478,8 +369,8 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_hex_string_with_space() {
-        let text = b"<0644 0627>\n%%EOF";
+    fn test_hex_string_with_space() {
+        let text = b"<4 E>\n%%EOF";
         let mut lexer = Lexer::new(text);
         let tokens = lexer.lex();
         let mut parser = Parser::new(&tokens);
@@ -639,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_stream_null_content() {
+    fn test_stream_null_content() {
         let text = b"11 0 obj\n<<\n/Type /Image\n>>\nstream\r\n\0\nendstream\nendobj
         %%EOF";
         let mut lexer = Lexer::new(text);
@@ -667,7 +558,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_dict_and_float() {
+    fn test_dict_and_float() {
         let text = b"12 0 obj
         <<\n/Type /ExtGState\n/SA false\n/SM 0.02\n/OP false\n/op false\n/OPM 1
         /BG2 /Default\n/UCR2 /Default\n/HT /Default\n/TR2 /Default\n>>\nendobj
@@ -726,7 +617,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_cmap_dictionary() {
+    fn test_cmap_dictionary() {
         let text = b"/CIDSystemInfo\n<< /Registry (Adobe)\n   /Ordering (UCS)\n   /Supplement 0\n>>
         def\n/CMapName";
         let mut lexer = Lexer::new(text);
@@ -746,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_basic_file() {
+    fn test_basic_file() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("test_data/hello.pdf");
         let file = fs::read(d).unwrap();
@@ -755,7 +646,7 @@ mod tests {
         let mut parser = Parser::new(&tokens);
         let stream_content = b"BT\n/F0 12 Tf\n100 700 Td\n(Hello, World) Tj\nET\n".to_vec();
         let expected: Vec<Object> = vec![
-            offset!(ObjectKind::Header(1, 4)),
+            offset!(ObjectKind::Header(Header { major: 1, minor: 4 })),
             indirect_object!(
                 1,
                 dict!(
@@ -831,10 +722,10 @@ mod tests {
                     object_number: 1,
                     generation_number: 0
                 },
-                dictionary: BTreeMap::from([
-                    (b"Root".to_vec(), indirect_reference!(1, 0)),
+                dictionary: Dictionary::from([
+                    ("Root".into(), indirect_reference!(1, 0)),
                     (
-                        b"ID".to_vec(),
+                        "ID".into(),
                         array![
                             offset!(ObjectKind::String(vec![
                                 1, 35, 69, 103, 137, 10, 188, 222, 240
@@ -844,7 +735,7 @@ mod tests {
                             ]))
                         ]
                     ),
-                    (b"Size".to_vec(), integer!(8))
+                    ("Size".into(), integer!(8))
                 ])
             })),
             offset!(ObjectKind::StartXref(491)),

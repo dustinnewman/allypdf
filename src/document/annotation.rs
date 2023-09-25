@@ -1,4 +1,5 @@
-use crate::{operators::rect::Rectangle, parser::parser::Name};
+use crate::operators::rect::Rectangle;
+use crate::parser::object::Name;
 
 // PDF 12.5.2 Table 166 - Default value is 0
 #[derive(Debug, Default)]

@@ -1,3 +1,5 @@
+use crate::parser::object::Name;
+
 // Whitespace characters
 pub const NULL_BYTE: Byte = b'\0';
 pub const SPACE: Byte = b'\x20';
@@ -79,7 +81,9 @@ macro_rules! boolean {
 #[macro_export]
 macro_rules! name {
     ($str:expr) => {
-        offset!(ObjectKind::Name($str.as_bytes().to_vec()))
+        offset!(ObjectKind::Name(crate::parser::object::Name(
+            $str.as_bytes().to_vec()
+        )))
     };
 }
 
@@ -110,7 +114,7 @@ macro_rules! array {
 #[macro_export]
 macro_rules! dict {
     ($($key:expr => $val:expr),*) => (
-        offset!(ObjectKind::Dictionary(BTreeMap::from([
+        offset!(ObjectKind::Dictionary(crate::parser::object::Dictionary::from([
             $(($key.to_vec(), $val),)*
         ])))
     );
@@ -120,7 +124,7 @@ macro_rules! dict {
 macro_rules! stream {
     ($content:expr, $($key:expr => $val:expr),*) => (
         offset!(ObjectKind::Stream(Stream {
-            dict: BTreeMap::from([
+            dict: crate::parser::object::Dictionary::from([
                 $(($key.to_vec(), $val),)*
             ]),
             content: $content,
@@ -336,7 +340,7 @@ pub fn hex_string_to_utf16(hex_string: &[u8]) -> Vec<u16> {
     vec
 }
 
-pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
+pub fn name_to_name(name: &[u8]) -> Option<Name> {
     let mut vec = vec![];
     let mut original_pos = 0;
     let original_len = name.len();
@@ -352,7 +356,7 @@ pub fn name_to_name(name: &[u8]) -> Option<Vec<u8>> {
             original_pos += 1;
         }
     }
-    Some(vec)
+    Some(Name(vec))
 }
 
 #[cfg(test)]
@@ -362,21 +366,21 @@ mod tests {
     #[test]
     fn test_name_basic() {
         let name = b"Name1";
-        let expected = b"Name1";
+        let expected = Name(b"Name1".to_vec());
         assert_eq!(name_to_name(name).unwrap(), expected);
     }
 
     #[test]
     fn test_name_with_hash() {
         let name = b"Lime#20Green";
-        let expected = b"Lime Green";
+        let expected = Name(b"Lime Green".to_vec());
         assert_eq!(name_to_name(name).unwrap(), expected);
     }
 
     #[test]
     fn test_name_with_two_hashes() {
         let name = b"paired#28#29parentheses";
-        let expected = b"paired()parentheses";
+        let expected = Name(b"paired()parentheses".to_vec());
         assert_eq!(name_to_name(name).unwrap(), expected);
     }
 

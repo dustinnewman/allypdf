@@ -2,10 +2,10 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
-use crate::error::PdfError;
+use crate::error::{PdfError, Result};
 use crate::font::font::CidSystemInfo;
 use crate::parser::cid_parser::CMapFileParser;
-use crate::parser::parser::{Name, Stream};
+use crate::parser::object::{Name, Stream};
 
 use super::cid::{CharCode, CharCodeToCid, Cid};
 use super::{cns_1, gb_1, japan_1, korea_1};
@@ -31,7 +31,7 @@ impl Default for CMapWritingMode {
 impl TryFrom<i64> for CMapWritingMode {
     type Error = PdfError;
 
-    fn try_from(i: i64) -> Result<Self, Self::Error> {
+    fn try_from(i: i64) -> Result<Self> {
         // "An entry of 0 defines horizontal writing from left to right; an
         // entry of 1 defines vertical writing from top to bottom. Other values
         // of for WMode are reserved." (Adobe Technical Note #5014)
@@ -196,7 +196,7 @@ impl<'a> CharCodeToCid for CMap<'a> {
 impl TryFrom<&[u8]> for CMap<'static> {
     type Error = PdfError;
 
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> Result<Self> {
         let cmap = match value {
             b"GB-EUC-H" => gb_1::gb_euc::GB_EUC_H,
             b"GB-EUC-V" => gb_1::gb_euc::GB_EUC_V,
@@ -266,7 +266,7 @@ impl TryFrom<&[u8]> for CMap<'static> {
 impl<'a> TryFrom<&'a Vec<u8>> for CMap<'a> {
     type Error = PdfError;
 
-    fn try_from(text: &'a Vec<u8>) -> Result<Self, Self::Error> {
+    fn try_from(text: &'a Vec<u8>) -> Result<Self> {
         let mut lexer = crate::parser::lexer::Lexer::new(text);
         let tokens = lexer.lex();
         let mut parser = crate::parser::parser::Parser::new(&tokens);
@@ -280,7 +280,7 @@ impl<'a> TryFrom<&'a Vec<u8>> for CMap<'a> {
 impl<'a, 'b: 'a> TryFrom<&'b Stream> for CMap<'a> {
     type Error = PdfError;
 
-    fn try_from(stream: &'b Stream) -> Result<Self, Self::Error> {
+    fn try_from(stream: &'b Stream) -> Result<Self> {
         Self::try_from(&stream.content)
     }
 }

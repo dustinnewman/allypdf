@@ -3,7 +3,7 @@ use super::operations::Operation;
 use super::operators::Operator;
 use crate::operators::color::{CMYK, RGB};
 use crate::operators::operations::{LineCap, LineJoin, StringOrNumber, TextRendering};
-use crate::parser::parser::{Object, ObjectKind};
+use crate::parser::object::{Object, ObjectKind};
 
 macro_rules! coerce_f64 {
     ($obj:expr) => {
@@ -542,6 +542,7 @@ impl<'a> OperatorParser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::object::Name;
     use crate::{array, dict, integer, name, offset, operator, real, string};
 
     use super::*;
@@ -591,7 +592,7 @@ mod tests {
     fn test_one_arg_name() {
         let objects = vec![name!("test"), operator!(Operator::DefineMarkedContentPoint)];
         let mut parser = OperatorParser::new(&objects);
-        let name = b"test".to_vec();
+        let name = Name(b"test".to_vec());
         let operations = vec![Operation::DefineMarkedContentPoint(&name)];
         assert_eq!(parser.parse(), operations);
     }
@@ -630,7 +631,7 @@ mod tests {
             _ => None,
         };
         let tag = b"test".to_vec();
-        assert_eq!(name, Some(&tag));
+        assert_eq!(name.unwrap(), &tag);
     }
 
     #[test]
@@ -726,7 +727,7 @@ mod tests {
             yellow: 1.0,
             black: 0.0,
         };
-        let name = b"COLOR".to_vec();
+        let name = Name(b"COLOR".to_vec());
         let operations = vec![Operation::SetColorSpecialStroke(
             Color::CMYK(color),
             Some(&name),
@@ -749,7 +750,7 @@ mod tests {
             green: 0.0,
             blue: 0.7,
         };
-        let name = b"COLOR".to_vec();
+        let name = Name(b"COLOR".to_vec());
         let operations = vec![Operation::SetColorSpecialStroke(
             Color::RGB(color),
             Some(&name),
@@ -765,7 +766,7 @@ mod tests {
             operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let name = b"COLOR".to_vec();
+        let name = Name(b"COLOR".to_vec());
         let operations = vec![Operation::SetColorSpecialStroke(
             Color::Gray(0.7),
             Some(&name),
@@ -848,7 +849,7 @@ mod tests {
     #[test]
     fn test_select_font() {
         // /F13 6.9738 Tf
-        let name = b"F13".to_vec();
+        let name = Name(b"F13".to_vec());
         let objects = vec![name!("F13"), real!(6.9738), operator!(Operator::SelectFont)];
         let mut parser = OperatorParser::new(&objects);
         let operations = vec![Operation::SelectFont(&name, 6.9738)];

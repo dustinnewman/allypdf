@@ -6,8 +6,8 @@ use std::{
 use super::adobe_glyph_list::adobe_glyph_list;
 use super::base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING};
 use crate::cmaps::cid::{CharCode, CharCodeToGlyphName, GlyphNameToUnicode};
-use crate::error::PdfError;
-use crate::parser::parser::{Dictionary, Name, Object, ObjectKind};
+use crate::error::{PdfError, Result};
+use crate::parser::object::{Dictionary, Name, Object, ObjectKind};
 
 pub const ENCODING_SIZE: usize = 256;
 const BASE_ENCODING: &[u8] = b"BaseEncoding";
@@ -64,15 +64,15 @@ impl<'a> DerefMut for Encoding<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a Name> for Encoding<'a> {
+impl TryFrom<&Name> for Encoding<'_> {
     type Error = PdfError;
 
-    fn try_from(name: &'a Name) -> Result<Self, Self::Error> {
-        if name == MAC_ROMAN {
+    fn try_from(name: &Name) -> Result<Self> {
+        if name == &MAC_ROMAN {
             Ok(MAC_ROMAN_ENCODING)
-        } else if name == WIN_ANSI {
+        } else if name == &WIN_ANSI {
             Ok(WIN_ANSI_ENCODING)
-        } else if name == MAC_EXPERT {
+        } else if name == &MAC_EXPERT {
             todo!()
         } else {
             Err(PdfError::InvalidDefaultEncodingName)
@@ -83,7 +83,7 @@ impl<'a> TryFrom<&'a Name> for Encoding<'a> {
 impl<'a> TryFrom<&'a Dictionary> for Encoding<'a> {
     type Error = PdfError;
 
-    fn try_from(dict: &'a Dictionary) -> Result<Self, Self::Error> {
+    fn try_from(dict: &'a Dictionary) -> Result<Self> {
         let mut encoding = if let Some(Object {
             kind: ObjectKind::Name(name),
             ..
@@ -109,7 +109,7 @@ impl<'a> TryFrom<&'a Dictionary> for Encoding<'a> {
                         kind: ObjectKind::Name(name),
                         ..
                     } => {
-                        encoding[array_index] = Some(name);
+                        encoding[array_index] = Some(&name.0);
                         array_index += 1;
                     }
                     _ => continue,
@@ -117,5 +117,27 @@ impl<'a> TryFrom<&'a Dictionary> for Encoding<'a> {
             }
         }
         Ok(encoding)
+    }
+}
+
+impl<'a> TryFrom<&'a Object> for Encoding<'a> {
+    type Error = PdfError;
+
+    fn try_from(object: &'a Object) -> Result<Self> {
+        // If the Encoding entry is a dictionary, the table shall be
+        // initialised with the entries from the dictionary’s
+        // BaseEncoding entry. Any entries in the Differences array
+        // shall be used to update the table. Finally, any undefined
+        // entries in the table shall be filled using StandardEncoding.
+        // - PDF 9.6.5.4 paragraph 6 item 2
+        // If the Encoding entry is one of the names MacRomanEncoding
+        // or WinAnsiEncoding, the table shall be initialised with the
+        // mappings described in Annex D, "Character Sets and Encodings".
+        // - PDF 9.6.5.4 paragraph 6 item 1
+        match &object.kind {
+            ObjectKind::Dictionary(dict) => Self::try_from(dict),
+            ObjectKind::Name(name) => Self::try_from(name),
+            _ => Err(PdfError::InvalidDefaultEncodingName),
+        }
     }
 }

@@ -4,140 +4,19 @@ use std::{collections::BTreeMap, convert::TryFrom};
 use ttf_parser::Face;
 
 use super::encoding::{Encoding, ENCODING_SIZE};
+use super::font_descriptor::FontDescriptor;
 use crate::cmaps::cid::{CharCode, CharCodeToCid, CharCodeToGlyphName, CharCodeToUnicode, Cid};
 use crate::cmaps::cmap::CMap;
+use crate::document::document::{ObjectMap, ReferenceResolver};
 use crate::document::page::Resources;
-use crate::error::PdfError;
+use crate::error::{PdfError, Result};
 use crate::font::glyph_width::GlyphWidth;
 use crate::operators::{matrix::Matrix, rect::Rectangle};
-use crate::parser::parser::{Dictionary, Name, Object, ObjectKind, Stream};
+use crate::parser::object::{Dictionary, Name, Object, ObjectKind, Stream};
 
 const IDENTITY: &[u8] = b"Identity";
 const IDENTITY_H: &[u8] = b"Identity-H";
 const IDENTITY_V: &[u8] = b"Identity-V";
-
-#[derive(Debug)]
-pub struct FontDescriptorFlags(u32);
-
-impl FontDescriptorFlags {
-    const FLAG_FIXED_PITCH: u32 = 0;
-    const FLAG_SERIF: u32 = 1;
-    const FLAG_SYMBOLIC: u32 = 2;
-    const FLAG_SCRIPT: u32 = 3;
-    const FLAG_NON_SYMBOLIC: u32 = 5;
-    const FLAG_ITALIC: u32 = 6;
-    const FLAG_ALL_CAP: u32 = 16;
-    const FLAG_SMALL_CAP: u32 = 17;
-    const FLAG_FORCE_BOLD: u32 = 18;
-
-    pub fn new(value: u32) -> Self {
-        Self(value)
-    }
-
-    fn n(&self, n: u32) -> bool {
-        (self.0 >> n) & 1 == 1
-    }
-
-    pub fn fixed_pitch(&self) -> bool {
-        self.n(Self::FLAG_FIXED_PITCH)
-    }
-
-    pub fn serif(&self) -> bool {
-        self.n(Self::FLAG_FIXED_PITCH)
-    }
-
-    pub fn symbolic(&self) -> bool {
-        self.n(Self::FLAG_SYMBOLIC)
-    }
-
-    pub fn script(&self) -> bool {
-        self.n(Self::FLAG_SCRIPT)
-    }
-
-    pub fn non_symbolic(&self) -> bool {
-        self.n(Self::FLAG_NON_SYMBOLIC)
-    }
-
-    pub fn italic(&self) -> bool {
-        self.n(Self::FLAG_ITALIC)
-    }
-
-    pub fn all_cap(&self) -> bool {
-        self.n(Self::FLAG_ALL_CAP)
-    }
-
-    pub fn small_cap(&self) -> bool {
-        self.n(Self::FLAG_SMALL_CAP)
-    }
-
-    pub fn force_bold(&self) -> bool {
-        self.n(Self::FLAG_FORCE_BOLD)
-    }
-}
-
-#[derive(Debug)]
-pub enum FontStretch {
-    UltraCondensed,
-    ExtraCondensed,
-    Condensed,
-    SemiCondensed,
-    Normal,
-    SemiExpanded,
-    Expanded,
-    ExtraExpanded,
-    UltraExpanded,
-}
-
-impl TryFrom<&Name> for FontStretch {
-    type Error = PdfError;
-
-    fn try_from(name: &Name) -> Result<Self, Self::Error> {
-        match name {
-            x if x == b"UltraCondensed" => Ok(Self::UltraCondensed),
-            x if x == b"ExtraCondensed" => Ok(Self::ExtraCondensed),
-            x if x == b"Condensed" => Ok(Self::Condensed),
-            x if x == b"SemiCondensed" => Ok(Self::SemiCondensed),
-            x if x == b"Normal" => Ok(Self::Normal),
-            x if x == b"SemiExpanded" => Ok(Self::SemiExpanded),
-            x if x == b"Expanded" => Ok(Self::Expanded),
-            x if x == b"ExtraExpanded" => Ok(Self::ExtraExpanded),
-            x if x == b"UltraExpanded" => Ok(Self::UltraExpanded),
-            _ => Err(PdfError::InvalidFontStretch),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FontWeight {
-    Thin,
-    ExtraLight,
-    Light,
-    Normal,
-    Medium,
-    SemiBold,
-    Bold,
-    ExtraBold,
-    Black,
-}
-
-impl TryFrom<&Name> for FontWeight {
-    type Error = PdfError;
-
-    fn try_from(name: &Name) -> Result<Self, Self::Error> {
-        match name {
-            x if x == b"Thin" => Ok(Self::Thin),
-            x if x == b"ExtraLight" => Ok(Self::ExtraLight),
-            x if x == b"Light" => Ok(Self::Light),
-            x if x == b"Normal" => Ok(Self::Normal),
-            x if x == b"Medium" => Ok(Self::Medium),
-            x if x == b"SemiBold" => Ok(Self::SemiBold),
-            x if x == b"Bold" => Ok(Self::Bold),
-            x if x == b"ExtraBold" => Ok(Self::ExtraBold),
-            x if x == b"Black" => Ok(Self::Black),
-            _ => Err(PdfError::InvalidFontWeight),
-        }
-    }
-}
 
 pub struct Type1FontProgram<'a> {
     clear_portion: &'a [u8],
@@ -153,92 +32,6 @@ pub enum FontProgramKind<'a> {
     Type1C,
     CIDFontType0C,
     OpenType(&'a Stream),
-}
-
-// PDF 9.8.1 Table 120
-#[derive(Debug)]
-pub struct FontDescriptor<'a> {
-    font_name: &'a Name,
-    font_family: Option<&'a Name>,
-    font_stretch: Option<FontStretch>,
-    font_weight: Option<FontWeight>,
-    flags: FontDescriptorFlags,
-    font_b_box: Option<Rectangle>,
-    italic_angle: f64,
-    ascent: Option<f64>,
-    descent: Option<f64>,
-    leading: Option<f64>,
-    // Required if the font contains Latin characters (PDF 9.8.1 Table 108)
-    // Since this is impossible to determine with the type system, let's just
-    // say it is optional
-    cap_height: Option<f64>,
-    x_height: Option<f64>,
-    stem_v: Option<f64>,
-    stem_h: Option<f64>,
-    avg_width: Option<f64>,
-    max_width: Option<f64>,
-    pub missing_width: f64,
-    font_file: Option<FontProgramKind<'a>>,
-    char_set: Option<&'a Name>,
-    // CID only
-    style: Option<&'a Dictionary>,
-    lang: Option<Name>,
-    fd: Option<&'a Dictionary>,
-    cid_set: Option<&'a Dictionary>,
-}
-
-impl<'a> FontDescriptor<'a> {
-    pub fn new(
-        font_name: &'a Name,
-        font_family: Option<&'a Name>,
-        font_stretch: Option<FontStretch>,
-        font_weight: Option<FontWeight>,
-        flags: FontDescriptorFlags,
-        font_b_box: Option<Rectangle>,
-        italic_angle: f64,
-        ascent: Option<f64>,
-        descent: Option<f64>,
-        leading: Option<f64>,
-        cap_height: Option<f64>,
-        x_height: Option<f64>,
-        stem_v: Option<f64>,
-        stem_h: Option<f64>,
-        avg_width: Option<f64>,
-        max_width: Option<f64>,
-        missing_width: Option<f64>,
-        font_file: Option<FontProgramKind<'a>>,
-        char_set: Option<&'a Name>,
-        style: Option<&'a Dictionary>,
-        lang: Option<Name>,
-        fd: Option<&'a Dictionary>,
-        cid_set: Option<&'a Dictionary>,
-    ) -> Self {
-        Self {
-            font_name,
-            font_family,
-            font_stretch,
-            font_weight,
-            flags,
-            font_b_box,
-            italic_angle,
-            ascent,
-            descent,
-            leading,
-            cap_height,
-            x_height,
-            stem_v,
-            stem_h,
-            avg_width,
-            max_width,
-            missing_width: missing_width.unwrap_or(0.),
-            font_file,
-            char_set,
-            style,
-            lang,
-            fd,
-            cid_set,
-        }
-    }
 }
 
 // PDF 9.5 Table 108
@@ -381,7 +174,7 @@ pub enum CIDFontSubtypeKind {
 impl TryFrom<&[u8]> for CIDFontSubtypeKind {
     type Error = PdfError;
 
-    fn try_from(string: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(string: &[u8]) -> Result<Self> {
         match string {
             b"CIDFontType0" => Ok(Self::CIDFontType0),
             b"CIDFontType2" => Ok(Self::CIDFontType2),
@@ -411,9 +204,9 @@ pub enum CIDToGIDMap<'a> {
 impl<'a> TryFrom<&'a Object> for CIDToGIDMap<'a> {
     type Error = PdfError;
 
-    fn try_from(object: &'a Object) -> Result<Self, Self::Error> {
+    fn try_from(object: &'a Object) -> Result<Self> {
         match &object.kind {
-            ObjectKind::Name(name) if name == IDENTITY => Ok(CIDToGIDMap::Identity),
+            ObjectKind::Name(name) if name == &IDENTITY => Ok(CIDToGIDMap::Identity),
             ObjectKind::Stream(stream) => Ok(CIDToGIDMap::Stream(stream)),
             _ => Err(PdfError::InvalidCIDToGIDMap),
         }
@@ -441,14 +234,14 @@ pub enum Type0Encoding<'a> {
     CMap(CMap<'a>),
 }
 
-impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
+impl<'a> TryFrom<&'a Name> for Type0Encoding<'a> {
     type Error = PdfError;
 
-    fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
-        match name {
+    fn try_from(name: &'a Name) -> Result<Self> {
+        match name.0.as_ref() {
             IDENTITY_H => Ok(Self::IdentityH),
             IDENTITY_V => Ok(Self::IdentityV),
-            name => CMap::try_from(name).map(|cmap| Self::CMap(cmap)),
+            name => Ok(Self::CMap(CMap::try_from(name)?)),
         }
     }
 }
@@ -456,8 +249,27 @@ impl<'a> TryFrom<&[u8]> for Type0Encoding<'a> {
 impl<'a> TryFrom<&'a Stream> for Type0Encoding<'a> {
     type Error = PdfError;
 
-    fn try_from(value: &'a Stream) -> Result<Self, Self::Error> {
-        Ok(Self::CMap(CMap::try_from(value)?))
+    fn try_from(stream: &'a Stream) -> Result<Self> {
+        let cmap: CMap<'a> = CMap::try_from(stream)?;
+        Ok(Self::CMap(cmap))
+    }
+}
+
+impl<'a> TryFrom<(Option<&'a Object>, &'a ObjectMap)> for Type0Encoding<'a> {
+    type Error = PdfError;
+
+    fn try_from((object, object_map): (Option<&'a Object>, &'a ObjectMap)) -> Result<Self> {
+        let Some(object) = object else {
+            return Err(PdfError::CMapParsingError)
+        };
+        match &object.kind {
+            ObjectKind::Stream(stream) => Self::try_from(stream),
+            ObjectKind::Name(name) => Self::try_from(name),
+            ObjectKind::IndirectReference(ind_ref) => {
+                Self::try_from((object_map.get(ind_ref), object_map))
+            }
+            _ => Err(PdfError::CMapParsingError),
+        }
     }
 }
 
@@ -533,7 +345,7 @@ impl CharCodeToUnicode for TrueTypeFont<'_> {
     }
 }
 
-pub type FontDictionary<'a> = BTreeMap<&'a Name, Font<'a>>;
+pub type FontDictionary<'a> = BTreeMap<Cow<'a, Name>, Font<'a>>;
 
 #[cfg(test)]
 mod test {

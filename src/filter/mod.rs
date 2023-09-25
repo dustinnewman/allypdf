@@ -1,5 +1,5 @@
 use crate::error::PdfError;
-use crate::parser::parser::{Dictionary, Name, Object, ObjectKind};
+use crate::parser::object::{Dictionary, Name, Object, ObjectKind};
 use std::convert::TryFrom;
 
 mod ascii_85_decode;
@@ -55,8 +55,7 @@ impl TryFrom<&Name> for Filter {
     type Error = PdfError;
 
     fn try_from(name: &Name) -> Result<Self, Self::Error> {
-        let name: &[u8] = name;
-        let filter = match name {
+        let filter = match name.0.as_ref() {
             ASCII_HEX_DECODE => Filter::AsciiHexDecode,
             ASCII_85_DECODE => Filter::Ascii85Decode,
             LZW_DECODE => Filter::LZWDecode,
@@ -115,7 +114,7 @@ pub fn decode(content: &[u8], filter: Filter, params: &Dictionary) -> Option<Vec
             lzw_decode::lwz_decode(&data)
         }
         Filter::FlateDecode => {
-            let decode_parms = params.get(&DECODE_PARMS.to_vec());
+            let decode_parms = params.get(DECODE_PARMS);
             let (predictor, columns, colors, bits) = if let Some(Object {
                 kind: ObjectKind::Dictionary(dict),
                 ..

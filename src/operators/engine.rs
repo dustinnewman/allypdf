@@ -9,7 +9,7 @@ use super::rect::Rectangle;
 use crate::cmaps::cid::CharCodeToUnicode;
 use crate::document::page::Resources;
 use crate::font::font::Font;
-use crate::parser::parser::{Dictionary, Name};
+use crate::parser::object::{Dictionary, Name};
 use crate::render::canvas::Canvas;
 
 // PDF 9.3.1

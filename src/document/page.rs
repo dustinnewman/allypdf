@@ -1,11 +1,12 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use super::annotation::Annotation;
 use crate::error::PdfError;
 use crate::font::font::FontDictionary;
 use crate::operators::{engine::GraphicsEngine, parser::OperatorParser, rect::Rectangle};
 use crate::parser::lexer::Lexer;
-use crate::parser::parser::{Dictionary, IndirectReference, Object, ObjectKind, Parser, Stream};
+use crate::parser::object::{Dictionary, IndirectReference, Name, Object, Stream};
+use crate::parser::parser::Parser;
 use crate::render::canvas::Canvas;
 
 const PDF: &[u8] = b"PDF";
@@ -27,18 +28,13 @@ impl TryFrom<&Object> for ProcSet {
     type Error = PdfError;
 
     fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        match object {
-            Object {
-                kind: ObjectKind::Name(name),
-                ..
-            } => match name.as_ref() {
-                PDF => Ok(Self::Pdf),
-                TEXT => Ok(Self::Text),
-                IMAGE_B => Ok(Self::ImageBlack),
-                IMAGE_C => Ok(Self::ImageColor),
-                IMAGE_I => Ok(Self::ImageIndexed),
-                _ => Err(PdfError::InvalidProcSet),
-            },
+        let name: &Name = object.try_into()?;
+        match name.0.as_ref() {
+            PDF => Ok(Self::Pdf),
+            TEXT => Ok(Self::Text),
+            IMAGE_B => Ok(Self::ImageBlack),
+            IMAGE_C => Ok(Self::ImageColor),
+            IMAGE_I => Ok(Self::ImageIndexed),
             _ => Err(PdfError::InvalidProcSet),
         }
     }

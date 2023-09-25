@@ -11,6 +11,12 @@ enum Character {
     Whitespace(Byte),
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Header {
+    pub major: u8,
+    pub minor: u8,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TokenKind<'a> {
     Boolean(bool),
@@ -25,8 +31,7 @@ pub enum TokenKind<'a> {
     RBrace,
     LBracket,
     RBracket,
-    // Major Minor (ex: 1.7 = (1, 7))
-    Header(u8, u8),
+    Header(Header),
     Reference,
     Obj,
     Endobj,
@@ -577,7 +582,7 @@ impl<'a> Lexer<'a> {
                 self.seek(7);
                 let major = byte_to_numeric(m, 10)?;
                 let minor = byte_to_numeric(n, 10)?;
-                TokenKind::Header(major, minor)
+                TokenKind::Header(Header { major, minor })
             }
             _ => {
                 self.next_line();
@@ -715,7 +720,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_lexer_null() {
+    fn test_null() {
         let text = "null
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
@@ -724,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lexer_real_leading() {
+    fn test_real_leading() {
         let text = "0.75
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
@@ -733,7 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lexer_real_no_leading() {
+    fn test_real_no_leading() {
         let text = ".75
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
@@ -750,7 +755,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lexer_dict_with_boolean_value() {
+    fn test_dict_with_boolean_value() {
         let text = b"12 0 obj
         <<\n/Type /ExtGState\n/SA false\n>>\nendobj
         %%EOF";
@@ -837,7 +842,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lexer_cmap_begin() {
+    fn test_cmap_begin() {
         let text = "begin12beginbegincmapendcmapendend";
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![
@@ -853,7 +858,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lexer_cmap() {
+    fn test_cmap() {
         let text = "%!PS-Adobe-3.0 Resource-CMap
         /CIDInit /ProcSet findresource begin
         12 dict begin
@@ -1019,7 +1024,7 @@ mod tests {
         %%EOF";
         let mut lexer = Lexer::new(text.as_bytes());
         let kinds = vec![
-            TokenKind::Header(1, 4),
+            TokenKind::Header(Header { major: 1, minor: 4 }),
             TokenKind::Integer(5),
             TokenKind::Integer(0),
             TokenKind::Obj,

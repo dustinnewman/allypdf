@@ -1,14 +1,15 @@
-use std::convert::TryFrom;
+use std::borrow::Cow;
+use std::convert::{TryFrom, TryInto};
 use std::ops::RangeInclusive;
 use std::vec::IntoIter;
 
-use super::parser::ObjectKind;
-use super::parser::{Name, Object};
+use super::object::{Object, ObjectKind};
 use crate::cmaps::cid::Cid;
 use crate::cmaps::cmap::{
     BaseFontChar, BaseFontCharDestination, CMap, CMapWritingMode, CidChar, CidRange,
     CodespaceRange, DEFAULT_CODE_SPACE_RANGE, MAX_CODE_SPACE_LENGTH,
 };
+use crate::error::Result;
 use crate::font::font::CidSystemInfo;
 use crate::util::reduce_slice_to_numeric;
 
@@ -75,7 +76,7 @@ impl<'a> CMapFileParser {
         let mut cmap = CMap::default();
         while let Some(object) = self.next() {
             match &object.kind {
-                ObjectKind::Name(name) if name == WMODE => match self.next()?.kind {
+                ObjectKind::Name(name) if name == &WMODE => match self.next()?.kind {
                     ObjectKind::Integer(i) => {
                         if let Ok(writing_mode) = CMapWritingMode::try_from(i) {
                             cmap.writing_mode = writing_mode;
@@ -83,11 +84,11 @@ impl<'a> CMapFileParser {
                     }
                     _ => continue,
                 },
-                ObjectKind::Name(name) if name == CID_SYSTEM_INFO => {
+                ObjectKind::Name(name) if name == &CID_SYSTEM_INFO => {
                     self.cid_system_info_dict(&mut cmap.cid_system_info)
                 }
-                ObjectKind::Name(name) if name == CMAP_NAME => match self.next()?.kind {
-                    ObjectKind::Name(name) => cmap.name = name.into(),
+                ObjectKind::Name(name) if name == &CMAP_NAME => match self.next()?.kind {
+                    ObjectKind::Name(name) => cmap.name = name.0.into(),
                     _ => continue,
                 },
                 ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange) => {
@@ -206,49 +207,40 @@ impl<'a> CMapFileParser {
 
     fn match_cid_system_info_pair(
         &mut self,
-        name: Name,
-        value: Object,
+        name: Vec<u8>,
+        value: &Object,
         cid_info: &mut CidSystemInfo<'a>,
     ) {
-        if name == REGISTRY {
-            if let Object {
-                kind: ObjectKind::String(registry),
-                ..
-            } = value
-            {
-                cid_info.registry = registry.into();
+        match name.as_ref() {
+            REGISTRY => {
+                if let Ok(v) = <&Vec<u8>>::try_from(value) {
+                    cid_info.registry = Cow::Owned(v.clone());
+                }
             }
-        } else if name == ORDERING {
-            if let Object {
-                kind: ObjectKind::String(ordering),
-                ..
-            } = value
-            {
-                cid_info.ordering = ordering.into();
+            ORDERING => {
+                if let Ok(v) = <&Vec<u8>>::try_from(value) {
+                    cid_info.ordering = Cow::Owned(v.clone());
+                }
             }
-        } else if name == SUPPLEMENT {
-            if let Object {
-                kind: ObjectKind::Integer(i),
-                ..
-            } = value
-            {
-                cid_info.supplement = i as u32;
+            SUPPLEMENT => {
+                if let Ok(i) = u32::try_from(value) {
+                    cid_info.supplement = i;
+                }
             }
+            _ => (),
         }
     }
 
     fn cid_system_info_dict(&mut self, cid_info: &mut CidSystemInfo<'a>) {
         while let Some(object) = self.next() {
             if let ObjectKind::Name(name) = object.kind {
-                let next = if let Some(object) = self.next() {
-                    object
-                } else {
-                    break;
+                let Some(next) = self.next() else {
+                    break
                 };
-                self.match_cid_system_info_pair(name, next, cid_info);
+                self.match_cid_system_info_pair(name.0, &next, cid_info);
             } else if let ObjectKind::Dictionary(dict) = object.kind {
-                for (key, val) in dict.into_iter() {
-                    self.match_cid_system_info_pair(key, val, cid_info);
+                for (key, val) in dict.0.into_iter() {
+                    self.match_cid_system_info_pair(key, &val, cid_info);
                 }
                 // Return after parsing the dictionary since there is only
                 // one dictionary per CID system info
@@ -262,14 +254,12 @@ impl<'a> CMapFileParser {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
     use crate::cmaps::cmap::Codespace;
     use crate::operators::operators::Operator;
     use crate::{
         dict, integer, name, offset,
-        parser::parser::{Object, ObjectKind},
+        parser::object::{Object, ObjectKind},
         string,
     };
 
@@ -289,22 +279,10 @@ mod tests {
             dict,
             def_op,
             integer!(1),
-            Object {
-                kind: ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0x0]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0x80]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::CIDOperator(CIDOperator::EndCodeSpaceRange),
-                offset: 0,
-            },
+            offset!(ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange)),
+            offset!(ObjectKind::String(vec![0x0])),
+            offset!(ObjectKind::String(vec![0x80])),
+            offset!(ObjectKind::CIDOperator(CIDOperator::EndCodeSpaceRange)),
             name!("CMapName"),
             name!("Adobe-Identity-UCS"),
         ];
@@ -328,46 +306,16 @@ mod tests {
             name!("CMapName"),
             name!("Adobe-Identity-UCS"),
             integer!(4),
-            Object {
-                kind: ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0x0]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0x80]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0x81, 0x40]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0x9f, 0xfc]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0xa0]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0xde]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0xe0, 0x40]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::String(vec![0xfb, 0xec]),
-                offset: 0,
-            },
-            Object {
-                kind: ObjectKind::CIDOperator(CIDOperator::EndCodeSpaceRange),
-                offset: 0,
-            },
+            offset!(ObjectKind::CIDOperator(CIDOperator::BeginCodeSpaceRange)),
+            offset!(ObjectKind::String(vec![0x0])),
+            offset!(ObjectKind::String(vec![0x80])),
+            offset!(ObjectKind::String(vec![0x81, 0x40])),
+            offset!(ObjectKind::String(vec![0x9f, 0xfc])),
+            offset!(ObjectKind::String(vec![0xa0])),
+            offset!(ObjectKind::String(vec![0xde])),
+            offset!(ObjectKind::String(vec![0xe0, 0x40])),
+            offset!(ObjectKind::String(vec![0xfb, 0xec])),
+            offset!(ObjectKind::CIDOperator(CIDOperator::EndCodeSpaceRange)),
         ];
         let parser = CMapFileParser::new(objects);
         let cmap = parser.parse().unwrap();
