@@ -4,3 +4,8 @@ pub mod encoding;
 pub mod font;
 pub mod font_descriptor;
 pub mod glyph_width;
+pub mod type_0_font;
+pub mod type_1_font;
+pub mod type_3_font;
+pub mod true_type_font;
+pub mod cid_font;

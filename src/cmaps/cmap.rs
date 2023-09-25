@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use crate::error::{PdfError, Result};
-use crate::font::font::CidSystemInfo;
+use crate::font::cid_font::CidSystemInfo;
 use crate::parser::cid_parser::CMapFileParser;
 use crate::parser::object::{Name, Stream};
 

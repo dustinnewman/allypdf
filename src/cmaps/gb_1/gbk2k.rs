@@ -4,7 +4,7 @@ use crate::cmaps::cmap::{
     CMap, CMapWritingMode, CidChar, CidRange, Codespace, CodespaceRange, ADOBE_REGISTRY,
     NO_BASE_FONT_CHARS, NO_CID_CHARS,
 };
-use crate::font::font::CidSystemInfo;
+use crate::font::cid_font::CidSystemInfo;
 
 use super::GB_1;
 

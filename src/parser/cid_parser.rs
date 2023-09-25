@@ -9,7 +9,7 @@ use crate::cmaps::cmap::{
     BaseFontChar, BaseFontCharDestination, CMap, CMapWritingMode, CidChar, CidRange,
     CodespaceRange, DEFAULT_CODE_SPACE_RANGE, MAX_CODE_SPACE_LENGTH,
 };
-use crate::font::font::CidSystemInfo;
+use crate::font::cid_font::CidSystemInfo;
 use crate::util::reduce_slice_to_numeric;
 
 const WMODE: &[u8] = b"WMode";

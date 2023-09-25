@@ -1,56 +1,10 @@
-use std::convert::{TryFrom, TryInto};
-
 use super::annotation::Annotation;
-use crate::error::PdfError;
-use crate::font::font::FontDictionary;
+use super::resources::Resources;
 use crate::operators::{engine::GraphicsEngine, parser::OperatorParser, rect::Rectangle};
 use crate::parser::lexer::Lexer;
-use crate::parser::object::{Dictionary, IndirectReference, Name, Object, Stream};
+use crate::parser::object::{IndirectReference, Stream};
 use crate::parser::parser::Parser;
 use crate::render::canvas::Canvas;
-
-const PDF: &[u8] = b"PDF";
-const TEXT: &[u8] = b"Text";
-const IMAGE_B: &[u8] = b"ImageB";
-const IMAGE_C: &[u8] = b"ImageC";
-const IMAGE_I: &[u8] = b"ImageI";
-
-#[derive(Debug)]
-pub enum ProcSet {
-    Pdf,
-    Text,
-    ImageBlack,
-    ImageColor,
-    ImageIndexed,
-}
-
-impl TryFrom<&Object> for ProcSet {
-    type Error = PdfError;
-
-    fn try_from(object: &Object) -> Result<Self, Self::Error> {
-        let name: &Name = object.try_into()?;
-        match name.0.as_ref() {
-            PDF => Ok(Self::Pdf),
-            TEXT => Ok(Self::Text),
-            IMAGE_B => Ok(Self::ImageBlack),
-            IMAGE_C => Ok(Self::ImageColor),
-            IMAGE_I => Ok(Self::ImageIndexed),
-            _ => Err(PdfError::InvalidProcSet),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Resources<'a> {
-    pub ext_g_state: Option<&'a Dictionary>,
-    pub color_space: Option<&'a Dictionary>,
-    pub pattern: Option<&'a Dictionary>,
-    pub shading: Option<&'a Dictionary>,
-    pub x_object: Option<&'a Dictionary>,
-    pub font: Option<FontDictionary<'a>>,
-    pub proc_set: Option<Vec<ProcSet>>,
-    pub properties: Option<&'a Dictionary>,
-}
 
 #[derive(Debug)]
 pub struct Page<'a> {

@@ -7,7 +7,7 @@ use super::operations::{
 use super::path::{Path, PathMode, Point};
 use super::rect::Rectangle;
 use crate::cmaps::cid::CharCodeToUnicode;
-use crate::document::page::Resources;
+use crate::document::resources::Resources;
 use crate::font::font::Font;
 use crate::parser::object::{Dictionary, Name};
 use crate::render::canvas::Canvas;
@@ -420,7 +420,7 @@ impl<'a> GraphicsEngine<'a> {
     }
     fn select_font(&mut self, font_name: &'_ Name, font_size: f64) {
         if let Some(font_dict) = &self.resources.font {
-            if let Some(font) = font_dict.get(font_name) {
+            if let Some(font) = font_dict.0.get(font_name) {
                 self.state.text_state.font = Some(font);
             }
         }

@@ -6,18 +6,11 @@ use std::{
 };
 
 use super::annotation::{Annotation, AnnotationFlags};
-use super::page::{Page, ProcSet, Resources};
-use crate::cmaps::cmap::CMap;
+use super::page::Page;
+use super::resources::Resources;
 use crate::error::{PdfError, Result};
-use crate::font::encoding::Encoding;
-use crate::font::font::{
-    CIDFont, CIDFontSubtypeKind, CidSystemInfo, Font, FontDictionary, TrueTypeFont, Type0Encoding,
-    Type0Font, Type1Font, Type1SubtypeKind, Type3Font,
-};
-use crate::font::font_descriptor::FontDescriptor;
-use crate::font::glyph_width::object_array_to_glyph_widths;
 use crate::inner;
-use crate::operators::{matrix::Matrix, rect::Rectangle};
+use crate::operators::rect::Rectangle;
 use crate::parser::lexer::{Header, Lexer};
 use crate::parser::object::{
     Dictionary, IndirectReference, Name, Object, ObjectKind, Stream, Trailer, XrefSection,
@@ -37,12 +30,6 @@ const BLEED_BOX: &[u8] = b"BleedBox";
 const TRIM_BOX: &[u8] = b"TrimBox";
 const ART_BOX: &[u8] = b"ArtBox";
 const RESOURCES: &[u8] = b"Resources";
-const EXT_G_STATE: &[u8] = b"ExtGState";
-const COLOR_SPACE: &[u8] = b"ColorSpace";
-const PATTERN: &[u8] = b"Pattern";
-const SHADING: &[u8] = b"Shading";
-const X_OBJECT: &[u8] = b"XObject";
-const FONT: &[u8] = b"Font";
 const FONT_DESCRIPTOR: &[u8] = b"FontDescriptor";
 const FONT_NAME: &[u8] = b"FontName";
 const FONT_FAMILY: &[u8] = b"FontFamily";
@@ -81,8 +68,6 @@ const BASE_FONT: &[u8] = b"BaseFont";
 const FIRST_CHAR: &[u8] = b"FirstChar";
 const LAST_CHAR: &[u8] = b"LastChar";
 const WIDTHS: &[u8] = b"Widths";
-const PROC_SET: &[u8] = b"ProcSet";
-const PROPERTIES: &[u8] = b"Properties";
 const CONTENTS: &[u8] = b"Contents";
 const ANNOTS: &[u8] = b"Annots";
 const SUB_TYPE: &[u8] = b"Subtype";
@@ -255,286 +240,6 @@ impl<'a> PDFDocument {
         )
     }
 
-    fn cid_font(&'a self, dict: &'a Dictionary) -> Option<CIDFont<'a>> {
-        let subtype = self
-            .object_map
-            .follow_till(dict.get(SUB_TYPE))
-            .and_then(|name: &Name| CIDFontSubtypeKind::try_from(name.0.as_ref()).ok())?;
-        let font_descriptor = self
-            .object_map
-            .follow_till(dict.get(FONT_DESCRIPTOR))
-            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok())?;
-        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
-        let cid_system_info: &Dictionary =
-            self.object_map.follow_till(dict.get(CID_SYSTEM_INFO))?;
-        let registry = inner!(cid_system_info.get(REGISTRY)?, ObjectKind::String)?;
-        let ordering = inner!(cid_system_info.get(ORDERING)?, ObjectKind::String)?;
-        let supplement = *inner!(cid_system_info.get(SUPPLEMENT)?, ObjectKind::Integer)? as u32;
-        let cid_system_info = CidSystemInfo {
-            registry: registry.into(),
-            ordering: ordering.into(),
-            supplement,
-        };
-        let default_width = match dict.get(DEFAULT_WIDTH) {
-            Some(Object {
-                kind: ObjectKind::Integer(i),
-                ..
-            }) => *i as f64,
-            Some(Object {
-                kind: ObjectKind::Real(r),
-                ..
-            }) => *r,
-            _ => 1000.00,
-        };
-        let vertical_default_width: (f64, f64) = dict
-            .get(DEFAULT_VERTICAL_WIDTH)
-            .and_then(|array| self.object_array_to_array(array))
-            .map_or((880.00, -1000.00), |array| (array[0], array[1]));
-        let widths = dict
-            .get(GLYPH_WIDTHS)
-            .and_then(|x| inner!(x, ObjectKind::Array))
-            .map_or(vec![], |r| object_array_to_glyph_widths(r.as_ref()));
-        let vertical_widths = dict
-            .get(VERTICAL_GLYPH_WIDTHS)
-            .and_then(|x| inner!(x, ObjectKind::Array))
-            .map(|r| object_array_to_glyph_widths(r.as_ref()));
-        let cid_to_gid_map = dict.get(CID_TO_GID_MAP)?.try_into().ok()?;
-        let cid_font = CIDFont {
-            subtype,
-            base_font,
-            cid_system_info,
-            font_descriptor,
-            default_width,
-            widths,
-            vertical_default_width,
-            vertical_widths,
-            cid_to_gid_map,
-        };
-        Some(cid_font)
-    }
-
-    fn composite_font(&'a self, dict: &'a Dictionary) -> Option<Type0Font<'a>> {
-        let base_font = inner!(dict.get(BASE_FONT)?, ObjectKind::Name)?;
-        let descendant_fonts = self.cid_font(
-            self.object_map
-                .follow_till(inner!(dict.get(DESCENDANT_FONTS)?, ObjectKind::Array)?.get(0))?,
-        )?;
-        let encoding: Type0Encoding =
-            Type0Encoding::try_from((dict.get(ENCODING), &self.object_map)).ok()?;
-        let to_unicode = self
-            .object_map
-            .follow_till(dict.get(TO_UNICODE))
-            .and_then(|stream: &Stream| TryInto::<CMap>::try_into(stream).ok());
-        Some(Type0Font {
-            base_font,
-            encoding,
-            descendant_fonts,
-            to_unicode,
-        })
-    }
-
-    fn type_1_font(
-        &'a self,
-        dict: &'a Dictionary,
-        subtype: Type1SubtypeKind,
-    ) -> Option<Type1Font<'a>> {
-        let name = self.object_map.follow_till(dict.get(NAME));
-        let base_font = self.object_map.follow_till(dict.get(BASE_FONT))?;
-        let first_char = self.object_map.follow_till(dict.get(FIRST_CHAR));
-        let last_char = self.object_map.follow_till(dict.get(LAST_CHAR));
-        let src_widths: Option<Vec<f64>> = dict
-            .get(WIDTHS)
-            .and_then(|obj| self.object_array_to_array::<f64>(obj));
-        let font_descriptor = self
-            .object_map
-            .follow_till(dict.get(FONT_DESCRIPTOR))
-            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok());
-        let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
-            (first_char, last_char, src_widths)
-        {
-            let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
-            dst_widths[(first_char as usize)..(last_char as usize + 1)]
-                .clone_from_slice(&src_widths);
-            Some(dst_widths)
-        } else {
-            None
-        };
-        let encoding = self
-            .object_map
-            .follow_till(dict.get(ENCODING))
-            .and_then(|obj: &Object| Encoding::try_from(obj).ok());
-        let to_unicode = dict
-            .get(TO_UNICODE)
-            .and_then(|obj| inner!(obj, ObjectKind::Stream));
-        Some(Type1Font {
-            subtype,
-            name,
-            base_font,
-            first_char,
-            last_char,
-            widths,
-            font_descriptor,
-            encoding,
-            to_unicode,
-        })
-    }
-
-    fn type_3_font(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
-        let name = self.object_map.follow_till(dict.get(NAME));
-        let resources = self
-            .object_map
-            .follow_till(dict.get(RESOURCES))
-            .map(|dict| self.resources(dict));
-        let font_b_box = Rectangle::try_from(dict.get(FONT_B_BOX)?).ok()?;
-        let font_matrix = inner!(dict.get(FONT_MATRIX)?, ObjectKind::Array)?
-            .iter()
-            .filter_map(|obj| f64::try_from(obj).ok())
-            .collect::<Vec<f64>>();
-        let font_matrix: [f64; 6] = font_matrix.try_into().ok()?;
-        let font_matrix = Matrix::new(font_matrix);
-        let char_procs = self.object_map.follow_till(dict.get(CHAR_PROCS))?;
-        let first_char = self.object_map.follow_till(dict.get(FIRST_CHAR))?;
-        let last_char = self.object_map.follow_till(dict.get(LAST_CHAR))?;
-        let src_widths: Vec<f64> = self.object_array_to_array::<f64>(dict.get(WIDTHS)?)?;
-        let src_widths: &[f64] = &src_widths[0..((last_char - first_char) as usize)];
-        let font_descriptor = self
-            .object_map
-            .follow_till(dict.get(FONT_DESCRIPTOR))
-            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok())?;
-        let mut widths = [font_descriptor.missing_width; 256];
-        widths[(first_char as usize)..(last_char as usize + 1)].clone_from_slice(src_widths);
-        let encoding = self
-            .object_map
-            .follow_till(dict.get(ENCODING))
-            .and_then(|obj: &Object| Encoding::try_from(obj).ok())?;
-        let to_unicode = dict
-            .get(TO_UNICODE)
-            .and_then(|obj| inner!(obj, ObjectKind::Stream));
-        Some(Type3Font {
-            name,
-            font_b_box,
-            font_matrix,
-            char_procs,
-            encoding,
-            first_char,
-            last_char,
-            widths,
-            font_descriptor,
-            resources: resources.map(Box::new),
-            to_unicode,
-        })
-    }
-
-    fn true_type_font(&'a self, dict: &'a Dictionary) -> Option<TrueTypeFont<'a>> {
-        let name = self.object_map.follow_till(dict.get(NAME));
-        let base_font = self.object_map.follow_till(dict.get(BASE_FONT))?;
-        let first_char = self.object_map.follow_till(dict.get(FIRST_CHAR));
-        let last_char = self.object_map.follow_till(dict.get(LAST_CHAR));
-        let src_widths: Option<Vec<f64>> = dict
-            .get(WIDTHS)
-            .and_then(|obj| self.object_array_to_array::<f64>(obj));
-        let font_descriptor = self
-            .object_map
-            .follow_till(dict.get(FONT_DESCRIPTOR))
-            .and_then(|obj| FontDescriptor::try_from((obj, &self.object_map)).ok());
-        let widths = if let (Some(first_char), Some(last_char), Some(src_widths)) =
-            (first_char, last_char, src_widths)
-        {
-            let mut dst_widths = [font_descriptor.as_ref().map_or(0., |fd| fd.missing_width); 256];
-            dst_widths[(first_char as usize)..(last_char as usize + 1)]
-                .clone_from_slice(&src_widths);
-            Some(dst_widths)
-        } else {
-            None
-        };
-        // A font that is used to display glyphs that do not use
-        // MacRomanEncoding or WinAnsiEncoding should not specify an
-        // Encoding entry. - PDF 9.6.5.4 paragraph 4 item 3
-        let encoding = self
-            .object_map
-            .follow_till(dict.get(ENCODING))
-            .and_then(|obj: &Object| Encoding::try_from(obj).ok());
-        let to_unicode = self
-            .object_map
-            .follow_till(dict.get(TO_UNICODE))
-            .and_then(|stream: &Stream| CMap::try_from(stream).ok());
-        Some(TrueTypeFont {
-            name,
-            base_font,
-            first_char,
-            last_char,
-            widths,
-            font_descriptor,
-            encoding,
-            to_unicode,
-        })
-    }
-
-    fn font(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
-        let name = inner!(dict.get(SUB_TYPE)?, ObjectKind::Name)?;
-        if name == &TYPE_0 {
-            Some(Font::Type0(self.composite_font(dict)?))
-        } else if name == &TYPE_1 {
-            Some(Font::Type1(
-                self.type_1_font(dict, Type1SubtypeKind::Type1)?,
-            ))
-        } else if name == &TYPE_1_MM {
-            Some(Font::Type1(
-                self.type_1_font(dict, Type1SubtypeKind::MMType1)?,
-            ))
-        } else if name == &TYPE_3 {
-            Some(Font::Type3(self.type_3_font(dict)?))
-        } else if name == &TRUE_TYPE {
-            Some(Font::TrueType(self.true_type_font(dict)?))
-        } else {
-            None
-        }
-    }
-
-    fn font_dictionary(&'a self, dict: &'a Dictionary) -> FontDictionary<'a> {
-        let mut font_dictionary = FontDictionary::new();
-        for (name, object) in &dict.0 {
-            let name = Name(name.clone());
-            if let Some(dict) = self.object_map.follow_till(Some(object)) {
-                if let Some(font) = self.font(dict) {
-                    font_dictionary.insert(std::borrow::Cow::Owned(name), font);
-                }
-            }
-        }
-        font_dictionary
-    }
-
-    fn resources(&'a self, dict: &'a Dictionary) -> Resources<'a> {
-        let ext_g_state = self.object_map.follow_till(dict.get(EXT_G_STATE));
-        let color_space = self.object_map.follow_till(dict.get(COLOR_SPACE));
-        let pattern = self.object_map.follow_till(dict.get(PATTERN));
-        let shading = self.object_map.follow_till(dict.get(SHADING));
-        let x_object = self.object_map.follow_till(dict.get(X_OBJECT));
-        let font = self
-            .object_map
-            .follow_till(dict.get(FONT))
-            .map(|dict| self.font_dictionary(dict));
-        let proc_set = dict
-            .get(PROC_SET)
-            .and_then(|obj| inner!(obj, ObjectKind::Array))
-            .map(|vec| {
-                vec.iter()
-                    .filter_map(|obj| ProcSet::try_from(obj).ok())
-                    .collect()
-            });
-        let properties = self.object_map.follow_till(dict.get(PROPERTIES));
-        Resources {
-            ext_g_state,
-            color_space,
-            pattern,
-            shading,
-            x_object,
-            font,
-            proc_set,
-            properties,
-        }
-    }
-
     fn page(&'a self, r#ref: IndirectReference) -> Option<Page<'a>> {
         let page_object = inner!(self.get(&r#ref)?, ObjectKind::Dictionary)?;
         let parent = *inner!(page_object.get(PARENT)?, ObjectKind::IndirectReference)?;
@@ -559,8 +264,8 @@ impl<'a> PDFDocument {
             .map_or_else(|| crop_box, |x| Rectangle::try_from(x).unwrap_or(crop_box));
         let resources = self
             .object_map
-            .follow_till(self.get_inherited_page_key(&r#ref, RESOURCES))?;
-        let resources = self.resources(resources);
+            .follow_till(self.get_inherited_page_key(&r#ref, RESOURCES))
+            .and_then(|dict: &Dictionary| Resources::try_from((dict, &self.object_map)).ok())?;
         let contents = match page_object.get(CONTENTS) {
             Some(object) => {
                 let mut streams = vec![];
@@ -663,6 +368,7 @@ impl TryFrom<Vec<Object>> for PDFDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::document::resources::FONT;
     use crate::parser::object::Stream;
     use crate::{array, dict, indirect_reference, inner, integer, name, offset, stream};
     use std::path::PathBuf;
