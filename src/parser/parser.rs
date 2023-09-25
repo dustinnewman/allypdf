@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use super::lexer::{Token, TokenKind};
 use super::object::{
-    CrossReference, Dictionary, IndirectObject, IndirectReference, Name, Object, ObjectKind,
+    CrossReference, Dictionary, IndirectObject, IndirectReference, Object, ObjectKind,
     Stream, Trailer, XrefSection, XrefSubsection,
 };
 use crate::filter::{decode, Filter};

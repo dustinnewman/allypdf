@@ -55,18 +55,18 @@ pub struct Resources<'a> {
 #[derive(Debug)]
 pub struct Page<'a> {
     pub r#ref: IndirectReference,
-    parent: IndirectReference,
-    media_box: Rectangle,
-    crop_box: Rectangle,
-    bleed_box: Rectangle,
-    trim_box: Rectangle,
-    art_box: Rectangle,
-    contents: Option<Vec<&'a Stream>>,
-    annotations: Option<Vec<Annotation<'a>>>,
+    pub parent: IndirectReference,
+    pub media_box: Rectangle,
+    pub crop_box: Rectangle,
+    pub bleed_box: Rectangle,
+    pub trim_box: Rectangle,
+    pub art_box: Rectangle,
+    pub contents: Option<Vec<&'a Stream>>,
+    pub annotations: Option<Vec<Annotation<'a>>>,
     pub resources: Resources<'a>,
-    rotate: u32,
+    pub rotate: u32,
     // Rendering device
-    canvas: Canvas,
+    pub canvas: Canvas,
 }
 
 pub struct PagesRoot<'a> {
@@ -79,36 +79,6 @@ pub struct Catalog<'a> {
 }
 
 impl<'a> Page<'a> {
-    pub fn new(
-        r#ref: IndirectReference,
-        parent: IndirectReference,
-        media_box: Rectangle,
-        crop_box: Rectangle,
-        bleed_box: Rectangle,
-        trim_box: Rectangle,
-        art_box: Rectangle,
-        resources: Resources<'a>,
-        contents: Option<Vec<&'a Stream>>,
-        annotations: Option<Vec<Annotation<'a>>>,
-        rotate: u32,
-    ) -> Self {
-        let canvas = Canvas::new();
-        Self {
-            r#ref,
-            parent,
-            media_box,
-            crop_box,
-            bleed_box,
-            trim_box,
-            art_box,
-            contents,
-            annotations,
-            resources,
-            rotate,
-            canvas,
-        }
-    }
-
     pub fn process_operations(&'a mut self) {
         let mut objects = vec![];
         if let Some(content_streams) = &self.contents {

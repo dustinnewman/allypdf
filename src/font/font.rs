@@ -7,7 +7,7 @@ use super::encoding::{Encoding, ENCODING_SIZE};
 use super::font_descriptor::FontDescriptor;
 use crate::cmaps::cid::{CharCode, CharCodeToCid, CharCodeToGlyphName, CharCodeToUnicode, Cid};
 use crate::cmaps::cmap::CMap;
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::document::document::ObjectMap;
 use crate::document::page::Resources;
 use crate::error::{PdfError, Result};
 use crate::font::glyph_width::GlyphWidth;
@@ -19,8 +19,8 @@ const IDENTITY_H: &[u8] = b"Identity-H";
 const IDENTITY_V: &[u8] = b"Identity-V";
 
 pub struct Type1FontProgram<'a> {
-    clear_portion: &'a [u8],
-    program_portion: &'a [u8],
+    pub clear_portion: &'a [u8],
+    pub program_portion: &'a [u8],
 }
 
 // PDF 9.9.1 Table 124 - Not technically accurate, Type1C, CID Font, and OpenType
@@ -28,7 +28,7 @@ pub struct Type1FontProgram<'a> {
 #[derive(Debug)]
 pub enum FontProgramKind<'a> {
     Type1(&'a Stream),
-    TrueType(Face<'a>),
+    TrueType(Box<Face<'a>>),
     Type1C,
     CIDFontType0C,
     OpenType(&'a Stream),
@@ -44,124 +44,44 @@ pub enum Type1SubtypeKind {
 // PDF 9.6.2.1 Table 109
 #[derive(Debug)]
 pub struct Type1Font<'a> {
-    subtype: Type1SubtypeKind,
-    name: Option<&'a Name>,
-    base_font: &'a Name,
-    first_char: Option<CharCode>,
-    last_char: Option<CharCode>,
-    widths: Option<[f64; ENCODING_SIZE]>,
-    font_descriptor: Option<FontDescriptor<'a>>,
-    encoding: Option<Encoding<'a>>,
-    to_unicode: Option<&'a Stream>,
-}
-
-impl<'a> Type1Font<'a> {
-    pub fn new(
-        subtype: Type1SubtypeKind,
-        name: Option<&'a Name>,
-        base_font: &'a Name,
-        first_char: Option<CharCode>,
-        last_char: Option<CharCode>,
-        widths: Option<[f64; ENCODING_SIZE]>,
-        font_descriptor: Option<FontDescriptor<'a>>,
-        encoding: Option<Encoding<'a>>,
-        to_unicode: Option<&'a Stream>,
-    ) -> Self {
-        Self {
-            subtype,
-            name,
-            base_font,
-            first_char,
-            last_char,
-            widths,
-            font_descriptor,
-            encoding,
-            to_unicode,
-        }
-    }
+    pub subtype: Type1SubtypeKind,
+    pub name: Option<&'a Name>,
+    pub base_font: &'a Name,
+    pub first_char: Option<CharCode>,
+    pub last_char: Option<CharCode>,
+    pub widths: Option<[f64; ENCODING_SIZE]>,
+    pub font_descriptor: Option<FontDescriptor<'a>>,
+    pub encoding: Option<Encoding<'a>>,
+    pub to_unicode: Option<&'a Stream>,
 }
 
 // PDF 9.6.3
 #[derive(Debug)]
 pub struct TrueTypeFont<'a> {
-    name: Option<&'a Name>,
-    base_font: &'a Name,
-    first_char: Option<CharCode>,
-    last_char: Option<CharCode>,
-    widths: Option<[f64; ENCODING_SIZE]>,
-    font_descriptor: Option<FontDescriptor<'a>>,
-    encoding: Option<Encoding<'a>>,
-    to_unicode: Option<CMap<'a>>,
-}
-
-impl<'a> TrueTypeFont<'a> {
-    pub fn new(
-        name: Option<&'a Name>,
-        base_font: &'a Name,
-        first_char: Option<CharCode>,
-        last_char: Option<CharCode>,
-        widths: Option<[f64; ENCODING_SIZE]>,
-        font_descriptor: Option<FontDescriptor<'a>>,
-        encoding: Option<Encoding<'a>>,
-        to_unicode: Option<CMap<'a>>,
-    ) -> Self {
-        Self {
-            name,
-            base_font,
-            first_char,
-            last_char,
-            widths,
-            font_descriptor,
-            encoding,
-            to_unicode,
-        }
-    }
+    pub name: Option<&'a Name>,
+    pub base_font: &'a Name,
+    pub first_char: Option<CharCode>,
+    pub last_char: Option<CharCode>,
+    pub widths: Option<[f64; ENCODING_SIZE]>,
+    pub font_descriptor: Option<FontDescriptor<'a>>,
+    pub encoding: Option<Encoding<'a>>,
+    pub to_unicode: Option<CMap<'a>>,
 }
 
 // PDF 9.6.4
 #[derive(Debug)]
 pub struct Type3Font<'a> {
-    name: Option<&'a Name>,
-    font_b_box: Rectangle,
-    font_matrix: Matrix,
-    char_procs: &'a Dictionary,
-    encoding: Encoding<'a>,
-    first_char: CharCode,
-    last_char: CharCode,
-    widths: [f64; ENCODING_SIZE],
-    font_descriptor: FontDescriptor<'a>,
-    resources: Option<Box<Resources<'a>>>,
-    to_unicode: Option<&'a Stream>,
-}
-
-impl<'a> Type3Font<'a> {
-    pub fn new(
-        name: Option<&'a Name>,
-        font_b_box: Rectangle,
-        font_matrix: Matrix,
-        char_procs: &'a Dictionary,
-        encoding: Encoding<'a>,
-        first_char: CharCode,
-        last_char: CharCode,
-        widths: [f64; ENCODING_SIZE],
-        font_descriptor: FontDescriptor<'a>,
-        resources: Option<Resources<'a>>,
-        to_unicode: Option<&'a Stream>,
-    ) -> Self {
-        Self {
-            name,
-            font_b_box,
-            font_matrix,
-            char_procs,
-            encoding,
-            first_char,
-            last_char,
-            widths,
-            font_descriptor,
-            resources: resources.map(Box::new),
-            to_unicode,
-        }
-    }
+    pub name: Option<&'a Name>,
+    pub font_b_box: Rectangle,
+    pub font_matrix: Matrix,
+    pub char_procs: &'a Dictionary,
+    pub encoding: Encoding<'a>,
+    pub first_char: CharCode,
+    pub last_char: CharCode,
+    pub widths: [f64; ENCODING_SIZE],
+    pub font_descriptor: FontDescriptor<'a>,
+    pub resources: Option<Box<Resources<'a>>>,
+    pub to_unicode: Option<&'a Stream>,
 }
 
 // PDF 9.5 Table 108
@@ -285,26 +205,10 @@ impl CharCodeToCid for Type0Encoding<'_> {
 // PDF 9.6.2.1 Table 109
 #[derive(Debug)]
 pub struct Type0Font<'a> {
-    base_font: &'a Name,
-    encoding: Type0Encoding<'a>,
-    descendant_fonts: CIDFont<'a>,
-    to_unicode: Option<CMap<'a>>,
-}
-
-impl<'a> Type0Font<'a> {
-    pub fn new(
-        base_font: &'a Name,
-        encoding: Type0Encoding<'a>,
-        descendant_fonts: CIDFont<'a>,
-        to_unicode: Option<CMap<'a>>,
-    ) -> Self {
-        Self {
-            base_font,
-            encoding,
-            descendant_fonts,
-            to_unicode,
-        }
-    }
+    pub base_font: &'a Name,
+    pub encoding: Type0Encoding<'a>,
+    pub descendant_fonts: CIDFont<'a>,
+    pub to_unicode: Option<CMap<'a>>,
 }
 
 // PDF 9.5 Table 108

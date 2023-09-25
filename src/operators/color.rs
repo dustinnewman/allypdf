@@ -1,14 +1,14 @@
 use super::operations::UnitInterval;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct RGB {
+pub struct Rgb {
     pub red: UnitInterval,
     pub green: UnitInterval,
     pub blue: UnitInterval,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct CMYK {
+pub struct Cmyk {
     pub cyan: UnitInterval,
     pub magenta: UnitInterval,
     pub yellow: UnitInterval,
@@ -18,8 +18,8 @@ pub struct CMYK {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Color {
     Gray(UnitInterval),
-    RGB(RGB),
-    CMYK(CMYK),
+    Rgb(Rgb),
+    Cmyk(Cmyk),
 }
 
 fn min(a: f64, b: f64) -> f64 {
@@ -38,7 +38,7 @@ fn max(a: f64, b: f64) -> f64 {
     }
 }
 
-impl From<UnitInterval> for RGB {
+impl From<UnitInterval> for Rgb {
     // PDF 10.4.2.1 Conversion between DeviceGray and DeviceRGB
     fn from(gray: UnitInterval) -> Self {
         Self {
@@ -49,15 +49,15 @@ impl From<UnitInterval> for RGB {
     }
 }
 
-impl From<RGB> for UnitInterval {
+impl From<Rgb> for UnitInterval {
     // PDF 10.4.2.1 Conversion between DeviceGray and DeviceRGB
-    fn from(RGB { red, green, blue }: RGB) -> Self {
+    fn from(Rgb { red, green, blue }: Rgb) -> Self {
         // NTSC video standard conversion from RGB to gray
         0.3 * red + 0.59 * green + 0.11 * blue
     }
 }
 
-impl From<UnitInterval> for CMYK {
+impl From<UnitInterval> for Cmyk {
     // PDF 10.4.2.2 Conversion between DeviceGray and DeviceCMYK
     fn from(gray: UnitInterval) -> Self {
         Self {
@@ -69,23 +69,23 @@ impl From<UnitInterval> for CMYK {
     }
 }
 
-impl From<CMYK> for UnitInterval {
+impl From<Cmyk> for UnitInterval {
     // PDF 10.4.2.2 Conversion between DeviceGray and DeviceCMYK
     fn from(
-        CMYK {
+        Cmyk {
             cyan,
             magenta,
             yellow,
             black,
-        }: CMYK,
+        }: Cmyk,
     ) -> Self {
         1. - min(1., 0.3 * cyan + 0.59 * magenta + 0.11 * yellow + black)
     }
 }
 
-impl From<RGB> for CMYK {
+impl From<Rgb> for Cmyk {
     // PDF 10.4.2.3 Conversion from DeviceRGB to DeviceCMYK
-    fn from(RGB { red, green, blue }: RGB) -> Self {
+    fn from(Rgb { red, green, blue }: Rgb) -> Self {
         let c = 1. - red;
         let m = 1. - green;
         let y = 1. - blue;
@@ -103,15 +103,15 @@ impl From<RGB> for CMYK {
     }
 }
 
-impl From<CMYK> for RGB {
+impl From<Cmyk> for Rgb {
     // PDF 10.4.2.4 Conversion from DeviceCMYK to DeviceRGB
     fn from(
-        CMYK {
+        Cmyk {
             cyan,
             magenta,
             yellow,
             black,
-        }: CMYK,
+        }: Cmyk,
     ) -> Self {
         let red = 1. - min(1., cyan + black);
         let green = 1. - min(1., magenta + black);

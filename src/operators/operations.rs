@@ -1,4 +1,4 @@
-use super::color::{Color, CMYK, RGB};
+use super::color::{Color, Cmyk, Rgb};
 use crate::parser::object::{Dictionary, Name};
 
 // A real number between 0 and 1 (inclusive)
@@ -172,16 +172,16 @@ pub enum Operation<'a> {
     SetFlat(Percent),                                           // i
     SetGraphicsStateParams(&'a Name),                           // gs
     // Color operators
-    SetCMYKColorStroke(CMYK),                          // K
-    SetCMYKColorNonstroke(CMYK),                       // k
+    SetCMYKColorStroke(Cmyk),                          // K
+    SetCMYKColorNonstroke(Cmyk),                       // k
     SetColorStroke(Color),                             // SC
     SetColorNonstroke(Color),                          // sc
     SetColorSpecialStroke(Color, Option<&'a Name>),    // SCN
     SetColorSpecialNonstroke(Color, Option<&'a Name>), // scn
     SetColorSpaceStroke(&'a Name),                     // CS
     SetColorSpaceNonstroke(&'a Name),                  // cs
-    SetRGBColorStroke(RGB),                            // RG
-    SetRGBColorNonstroke(RGB),                         // rg
+    SetRGBColorStroke(Rgb),                            // RG
+    SetRGBColorNonstroke(Rgb),                         // rg
     SetGrayStroke(UnitInterval),                       // G
     SetGrayNonstroke(UnitInterval),                    // g
     // Shading operators

@@ -1,7 +1,7 @@
 use super::color::Color;
 use super::operations::Operation;
 use super::operators::Operator;
-use crate::operators::color::{CMYK, RGB};
+use crate::operators::color::{Cmyk, Rgb};
 use crate::operators::operations::{LineCap, LineJoin, StringOrNumber, TextRendering};
 use crate::parser::object::{Object, ObjectKind};
 
@@ -350,7 +350,7 @@ impl<'a> OperatorParser<'a> {
                 let yellow = coerce_f64!(&self.nth(1)?.kind);
                 let magenta = coerce_f64!(&self.nth(2)?.kind);
                 let cyan = coerce_f64!(&self.nth(3)?.kind);
-                let cmyk = CMYK {
+                let cmyk = Cmyk {
                     cyan,
                     magenta,
                     yellow,
@@ -363,7 +363,7 @@ impl<'a> OperatorParser<'a> {
                 let yellow = coerce_f64!(&self.nth(1)?.kind);
                 let magenta = coerce_f64!(&self.nth(2)?.kind);
                 let cyan = coerce_f64!(&self.nth(3)?.kind);
-                let cmyk = CMYK {
+                let cmyk = Cmyk {
                     cyan,
                     magenta,
                     yellow,
@@ -410,14 +410,14 @@ impl<'a> OperatorParser<'a> {
                 let blue = coerce_f64!(&self.peek()?.kind);
                 let green = coerce_f64!(&self.nth(1)?.kind);
                 let red = coerce_f64!(&self.nth(2)?.kind);
-                let rgb = RGB { red, green, blue };
+                let rgb = Rgb { red, green, blue };
                 op!(Operation::SetRGBColorStroke(rgb), 3)
             }
             ObjectKind::Operator(Operator::SetRGBColorNonstroke) => {
                 let blue = coerce_f64!(&self.peek()?.kind);
                 let green = coerce_f64!(&self.nth(1)?.kind);
                 let red = coerce_f64!(&self.nth(2)?.kind);
-                let rgb = RGB { red, green, blue };
+                let rgb = Rgb { red, green, blue };
                 op!(Operation::SetRGBColorNonstroke(rgb), 3)
             }
             ObjectKind::Operator(Operator::SetGrayStroke) => {
@@ -476,22 +476,22 @@ impl<'a> OperatorParser<'a> {
                 }) => *i as f64,
                 _ => {
                     self.seek(start + 3);
-                    let rgb = RGB {
+                    let rgb = Rgb {
                         red: third,
                         green: second,
                         blue: first,
                     };
-                    return Some(Color::RGB(rgb));
+                    return Some(Color::Rgb(rgb));
                 }
             };
-            let cmyk = CMYK {
+            let cmyk = Cmyk {
                 cyan: fourth,
                 magenta: third,
                 yellow: second,
                 black: first,
             };
             self.seek(start + 4);
-            Some(Color::CMYK(cmyk))
+            Some(Color::Cmyk(cmyk))
         } else {
             self.seek(start + 1);
             Some(Color::Gray(first))
@@ -643,7 +643,7 @@ mod tests {
             operator!(Operator::SetRGBColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let operations = vec![Operation::SetRGBColorStroke(RGB {
+        let operations = vec![Operation::SetRGBColorStroke(Rgb {
             red: 1.0,
             green: 1.0,
             blue: 1.0,
@@ -674,13 +674,13 @@ mod tests {
             operator!(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let color = CMYK {
+        let color = Cmyk {
             cyan: 1.0,
             magenta: 0.0,
             yellow: 1.0,
             black: 0.0,
         };
-        let operations = vec![Operation::SetColorStroke(Color::CMYK(color))];
+        let operations = vec![Operation::SetColorStroke(Color::Cmyk(color))];
         assert_eq!(parser.parse(), operations);
     }
 
@@ -693,12 +693,12 @@ mod tests {
             operator!(Operator::SetColorStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let color = RGB {
+        let color = Rgb {
             red: 0.3,
             green: 0.0,
             blue: 0.7,
         };
-        let operations = vec![Operation::SetColorStroke(Color::RGB(color))];
+        let operations = vec![Operation::SetColorStroke(Color::Rgb(color))];
         assert_eq!(parser.parse(), operations);
     }
 
@@ -721,7 +721,7 @@ mod tests {
             operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let color = CMYK {
+        let color = Cmyk {
             cyan: 1.0,
             magenta: 0.0,
             yellow: 1.0,
@@ -729,7 +729,7 @@ mod tests {
         };
         let name = Name(b"COLOR".to_vec());
         let operations = vec![Operation::SetColorSpecialStroke(
-            Color::CMYK(color),
+            Color::Cmyk(color),
             Some(&name),
         )];
         assert_eq!(parser.parse(), operations);
@@ -745,14 +745,14 @@ mod tests {
             operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let color = RGB {
+        let color = Rgb {
             red: 0.3,
             green: 0.0,
             blue: 0.7,
         };
         let name = Name(b"COLOR".to_vec());
         let operations = vec![Operation::SetColorSpecialStroke(
-            Color::RGB(color),
+            Color::Rgb(color),
             Some(&name),
         )];
         assert_eq!(parser.parse(), operations);
@@ -784,13 +784,13 @@ mod tests {
             operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let color = CMYK {
+        let color = Cmyk {
             cyan: 1.0,
             magenta: 0.0,
             yellow: 1.0,
             black: 0.0,
         };
-        let operations = vec![Operation::SetColorSpecialStroke(Color::CMYK(color), None)];
+        let operations = vec![Operation::SetColorSpecialStroke(Color::Cmyk(color), None)];
         assert_eq!(parser.parse(), operations);
     }
 
@@ -803,12 +803,12 @@ mod tests {
             operator!(Operator::SetColorSpecialStroke),
         ];
         let mut parser = OperatorParser::new(&objects);
-        let color = RGB {
+        let color = Rgb {
             red: 0.3,
             green: 0.0,
             blue: 0.7,
         };
-        let operations = vec![Operation::SetColorSpecialStroke(Color::RGB(color), None)];
+        let operations = vec![Operation::SetColorSpecialStroke(Color::Rgb(color), None)];
         assert_eq!(parser.parse(), operations);
     }
 

@@ -1,4 +1,4 @@
-use super::color::{Color, CMYK, RGB};
+use super::color::{Color, Cmyk, Rgb};
 use super::matrix::Matrix;
 use super::operations::{
     DashPattern, LineCap, LineJoin, Operation, Percent, RenderingIntent, StringOrNumber,
@@ -524,11 +524,11 @@ impl<'a> GraphicsEngine<'a> {
     }
     fn set_graphics_state_params(&mut self, dict_name: &Name) {}
     // Color operators
-    fn set_cmyk_color_stroke(&mut self, color: CMYK) {
-        self.state.stroke_color = Color::CMYK(color);
+    fn set_cmyk_color_stroke(&mut self, color: Cmyk) {
+        self.state.stroke_color = Color::Cmyk(color);
     }
-    fn set_cmyk_color_nonstroke(&mut self, color: CMYK) {
-        self.state.fill_color = Color::CMYK(color);
+    fn set_cmyk_color_nonstroke(&mut self, color: Cmyk) {
+        self.state.fill_color = Color::Cmyk(color);
     }
     fn set_color_stroke(&mut self, color: Color) {
         self.state.stroke_color = color;
@@ -540,11 +540,11 @@ impl<'a> GraphicsEngine<'a> {
     fn set_color_special_nonstroke(&mut self, color: Color, name: Option<&Name>) {}
     fn set_color_space_stroke(&mut self, name: &Name) {}
     fn set_color_space_nonstroke(&mut self, name: &Name) {}
-    fn set_rgb_color_stroke(&mut self, color: RGB) {
-        self.state.stroke_color = Color::RGB(color);
+    fn set_rgb_color_stroke(&mut self, color: Rgb) {
+        self.state.stroke_color = Color::Rgb(color);
     }
-    fn set_rgb_color_nonstroke(&mut self, color: RGB) {
-        self.state.fill_color = Color::RGB(color);
+    fn set_rgb_color_nonstroke(&mut self, color: Rgb) {
+        self.state.fill_color = Color::Rgb(color);
     }
     fn set_gray_stroke(&mut self, gray: UnitInterval) {
         self.state.stroke_color = Color::Gray(gray);

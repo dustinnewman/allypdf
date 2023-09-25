@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 use std::vec::IntoIter;
 
@@ -9,7 +9,6 @@ use crate::cmaps::cmap::{
     BaseFontChar, BaseFontCharDestination, CMap, CMapWritingMode, CidChar, CidRange,
     CodespaceRange, DEFAULT_CODE_SPACE_RANGE, MAX_CODE_SPACE_LENGTH,
 };
-use crate::error::Result;
 use crate::font::font::CidSystemInfo;
 use crate::util::reduce_slice_to_numeric;
 

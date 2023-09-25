@@ -81,7 +81,7 @@ macro_rules! boolean {
 #[macro_export]
 macro_rules! name {
     ($str:expr) => {
-        offset!(ObjectKind::Name(crate::parser::object::Name(
+        offset!(ObjectKind::Name($crate::parser::object::Name(
             $str.as_bytes().to_vec()
         )))
     };
@@ -114,7 +114,7 @@ macro_rules! array {
 #[macro_export]
 macro_rules! dict {
     ($($key:expr => $val:expr),*) => (
-        offset!(ObjectKind::Dictionary(crate::parser::object::Dictionary::from([
+        offset!(ObjectKind::Dictionary($crate::parser::object::Dictionary::from([
             $(($key.to_vec(), $val),)*
         ])))
     );
@@ -124,7 +124,7 @@ macro_rules! dict {
 macro_rules! stream {
     ($content:expr, $($key:expr => $val:expr),*) => (
         offset!(ObjectKind::Stream(Stream {
-            dict: crate::parser::object::Dictionary::from([
+            dict: $crate::parser::object::Dictionary::from([
                 $(($key.to_vec(), $val),)*
             ]),
             content: $content,

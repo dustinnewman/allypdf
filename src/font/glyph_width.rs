@@ -1,5 +1,4 @@
 use std::convert::{TryFrom, TryInto};
-use std::slice::Iter;
 
 use crate::cmaps::cid::Cid;
 use crate::parser::object::{Object, ObjectKind};
@@ -11,7 +10,7 @@ pub enum GlyphWidth {
 }
 
 // This is perhaps the ugliest function I have ever written
-pub fn object_array_to_glyph_widths(array: &Vec<Object>) -> Vec<GlyphWidth> {
+pub fn object_array_to_glyph_widths(array: &[Object]) -> Vec<GlyphWidth> {
     let mut glyph_widths = vec![];
     let mut iter = array.iter();
     while let Some(first) = iter.next() {

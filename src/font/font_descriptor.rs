@@ -187,60 +187,6 @@ pub struct FontDescriptor<'a> {
     cid_set: Option<&'a Dictionary>,
 }
 
-impl<'a> FontDescriptor<'a> {
-    pub fn new(
-        font_name: &'a Name,
-        font_family: Option<&'a Name>,
-        font_stretch: Option<FontStretch>,
-        font_weight: Option<FontWeight>,
-        flags: FontDescriptorFlags,
-        font_b_box: Option<Rectangle>,
-        italic_angle: f64,
-        ascent: Option<f64>,
-        descent: Option<f64>,
-        leading: Option<f64>,
-        cap_height: Option<f64>,
-        x_height: Option<f64>,
-        stem_v: Option<f64>,
-        stem_h: Option<f64>,
-        avg_width: Option<f64>,
-        max_width: Option<f64>,
-        missing_width: Option<f64>,
-        font_file: Option<FontProgramKind<'a>>,
-        char_set: Option<&'a Name>,
-        style: Option<&'a Dictionary>,
-        lang: Option<Name>,
-        fd: Option<&'a Dictionary>,
-        cid_set: Option<&'a Dictionary>,
-    ) -> Self {
-        Self {
-            font_name,
-            font_family,
-            font_stretch,
-            font_weight,
-            flags,
-            font_b_box,
-            italic_angle,
-            ascent,
-            descent,
-            leading,
-            cap_height,
-            x_height,
-            stem_v,
-            stem_h,
-            avg_width,
-            max_width,
-            missing_width: missing_width.unwrap_or(0.),
-            font_file,
-            char_set,
-            style,
-            lang,
-            fd,
-            cid_set,
-        }
-    }
-}
-
 impl<'a> TryFrom<(Option<&'a Object>, &'a ObjectMap)> for FontDescriptor<'a>
 where
     Object: TryInto<&'a Dictionary>,
@@ -333,6 +279,7 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for FontDescriptor<'a> {
             let content = &stream.content[..font_program_length];
             ttf_parser::Face::parse(content, 0)
                 .ok()
+                .map(Box::new)
                 .map(FontProgramKind::TrueType)
         } else {
             object_map
@@ -341,7 +288,7 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for FontDescriptor<'a> {
         };
         let char_set = dict.get(CHAR_SET).and_then(|obj| obj.try_into().ok());
         // TODO: Parse char_set list of names into Vec<Name> using helper functions
-        Ok(FontDescriptor::new(
+        Ok(FontDescriptor {
             font_name,
             font_family,
             font_stretch,
@@ -358,13 +305,13 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for FontDescriptor<'a> {
             stem_h,
             avg_width,
             max_width,
-            missing_width,
+            missing_width: missing_width.unwrap_or(0.),
             font_file,
             char_set,
-            None,
-            None,
-            None,
-            None,
-        ))
+            style: None,
+            lang: None,
+            fd: None,
+            cid_set: None,
+        })
     }
 }

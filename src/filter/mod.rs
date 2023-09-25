@@ -88,7 +88,7 @@ impl TryFrom<&Object> for Vec<Filter> {
                 }
                 Ok(filters)
             }
-            _ => return Ok(vec![]),
+            _ => Ok(vec![]),
         }
     }
 }

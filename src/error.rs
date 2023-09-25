@@ -4,7 +4,8 @@ pub type Result<T> = std::result::Result<T, PdfError>;
 
 #[derive(Debug)]
 pub enum PdfError {
-    EOF,
+    Eof,
+    FileStart,
     NoHeader,
     NoTrailer,
     NoCrossReferences,
@@ -15,8 +16,6 @@ pub enum PdfError {
     ObjectNotName,
     ObjectNotArray,
     ObjectNotIndirectReference,
-    // Beginning of File
-    BOF,
     CMapParsingError,
     InvalidFilterName,
     InvalidProcSet,

@@ -23,6 +23,7 @@ use crate::parser::object::{
     Dictionary, IndirectReference, Name, Object, ObjectKind, Stream, Trailer, XrefSection,
 };
 use crate::parser::parser::Parser;
+use crate::render::canvas::Canvas;
 
 const TYPE: &[u8] = b"Type";
 const NAME: &[u8] = b"Name";
@@ -292,11 +293,11 @@ impl<'a> PDFDocument {
         let widths = dict
             .get(GLYPH_WIDTHS)
             .and_then(|x| inner!(x, ObjectKind::Array))
-            .map_or(vec![], object_array_to_glyph_widths);
+            .map_or(vec![], |r| object_array_to_glyph_widths(r.as_ref()));
         let vertical_widths = dict
             .get(VERTICAL_GLYPH_WIDTHS)
             .and_then(|x| inner!(x, ObjectKind::Array))
-            .map(object_array_to_glyph_widths);
+            .map(|r| object_array_to_glyph_widths(r.as_ref()));
         let cid_to_gid_map = dict.get(CID_TO_GID_MAP)?.try_into().ok()?;
         let cid_font = CIDFont {
             subtype,
@@ -324,12 +325,12 @@ impl<'a> PDFDocument {
             .object_map
             .follow_till(dict.get(TO_UNICODE))
             .and_then(|stream: &Stream| TryInto::<CMap>::try_into(stream).ok());
-        Some(Type0Font::new(
+        Some(Type0Font {
             base_font,
             encoding,
             descendant_fonts,
             to_unicode,
-        ))
+        })
     }
 
     fn type_1_font(
@@ -365,7 +366,7 @@ impl<'a> PDFDocument {
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
-        Some(Type1Font::new(
+        Some(Type1Font {
             subtype,
             name,
             base_font,
@@ -375,7 +376,7 @@ impl<'a> PDFDocument {
             font_descriptor,
             encoding,
             to_unicode,
-        ))
+        })
     }
 
     fn type_3_font(&'a self, dict: &'a Dictionary) -> Option<Type3Font<'a>> {
@@ -409,7 +410,7 @@ impl<'a> PDFDocument {
         let to_unicode = dict
             .get(TO_UNICODE)
             .and_then(|obj| inner!(obj, ObjectKind::Stream));
-        Some(Type3Font::new(
+        Some(Type3Font {
             name,
             font_b_box,
             font_matrix,
@@ -419,9 +420,9 @@ impl<'a> PDFDocument {
             last_char,
             widths,
             font_descriptor,
-            resources,
+            resources: resources.map(Box::new),
             to_unicode,
-        ))
+        })
     }
 
     fn true_type_font(&'a self, dict: &'a Dictionary) -> Option<TrueTypeFont<'a>> {
@@ -457,7 +458,7 @@ impl<'a> PDFDocument {
             .object_map
             .follow_till(dict.get(TO_UNICODE))
             .and_then(|stream: &Stream| CMap::try_from(stream).ok());
-        Some(TrueTypeFont::new(
+        Some(TrueTypeFont {
             name,
             base_font,
             first_char,
@@ -466,7 +467,7 @@ impl<'a> PDFDocument {
             font_descriptor,
             encoding,
             to_unicode,
-        ))
+        })
     }
 
     fn font(&'a self, dict: &'a Dictionary) -> Option<Font<'a>> {
@@ -587,7 +588,7 @@ impl<'a> PDFDocument {
             }) if *i % 90 == 0 => i.unsigned_abs() as u32 % 360,
             _ => 0,
         };
-        let page = Page::new(
+        let page = Page {
             r#ref,
             parent,
             media_box,
@@ -599,7 +600,8 @@ impl<'a> PDFDocument {
             contents,
             annotations,
             rotate,
-        );
+            canvas: Canvas::new(),
+        };
         Some(page)
     }
 
