@@ -334,10 +334,10 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for FontDescriptor<'a> {
             ttf_parser::Face::parse(content, 0)
                 .ok()
                 .map(FontProgramKind::TrueType)
-        } else if let Some(stream) = object_map.follow_till(dict.get(FONT_FILE_3)) {
-            Some(FontProgramKind::OpenType(stream))
         } else {
-            None
+            object_map
+                .follow_till(dict.get(FONT_FILE_3))
+                .map(FontProgramKind::OpenType)
         };
         let char_set = dict.get(CHAR_SET).and_then(|obj| obj.try_into().ok());
         // TODO: Parse char_set list of names into Vec<Name> using helper functions

@@ -246,7 +246,7 @@ impl TryFrom<&Object> for i64 {
             Object {
                 kind: ObjectKind::Integer(i),
                 ..
-            } => Ok(*i as i64),
+            } => Ok(*i),
             Object {
                 kind: ObjectKind::Real(r),
                 ..
@@ -275,21 +275,21 @@ impl PartialEq<ObjectKind> for Object {
 #[derive(Debug, Eq, PartialOrd, Ord, Default, Clone)]
 pub struct Name(pub Vec<u8>);
 
-impl Into<Name> for Vec<u8> {
-    fn into(self) -> Name {
-        Name(self)
+impl From<Vec<u8>> for Name {
+    fn from(vec: Vec<u8>) -> Name {
+        Name(vec)
     }
 }
 
-impl Into<Name> for &str {
-    fn into(self) -> Name {
-        Name(self.as_bytes().to_vec())
+impl From<&str> for Name {
+    fn from(str: &str) -> Name {
+        Name(str.as_bytes().to_vec())
     }
 }
 
-impl Into<Vec<u8>> for Name {
-    fn into(self) -> Vec<u8> {
-        self.0
+impl From<Name> for Vec<u8> {
+    fn from(name: Name) -> Vec<u8> {
+        name.0
     }
 }
 

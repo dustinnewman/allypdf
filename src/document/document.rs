@@ -763,7 +763,11 @@ mod tests {
         assert!(
             matches!(&get!(catalog, TYPE.to_vec()).kind, ObjectKind::Name(x) if *x == CATALOG.to_vec())
         );
-        let pages: &IndirectReference = catalog.get(PAGE_ROOT).unwrap().try_into().expect("Catalog's pages is not indirect reference.");
+        let pages: &IndirectReference = catalog
+            .get(PAGE_ROOT)
+            .unwrap()
+            .try_into()
+            .expect("Catalog's pages is not indirect reference.");
         let pages = get!(doc, pages);
         let expected_pages = dict!(
             TYPE => name!("Pages"),
@@ -772,7 +776,11 @@ mod tests {
         );
         assert_eq!(pages, &expected_pages);
         let pages = inner!(&pages, ObjectKind::Dictionary).expect("Pages is not a dictionary.");
-        let kids: &Vec<Object> = pages.get(KIDS).unwrap().try_into().expect("Pages' kids is not array.");
+        let kids: &Vec<Object> = pages
+            .get(KIDS)
+            .unwrap()
+            .try_into()
+            .expect("Pages' kids is not array.");
         let kids = inner!(kids[0], ObjectKind::IndirectReference)
             .expect("Kids is not indirect reference.");
         let kids = get!(doc, kids);
