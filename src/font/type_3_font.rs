@@ -1,8 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::cmaps::cid::CharCode;
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::cmap::cid::CharCode;
 use crate::document::resources::Resources;
+use crate::document::{ObjectMap, ReferenceResolver};
 use crate::error::{PdfError, Result};
 use crate::operators::matrix::Matrix;
 use crate::operators::rect::Rectangle;
@@ -26,17 +26,17 @@ const TO_UNICODE: &[u8] = b"ToUnicode";
 // PDF 9.6.4
 #[derive(Debug)]
 pub struct Type3Font<'a> {
-    pub name: Option<&'a Name>,
-    pub font_b_box: Rectangle,
-    pub font_matrix: Matrix,
-    pub char_procs: &'a Dictionary,
-    pub encoding: Encoding<'a>,
-    pub first_char: CharCode,
-    pub last_char: CharCode,
-    pub widths: [f64; ENCODING_SIZE],
-    pub font_descriptor: FontDescriptor<'a>,
-    pub resources: Option<Box<Resources<'a>>>,
-    pub to_unicode: Option<&'a Stream>,
+    name: Option<&'a Name>,
+    font_b_box: Rectangle,
+    font_matrix: Matrix,
+    char_procs: &'a Dictionary,
+    encoding: Encoding<'a>,
+    first_char: CharCode,
+    last_char: CharCode,
+    widths: [f64; ENCODING_SIZE],
+    font_descriptor: FontDescriptor<'a>,
+    resources: Option<Box<Resources<'a>>>,
+    to_unicode: Option<&'a Stream>,
 }
 
 impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for Type3Font<'a> {
@@ -45,12 +45,12 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for Type3Font<'a> {
     fn try_from((dict, object_map): (&'a Dictionary, &'a ObjectMap)) -> Result<Self> {
         let name = object_map.follow_till(dict.get(NAME));
         let resources = object_map
-                .follow_till(dict.get(RESOURCES))
-                .and_then(|dict: &Dictionary| Resources::try_from((dict, object_map)).ok());
+            .follow_till(dict.get(RESOURCES))
+            .and_then(|dict: &Dictionary| Resources::try_from((dict, object_map)).ok());
         let font_b_box = object_map
-                .follow_till(dict.get(FONT_B_BOX))
-                .and_then(|object: &Object| Rectangle::try_from(object).ok())
-                .ok_or(PdfError::ObjectNotArray)?;
+            .follow_till(dict.get(FONT_B_BOX))
+            .and_then(|object: &Object| Rectangle::try_from(object).ok())
+            .ok_or(PdfError::ObjectNotArray)?;
         let font_matrix: Vec<f64> = object_map
             .follow_till(dict.get(FONT_MATRIX))
             .map(|a: &Vec<Object>| a.iter().filter_map(|o| o.try_into().ok()).collect())

@@ -1,10 +1,10 @@
 use std::convert::{TryFrom, TryInto};
 
 use crate::error::{PdfError, Result};
-use crate::font::font::FontDictionary;
+use crate::font::font_dictionary::FontDictionary;
 use crate::parser::object::{Dictionary, Name, Object};
 
-use super::document::{ObjectMap, ReferenceResolver};
+use super::{ObjectMap, ReferenceResolver};
 
 const PDF: &[u8] = b"PDF";
 const TEXT: &[u8] = b"Text";

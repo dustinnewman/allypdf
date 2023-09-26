@@ -1,12 +1,12 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::cmaps::cid::{CharCode, CharCodeToGlyphName, CharCodeToUnicode};
-use crate::cmaps::cmap::CMap;
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::cmap::cid::{CharCode, CharCodeToGlyphName, CharCodeToUnicode};
+use crate::cmap::CMap;
+use crate::document::{ObjectMap, ReferenceResolver};
 use crate::error::{PdfError, Result};
-use crate::parser::object::{Name, Dictionary, Object, Stream};
+use crate::parser::object::{Dictionary, Name, Object, Stream};
 
-use super::encoding::{ENCODING_SIZE, Encoding};
+use super::encoding::{Encoding, ENCODING_SIZE};
 use super::font_descriptor::FontDescriptor;
 
 const NAME: &[u8] = b"Name";
@@ -21,14 +21,14 @@ const TO_UNICODE: &[u8] = b"ToUnicode";
 // PDF 9.6.3
 #[derive(Debug)]
 pub struct TrueTypeFont<'a> {
-    pub name: Option<&'a Name>,
-    pub base_font: &'a Name,
-    pub first_char: Option<CharCode>,
-    pub last_char: Option<CharCode>,
-    pub widths: Option<[f64; ENCODING_SIZE]>,
-    pub font_descriptor: Option<FontDescriptor<'a>>,
-    pub encoding: Option<Encoding<'a>>,
-    pub to_unicode: Option<CMap<'a>>,
+    name: Option<&'a Name>,
+    base_font: &'a Name,
+    first_char: Option<CharCode>,
+    last_char: Option<CharCode>,
+    widths: Option<[f64; ENCODING_SIZE]>,
+    font_descriptor: Option<FontDescriptor<'a>>,
+    encoding: Option<Encoding<'a>>,
+    to_unicode: Option<CMap<'a>>,
 }
 
 impl CharCodeToGlyphName for TrueTypeFont<'_> {

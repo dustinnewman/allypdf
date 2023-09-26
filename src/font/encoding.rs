@@ -5,7 +5,7 @@ use std::{
 
 use super::adobe_glyph_list::adobe_glyph_list;
 use super::base_encodings::{MAC_ROMAN_ENCODING, STANDARD_ENCODING, WIN_ANSI_ENCODING};
-use crate::cmaps::cid::{CharCode, CharCodeToGlyphName, GlyphNameToUnicode};
+use crate::cmap::cid::{CharCode, CharCodeToGlyphName, GlyphNameToUnicode};
 use crate::error::{PdfError, Result};
 use crate::parser::object::{Dictionary, Name, Object, ObjectKind};
 

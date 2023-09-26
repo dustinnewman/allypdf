@@ -1,5 +1,5 @@
 use super::cid_parser::CIDOperator;
-use crate::operators::operators::Operator;
+use crate::operators::Operator;
 use crate::util::{
     byte_to_numeric, is_newline, is_regular, is_whitespace, Byte, DQUOTE, FSLASH, LBRACE, LBRACKET,
     LINE_FEED, LPAREN, LTHAN, PERCENT, PERIOD, RBRACE, RBRACKET, RPAREN, RTHAN, SQUOTE,

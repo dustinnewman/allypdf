@@ -1,6 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::cmaps::cid::Cid;
+use crate::cmap::cid::Cid;
 use crate::parser::object::{Object, ObjectKind};
 
 #[derive(Debug)]

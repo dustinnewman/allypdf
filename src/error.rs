@@ -34,6 +34,7 @@ pub enum PdfError {
     FontDescriptorMissingFontName,
     FontDescriptorMissingFlags,
     FontDescriptorMissingItalicAngle,
+    DateParsingError,
     IO { source: io::Error },
     Other { msg: String },
 }

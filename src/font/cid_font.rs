@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::convert::{TryFrom, TryInto};
 
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::document::{ObjectMap, ReferenceResolver};
 use crate::error::{PdfError, Result};
 use crate::parser::object::{Dictionary, Name, Object, ObjectKind, Stream};
 
@@ -76,15 +76,15 @@ impl<'a> TryFrom<&'a Object> for CIDToGIDMap<'a> {
 // PDF 9.7.4.1 Table 115
 #[derive(Debug)]
 pub struct CIDFont<'a> {
-    pub subtype: CIDFontSubtypeKind,
-    pub base_font: &'a Name,
-    pub cid_system_info: CidSystemInfo<'a>,
-    pub font_descriptor: FontDescriptor<'a>,
-    pub default_width: f64,
-    pub widths: Vec<GlyphWidth>,
-    pub vertical_default_width: (f64, f64),
-    pub vertical_widths: Option<Vec<GlyphWidth>>,
-    pub cid_to_gid_map: CIDToGIDMap<'a>,
+    subtype: CIDFontSubtypeKind,
+    base_font: &'a Name,
+    cid_system_info: CidSystemInfo<'a>,
+    font_descriptor: FontDescriptor<'a>,
+    default_width: f64,
+    widths: Vec<GlyphWidth>,
+    vertical_default_width: (f64, f64),
+    vertical_widths: Option<Vec<GlyphWidth>>,
+    cid_to_gid_map: CIDToGIDMap<'a>,
 }
 
 impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for CIDFont<'a> {
@@ -143,7 +143,7 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for CIDFont<'a> {
             });
         let vertical_widths = object_map
             .follow_till(dict.get(VERTICAL_GLYPH_WIDTHS))
-            .and_then(|a: &Vec<Object>| Some(object_array_to_glyph_widths(a.as_ref())));
+            .map(|a: &Vec<Object>| object_array_to_glyph_widths(a.as_ref()));
         let cid_to_gid_map: &Object = object_map
             .follow_till(dict.get(CID_TO_GID_MAP))
             .ok_or(PdfError::InvalidCIDToGIDMap)?;

@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::cmaps::cid::CharCode;
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::cmap::cid::CharCode;
+use crate::document::{ObjectMap, ReferenceResolver};
 use crate::error::{PdfError, Result};
 use crate::parser::object::{Dictionary, Name, Object, Stream};
 
@@ -37,6 +37,11 @@ impl TryFrom<&Name> for Type1SubtypeKind {
             _ => Err(PdfError::InvalidFontName),
         }
     }
+}
+
+pub struct Type1FontProgram<'a> {
+    clear_portion: &'a [u8],
+    program_portion: &'a [u8],
 }
 
 // PDF 9.6.2.1 Table 109

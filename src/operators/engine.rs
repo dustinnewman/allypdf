@@ -1,4 +1,4 @@
-use super::color::{Color, Cmyk, Rgb};
+use super::color::{Cmyk, Color, Rgb};
 use super::matrix::Matrix;
 use super::operations::{
     DashPattern, LineCap, LineJoin, Operation, Percent, RenderingIntent, StringOrNumber,
@@ -6,9 +6,9 @@ use super::operations::{
 };
 use super::path::{Path, PathMode, Point};
 use super::rect::Rectangle;
-use crate::cmaps::cid::CharCodeToUnicode;
+use crate::cmap::cid::CharCodeToUnicode;
 use crate::document::resources::Resources;
-use crate::font::font::Font;
+use crate::font::Font;
 use crate::parser::object::{Dictionary, Name};
 use crate::render::canvas::Canvas;
 

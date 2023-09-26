@@ -1,11 +1,11 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::document::{ObjectMap, ReferenceResolver};
 use crate::error::PdfError;
 use crate::operators::rect::Rectangle;
 use crate::parser::object::{Dictionary, Name, Object, Stream};
 
-use super::font::FontProgramKind;
+use super::FontProgramKind;
 
 const FONT_NAME: &[u8] = b"FontName";
 const FONT_FAMILY: &[u8] = b"FontFamily";

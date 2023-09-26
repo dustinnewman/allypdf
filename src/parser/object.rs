@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
 use crate::error::{PdfError, Result};
-use crate::operators::operators::Operator;
+use crate::operators::Operator;
 
 use super::cid_parser::CIDOperator;
 use super::lexer::Header;

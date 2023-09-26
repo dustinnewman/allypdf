@@ -1,4 +1,4 @@
-use super::color::{Color, Cmyk, Rgb};
+use super::color::{Cmyk, Color, Rgb};
 use crate::parser::object::{Dictionary, Name};
 
 // A real number between 0 and 1 (inclusive)

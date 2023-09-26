@@ -1,8 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::cmaps::cid::{CharCode, CharCodeToCid, Cid};
-use crate::cmaps::cmap::CMap;
-use crate::document::document::{ObjectMap, ReferenceResolver};
+use crate::cmap::cid::{CharCode, CharCodeToCid, Cid};
+use crate::cmap::CMap;
+use crate::document::{ObjectMap, ReferenceResolver};
 use crate::error::{PdfError, Result};
 use crate::parser::object::{Dictionary, Name, Object, ObjectKind, Stream};
 
@@ -73,10 +73,10 @@ impl CharCodeToCid for Type0Encoding<'_> {
 // PDF 9.6.2.1 Table 109
 #[derive(Debug)]
 pub struct Type0Font<'a> {
-    pub base_font: &'a Name,
-    pub encoding: Type0Encoding<'a>,
-    pub descendant_fonts: CIDFont<'a>,
-    pub to_unicode: Option<CMap<'a>>,
+    base_font: &'a Name,
+    encoding: Type0Encoding<'a>,
+    descendant_fonts: CIDFont<'a>,
+    to_unicode: Option<CMap<'a>>,
 }
 
 impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for Type0Font<'a> {
@@ -90,7 +90,9 @@ impl<'a> TryFrom<(&'a Dictionary, &'a ObjectMap)> for Type0Font<'a> {
             .follow_till(dict.get(DESCENDANT_FONTS))
             .ok_or(PdfError::ObjectNotName)?;
         let descendant_fonts = descendant_fonts.get(0);
-        let descendant_fonts = object_map.follow_till(descendant_fonts).ok_or(PdfError::ObjectNotDictionary)?;
+        let descendant_fonts = object_map
+            .follow_till(descendant_fonts)
+            .ok_or(PdfError::ObjectNotDictionary)?;
         let descendant_fonts = CIDFont::try_from((descendant_fonts, object_map))?;
         let encoding: Type0Encoding = Type0Encoding::try_from((dict.get(ENCODING), object_map))?;
         let to_unicode = object_map

@@ -1,2 +1,3 @@
 pub mod html;
-pub mod output;
+
+pub trait Output {}

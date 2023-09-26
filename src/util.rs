@@ -26,6 +26,9 @@ pub const PERIOD: Byte = b'.';
 pub const TILDE: Byte = b'~';
 pub const SQUOTE: Byte = b'\x27'; // '
 pub const DQUOTE: Byte = b'\x22'; // "
+pub const PLUS: Byte = b'\x2B'; // +
+pub const MINUS: Byte = b'\x2D'; // -
+pub const Z: Byte = b'\x5A'; // Z
 
 pub type Byte = u8;
 

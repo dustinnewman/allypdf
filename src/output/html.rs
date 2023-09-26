@@ -1,4 +1,4 @@
-use super::output::Output;
+use super::Output;
 
 pub struct HtmlOutput {}
 

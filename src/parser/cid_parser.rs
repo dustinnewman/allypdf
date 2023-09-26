@@ -4,9 +4,8 @@ use std::ops::RangeInclusive;
 use std::vec::IntoIter;
 
 use super::object::{Object, ObjectKind};
-use crate::cmaps::cid::Cid;
-use crate::cmaps::cmap::{
-    BaseFontChar, BaseFontCharDestination, CMap, CMapWritingMode, CidChar, CidRange,
+use crate::cmap::{
+    cid::Cid, BaseFontChar, BaseFontCharDestination, CMap, CMapWritingMode, CidChar, CidRange,
     CodespaceRange, DEFAULT_CODE_SPACE_RANGE, MAX_CODE_SPACE_LENGTH,
 };
 use crate::font::cid_font::CidSystemInfo;
@@ -254,8 +253,8 @@ impl<'a> CMapFileParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cmaps::cmap::Codespace;
-    use crate::operators::operators::Operator;
+    use crate::cmap::Codespace;
+    use crate::operators::Operator;
     use crate::{
         dict, integer, name, offset,
         parser::object::{Object, ObjectKind},
@@ -445,7 +444,7 @@ mod tests {
         let text = text.as_bytes();
         let mut lexer = crate::parser::lexer::Lexer::new(text);
         let tokens = lexer.lex();
-        let mut parser = crate::parser::parser::Parser::new(&tokens);
+        let mut parser = crate::parser::Parser::new(&tokens);
         let objects = parser.parse();
         let cmap_parser = CMapFileParser::new(objects);
         let cmap = cmap_parser.parse().unwrap();

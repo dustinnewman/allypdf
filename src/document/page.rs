@@ -1,10 +1,18 @@
+use std::collections::BTreeMap;
+
 use super::annotation::Annotation;
 use super::resources::Resources;
 use crate::operators::{engine::GraphicsEngine, parser::OperatorParser, rect::Rectangle};
 use crate::parser::lexer::Lexer;
 use crate::parser::object::{IndirectReference, Stream};
-use crate::parser::parser::Parser;
+use crate::parser::Parser;
 use crate::render::canvas::Canvas;
+
+#[derive(Debug)]
+pub enum PageType {
+    Normal,
+    Template,
+}
 
 #[derive(Debug)]
 pub struct Page<'a> {
@@ -23,13 +31,10 @@ pub struct Page<'a> {
     pub canvas: Canvas,
 }
 
-pub struct PagesRoot<'a> {
-    kids: Vec<Page<'a>>,
-    count: u64,
-}
+pub struct PageTree<'a>(pub BTreeMap<IndirectReference, Page<'a>>);
 
 pub struct Catalog<'a> {
-    pages: PagesRoot<'a>,
+    pages: PageTree<'a>,
 }
 
 impl<'a> Page<'a> {

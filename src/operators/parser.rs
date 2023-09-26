@@ -1,6 +1,6 @@
 use super::color::Color;
 use super::operations::Operation;
-use super::operators::Operator;
+use super::Operator;
 use crate::operators::color::{Cmyk, Rgb};
 use crate::operators::operations::{LineCap, LineJoin, StringOrNumber, TextRendering};
 use crate::parser::object::{Object, ObjectKind};
